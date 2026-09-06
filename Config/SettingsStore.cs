@@ -18,6 +18,23 @@ public sealed class SettingsStore(string path)
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "TuiEdit", "settings.json");
 
+    /// <summary>
+    /// Итоговый путь: settings.json рядом с exe (portable-режим), иначе по умолчанию.
+    /// </summary>
+    public static string ResolvePath()
+    {
+        try
+        {
+            string local = System.IO.Path.Combine(AppContext.BaseDirectory, "settings.json");
+            if (File.Exists(local))
+                return local;
+        }
+        catch
+        {
+        }
+        return DefaultPath();
+    }
+
     /// <summary>Загрузить (нет/битый — умолчания).</summary>
     public AppSettings Load()
     {

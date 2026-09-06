@@ -2,80 +2,81 @@ namespace TuiEdit;
 
 /// <summary>
 /// Палитра интерфейса: именованные роли вместо разбросанных цветов.
+/// Мягкие пастельные тона (truecolor-ANSI, см. <see cref="Rgb"/>).
 /// </summary>
 public sealed record Theme(
     string Name,
     // Редактор
-    ConsoleColor EditorBg, ConsoleColor EditorFg,
-    ConsoleColor CurLineBg, ConsoleColor CurLineFg,
-    ConsoleColor GutterFg, ConsoleColor FillerFg,
-    ConsoleColor SelBg, ConsoleColor SelFg,
-    ConsoleColor MatchBg, ConsoleColor MatchFg,
+    Rgb EditorBg, Rgb EditorFg,
+    Rgb CurLineBg, Rgb CurLineFg,
+    Rgb GutterFg, Rgb FillerFg,
+    Rgb SelBg, Rgb SelFg,
+    Rgb MatchBg, Rgb MatchFg,
     // Меню
-    ConsoleColor MenuBarBg, ConsoleColor MenuFg, ConsoleColor MenuHotkeyFg,
-    ConsoleColor MenuOpenBg, ConsoleColor MenuOpenFg,
-    ConsoleColor DropBg, ConsoleColor DropFg, ConsoleColor DropBorderFg,
-    ConsoleColor DropSelBg, ConsoleColor DropSelFg, ConsoleColor DropDimFg,
+    Rgb MenuBarBg, Rgb MenuFg, Rgb MenuHotkeyFg,
+    Rgb MenuOpenBg, Rgb MenuOpenFg,
+    Rgb DropBg, Rgb DropFg, Rgb DropBorderFg,
+    Rgb DropSelBg, Rgb DropSelFg, Rgb DropDimFg,
     // Статус и промпт
-    ConsoleColor StatusBg, ConsoleColor StatusFg,
-    ConsoleColor PromptBg, ConsoleColor PromptFg,
+    Rgb StatusBg, Rgb StatusFg,
+    Rgb PromptBg, Rgb PromptFg,
     // Модалки
-    ConsoleColor ModalBg, ConsoleColor ModalFg,
-    ConsoleColor ModalDangerBg, ConsoleColor ModalDangerFg,
-    ConsoleColor ModalHintFg, ConsoleColor ModalHintDangerFg,
-    ConsoleColor ButtonSelBg, ConsoleColor ButtonSelFg,
+    Rgb ModalBg, Rgb ModalFg,
+    Rgb ModalDangerBg, Rgb ModalDangerFg,
+    Rgb ModalHintFg, Rgb ModalHintDangerFg,
+    Rgb ButtonSelBg, Rgb ButtonSelFg,
     // Менеджер файлов
-    ConsoleColor PickerDirFg, ConsoleColor PickerUpFg, ConsoleColor PickerFileFg,
-    ConsoleColor PickerEmptyFg, ConsoleColor PickerErrorFg, ConsoleColor PickerHintFg
+    Rgb PickerDirFg, Rgb PickerUpFg, Rgb PickerFileFg,
+    Rgb PickerEmptyFg, Rgb PickerErrorFg, Rgb PickerHintFg
 );
 
-/// <summary>Встроенные темы: тёмная и светлая.</summary>
+/// <summary>Встроенные темы: тёмная и светлая (приглушённые тона).</summary>
 public static class Themes
 {
     /// <summary>Имена тем для настроек.</summary>
     public static readonly string[] Names = ["dark", "light"];
 
-    /// <summary>Тёмная тема (классика).</summary>
+    /// <summary>Тёмная мягкая тема.</summary>
     public static Theme Dark { get; } = new(
         Name: "dark",
-        EditorBg: ConsoleColor.Black, EditorFg: ConsoleColor.Gray,
-        CurLineBg: ConsoleColor.DarkGray, CurLineFg: ConsoleColor.White,
-        GutterFg: ConsoleColor.DarkGray, FillerFg: ConsoleColor.DarkBlue,
-        SelBg: ConsoleColor.DarkBlue, SelFg: ConsoleColor.White,
-        MatchBg: ConsoleColor.DarkYellow, MatchFg: ConsoleColor.Black,
-        MenuBarBg: ConsoleColor.DarkBlue, MenuFg: ConsoleColor.Gray, MenuHotkeyFg: ConsoleColor.Yellow,
-        MenuOpenBg: ConsoleColor.Green, MenuOpenFg: ConsoleColor.Black,
-        DropBg: ConsoleColor.Black, DropFg: ConsoleColor.Gray, DropBorderFg: ConsoleColor.Gray,
-        DropSelBg: ConsoleColor.Green, DropSelFg: ConsoleColor.Black, DropDimFg: ConsoleColor.DarkGray,
-        StatusBg: ConsoleColor.Gray, StatusFg: ConsoleColor.Black,
-        PromptBg: ConsoleColor.DarkBlue, PromptFg: ConsoleColor.White,
-        ModalBg: ConsoleColor.DarkBlue, ModalFg: ConsoleColor.White,
-        ModalDangerBg: ConsoleColor.DarkRed, ModalDangerFg: ConsoleColor.White,
-        ModalHintFg: ConsoleColor.Gray, ModalHintDangerFg: ConsoleColor.Yellow,
-        ButtonSelBg: ConsoleColor.Green, ButtonSelFg: ConsoleColor.Black,
-        PickerDirFg: ConsoleColor.Cyan, PickerUpFg: ConsoleColor.DarkGray, PickerFileFg: ConsoleColor.Gray,
-        PickerEmptyFg: ConsoleColor.DarkGray, PickerErrorFg: ConsoleColor.Yellow, PickerHintFg: ConsoleColor.Gray);
+        EditorBg: new Rgb(0x1E, 0x1E, 0x2E), EditorFg: new Rgb(0xCD, 0xD6, 0xF4),
+        CurLineBg: new Rgb(0x31, 0x32, 0x44), CurLineFg: new Rgb(0xCD, 0xD6, 0xF4),
+        GutterFg: new Rgb(0x6C, 0x70, 0x86), FillerFg: new Rgb(0x45, 0x47, 0x5A),
+        SelBg: new Rgb(0x58, 0x5B, 0x70), SelFg: new Rgb(0xCD, 0xD6, 0xF4),
+        MatchBg: new Rgb(0xF9, 0xE2, 0xAF), MatchFg: new Rgb(0x11, 0x11, 0x1B),
+        MenuBarBg: new Rgb(0x18, 0x18, 0x25), MenuFg: new Rgb(0xBA, 0xC2, 0xDE), MenuHotkeyFg: new Rgb(0xF9, 0xE2, 0xAF),
+        MenuOpenBg: new Rgb(0xA6, 0xE3, 0xA1), MenuOpenFg: new Rgb(0x11, 0x11, 0x1B),
+        DropBg: new Rgb(0x18, 0x18, 0x25), DropFg: new Rgb(0xCD, 0xD6, 0xF4), DropBorderFg: new Rgb(0x58, 0x5B, 0x70),
+        DropSelBg: new Rgb(0xA6, 0xE3, 0xA1), DropSelFg: new Rgb(0x11, 0x11, 0x1B), DropDimFg: new Rgb(0x7F, 0x84, 0x9C),
+        StatusBg: new Rgb(0xCB, 0xA6, 0xF7), StatusFg: new Rgb(0x11, 0x11, 0x1B),
+        PromptBg: new Rgb(0x18, 0x18, 0x25), PromptFg: new Rgb(0xCD, 0xD6, 0xF4),
+        ModalBg: new Rgb(0x18, 0x18, 0x25), ModalFg: new Rgb(0xCD, 0xD6, 0xF4),
+        ModalDangerBg: new Rgb(0xF3, 0x8B, 0xA8), ModalDangerFg: new Rgb(0x11, 0x11, 0x1B),
+        ModalHintFg: new Rgb(0x7F, 0x84, 0x9C), ModalHintDangerFg: new Rgb(0x11, 0x11, 0x1B),
+        ButtonSelBg: new Rgb(0xA6, 0xE3, 0xA1), ButtonSelFg: new Rgb(0x11, 0x11, 0x1B),
+        PickerDirFg: new Rgb(0x89, 0xB4, 0xFA), PickerUpFg: new Rgb(0x6C, 0x70, 0x86), PickerFileFg: new Rgb(0xCD, 0xD6, 0xF4),
+        PickerEmptyFg: new Rgb(0x6C, 0x70, 0x86), PickerErrorFg: new Rgb(0xF3, 0x8B, 0xA8), PickerHintFg: new Rgb(0x7F, 0x84, 0x9C));
 
-    /// <summary>Светлая тема.</summary>
+    /// <summary>Светлая мягкая тема.</summary>
     public static Theme Light { get; } = new(
         Name: "light",
-        EditorBg: ConsoleColor.White, EditorFg: ConsoleColor.Black,
-        CurLineBg: ConsoleColor.Gray, CurLineFg: ConsoleColor.Black,
-        GutterFg: ConsoleColor.DarkGray, FillerFg: ConsoleColor.Gray,
-        SelBg: ConsoleColor.DarkBlue, SelFg: ConsoleColor.White,
-        MatchBg: ConsoleColor.DarkYellow, MatchFg: ConsoleColor.Black,
-        MenuBarBg: ConsoleColor.DarkBlue, MenuFg: ConsoleColor.Gray, MenuHotkeyFg: ConsoleColor.Yellow,
-        MenuOpenBg: ConsoleColor.Green, MenuOpenFg: ConsoleColor.Black,
-        DropBg: ConsoleColor.White, DropFg: ConsoleColor.Black, DropBorderFg: ConsoleColor.DarkGray,
-        DropSelBg: ConsoleColor.Green, DropSelFg: ConsoleColor.Black, DropDimFg: ConsoleColor.DarkGray,
-        StatusBg: ConsoleColor.DarkBlue, StatusFg: ConsoleColor.White,
-        PromptBg: ConsoleColor.DarkBlue, PromptFg: ConsoleColor.White,
-        ModalBg: ConsoleColor.DarkBlue, ModalFg: ConsoleColor.White,
-        ModalDangerBg: ConsoleColor.DarkRed, ModalDangerFg: ConsoleColor.White,
-        ModalHintFg: ConsoleColor.Gray, ModalHintDangerFg: ConsoleColor.Yellow,
-        ButtonSelBg: ConsoleColor.Green, ButtonSelFg: ConsoleColor.Black,
-        PickerDirFg: ConsoleColor.DarkCyan, PickerUpFg: ConsoleColor.DarkGray, PickerFileFg: ConsoleColor.Black,
-        PickerEmptyFg: ConsoleColor.DarkGray, PickerErrorFg: ConsoleColor.DarkRed, PickerHintFg: ConsoleColor.Gray);
+        EditorBg: new Rgb(0xEF, 0xF1, 0xF5), EditorFg: new Rgb(0x4C, 0x4F, 0x69),
+        CurLineBg: new Rgb(0xE6, 0xE9, 0xEF), CurLineFg: new Rgb(0x4C, 0x4F, 0x69),
+        GutterFg: new Rgb(0x9C, 0xA0, 0xB0), FillerFg: new Rgb(0xBC, 0xC0, 0xCC),
+        SelBg: new Rgb(0x8C, 0xAA, 0xEE), SelFg: new Rgb(0x11, 0x11, 0x1B),
+        MatchBg: new Rgb(0xE5, 0xC9, 0x90), MatchFg: new Rgb(0x11, 0x11, 0x1B),
+        MenuBarBg: new Rgb(0xDC, 0xE0, 0xE8), MenuFg: new Rgb(0x4C, 0x4F, 0x69), MenuHotkeyFg: new Rgb(0xDF, 0x8E, 0x1D),
+        MenuOpenBg: new Rgb(0x40, 0xA0, 0x2B), MenuOpenFg: new Rgb(0xEF, 0xF1, 0xF5),
+        DropBg: new Rgb(0xEF, 0xF1, 0xF5), DropFg: new Rgb(0x4C, 0x4F, 0x69), DropBorderFg: new Rgb(0xBC, 0xC0, 0xCC),
+        DropSelBg: new Rgb(0x40, 0xA0, 0x2B), DropSelFg: new Rgb(0xEF, 0xF1, 0xF5), DropDimFg: new Rgb(0x8C, 0x8F, 0xA1),
+        StatusBg: new Rgb(0x88, 0x39, 0xEF), StatusFg: new Rgb(0xEF, 0xF1, 0xF5),
+        PromptBg: new Rgb(0xDC, 0xE0, 0xE8), PromptFg: new Rgb(0x4C, 0x4F, 0x69),
+        ModalBg: new Rgb(0xDC, 0xE0, 0xE8), ModalFg: new Rgb(0x4C, 0x4F, 0x69),
+        ModalDangerBg: new Rgb(0xD2, 0x0F, 0x39), ModalDangerFg: new Rgb(0xEF, 0xF1, 0xF5),
+        ModalHintFg: new Rgb(0x8C, 0x8F, 0xA1), ModalHintDangerFg: new Rgb(0xEF, 0xF1, 0xF5),
+        ButtonSelBg: new Rgb(0x40, 0xA0, 0x2B), ButtonSelFg: new Rgb(0xEF, 0xF1, 0xF5),
+        PickerDirFg: new Rgb(0x1E, 0x66, 0xF5), PickerUpFg: new Rgb(0x8C, 0x8F, 0xA1), PickerFileFg: new Rgb(0x4C, 0x4F, 0x69),
+        PickerEmptyFg: new Rgb(0x8C, 0x8F, 0xA1), PickerErrorFg: new Rgb(0xD2, 0x0F, 0x39), PickerHintFg: new Rgb(0x8C, 0x8F, 0xA1));
 
     /// <summary>Тема по имени (неизвестная — тёмная).</summary>
     public static Theme Get(string? name) => name switch

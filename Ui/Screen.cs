@@ -9,10 +9,13 @@ namespace TuiEdit;
 public sealed class Screen
 {
     /// <summary>Ячейка экрана.</summary>
-    public readonly record struct Cell(char Ch, ConsoleColor Fg, ConsoleColor Bg);
+    public readonly record struct Cell(char Ch, Rgb Fg, Rgb Bg);
 
     /// <summary>Операция вывода: непрерывный run одного цвета.</summary>
-    public readonly record struct DrawOp(int X, int Y, string Text, ConsoleColor Fg, ConsoleColor Bg);
+    public readonly record struct DrawOp(int X, int Y, string Text, Rgb Fg, Rgb Bg);
+
+    /// <summary>Truecolor-ANSI вывод (false — ближайшие 16 цветов консоли).</summary>
+    public bool TrueColor { get; set; } = true;
 
     private Cell[,] _cur = new Cell[0, 0];
     private Cell[,] _prev = new Cell[0, 0];
@@ -33,14 +36,14 @@ public sealed class Screen
     }
 
     /// <summary>Поставить ячейку (вне экрана — игнорируется).</summary>
-    public void Set(int x, int y, char ch, ConsoleColor fg, ConsoleColor bg)
+    public void Set(int x, int y, char ch, Rgb fg, Rgb bg)
     {
         if ((uint)x < (uint)Width && (uint)y < (uint)Height)
             _cur[x, y] = new Cell(ch, fg, bg);
     }
 
     /// <summary>Написать строку с одного цвета.</summary>
-    public void Text(int x, int y, string text, ConsoleColor fg, ConsoleColor bg)
+    public void Text(int x, int y, string text, Rgb fg, Rgb bg)
     {
         ArgumentNullException.ThrowIfNull(text);
         for (int i = 0; i < text.Length; i++)
@@ -48,7 +51,7 @@ public sealed class Screen
     }
 
     /// <summary>Залить run одним символом.</summary>
-    public void Fill(int x, int y, int count, char ch, ConsoleColor fg, ConsoleColor bg)
+    public void Fill(int x, int y, int count, char ch, Rgb fg, Rgb bg)
     {
         for (int i = 0; i < count; i++)
             Set(x + i, y, ch, fg, bg);
@@ -101,7 +104,7 @@ public sealed class Screen
     /// <summary>Зафиксировать кадр как «предыдущий» (копия — текущий остаётся для инкремента).</summary>
     public void Swap() => _prev = (Cell[,])_cur.Clone();
 
-    /// <summary>Вывести diff в консоль одним проходом.</summary>
+    /// <summary>Вывести diff в консоль одним проходом (ANSI или 16 цветов).</summary>
     public void Flush()
     {
         List<DrawOp> ops = ComputeDiff();
@@ -110,30 +113,64 @@ public sealed class Screen
             Swap();
             return;
         }
-        ConsoleColor lastFg = (ConsoleColor)(-1);
-        ConsoleColor lastBg = (ConsoleColor)(-1);
         try
         {
-            foreach (DrawOp op in ops)
-            {
-                Console.SetCursorPosition(op.X, op.Y);
-                if (op.Fg != lastFg)
-                {
-                    Console.ForegroundColor = op.Fg;
-                    lastFg = op.Fg;
-                }
-                if (op.Bg != lastBg)
-                {
-                    Console.BackgroundColor = op.Bg;
-                    lastBg = op.Bg;
-                }
-                Console.Write(op.Text);
-            }
+            if (TrueColor)
+                FlushAnsi(ops);
+            else
+                FlushLegacy(ops);
         }
         catch (Exception ex) when (ex is ArgumentOutOfRangeException or IOException)
         {
             // Окно успели изменить между кадром и выводом — следующий кадр поправит.
         }
         Swap();
+    }
+
+    private static void FlushAnsi(List<DrawOp> ops)
+    {
+        Rgb lastFg = default;
+        Rgb lastBg = default;
+        bool first = true;
+        foreach (DrawOp op in ops)
+        {
+            Console.SetCursorPosition(op.X, op.Y);
+            if (first || !op.Fg.Equals(lastFg))
+            {
+                Console.Write(op.Fg.ToAnsiFg());
+                lastFg = op.Fg;
+            }
+            if (first || !op.Bg.Equals(lastBg))
+            {
+                Console.Write(op.Bg.ToAnsiBg());
+                lastBg = op.Bg;
+            }
+            first = false;
+            Console.Write(op.Text);
+        }
+        Console.Write("\x1b[0m");
+    }
+
+    private static void FlushLegacy(List<DrawOp> ops)
+    {
+        ConsoleColor lastFg = (ConsoleColor)(-1);
+        ConsoleColor lastBg = (ConsoleColor)(-1);
+        foreach (DrawOp op in ops)
+        {
+            Console.SetCursorPosition(op.X, op.Y);
+            ConsoleColor fg = op.Fg.ToConsoleColor();
+            ConsoleColor bg = op.Bg.ToConsoleColor();
+            if (fg != lastFg)
+            {
+                Console.ForegroundColor = fg;
+                lastFg = fg;
+            }
+            if (bg != lastBg)
+            {
+                Console.BackgroundColor = bg;
+                lastBg = bg;
+            }
+            Console.Write(op.Text);
+        }
     }
 }

@@ -67,6 +67,7 @@ internal sealed class TuiEditor
     {
         Console.TreatControlCAsInput = true;
         Console.CursorVisible = false;
+        _screen.TrueColor = Terminal.TryEnableVirtualTerminal();
 
         try
         {
@@ -1088,7 +1089,7 @@ internal sealed class TuiEditor
                         break;
                     bool sel = ci >= selA && ci < selB;
                     bool match = vc < isMatch.Length && isMatch[vc];
-                    (ConsoleColor fg, ConsoleColor bg) = (sel, match, isCur) switch
+                    (Rgb fg, Rgb bg) = (sel, match, isCur) switch
                     {
                         (true, _, _) => (_theme.SelFg, _theme.SelBg),
                         (_, true, _) => (_theme.MatchFg, _theme.MatchBg),
@@ -1104,7 +1105,7 @@ internal sealed class TuiEditor
             }
             // Хвост строки — пробелы обычным цветом.
             int filled = Math.Clamp(vpos - _left, 0, contentWidth);
-            (ConsoleColor tailFg, ConsoleColor tailBg) = isCur
+            (Rgb tailFg, Rgb tailBg) = isCur
                 ? (_theme.CurLineFg, _theme.CurLineBg)
                 : (_theme.EditorFg, _theme.EditorBg);
             _screen.Fill(gutterWidth + filled, y, contentWidth - filled, ' ', tailFg, tailBg);
@@ -1264,15 +1265,15 @@ internal sealed class TuiEditor
             return;
         int rows = Math.Min(m.Items.Count, maxRows - 2);
 
-        ConsoleColor borderFg = _theme.DropBorderFg;
-        ConsoleColor borderBg = _theme.DropBg;
+        Rgb borderFg = _theme.DropBorderFg;
+        Rgb borderBg = _theme.DropBg;
         _screen.Text(x, y, "┌" + new string('─', boxW - 2) + "┐", borderFg, borderBg);
         for (int i = 0; i < rows; i++)
         {
             MenuItem it = m.Items[i];
             bool sel = i == _menu.SelectedIndex;
             // Выбранный пункт — зелёный, как в MS Edit.
-            (ConsoleColor fg, ConsoleColor bg) = sel
+            (Rgb fg, Rgb bg) = sel
                 ? (_theme.DropSelFg, _theme.DropSelBg)
                 : (_theme.DropFg, _theme.DropBg);
             _screen.Text(x, y + 1 + i, "│", borderFg, borderBg);
@@ -1411,8 +1412,8 @@ internal sealed class TuiEditor
         int bh = Math.Min(Math.Max(h - 8, 14), h);
         int x0 = Math.Max(0, (w - bw) / 2);
         int y0 = Math.Max(0, (h - bh) / 2);
-        ConsoleColor bg = _theme.ModalBg;
-        ConsoleColor fg = _theme.ModalFg;
+        Rgb bg = _theme.ModalBg;
+        Rgb fg = _theme.ModalFg;
         int inner = bw - 2;
 
         string title = p.Mode == PickerMode.Open ? _loc["picker.open.title"] : _loc["picker.save.title"];
@@ -1442,7 +1443,7 @@ internal sealed class TuiEditor
             {
                 PickerEntry e = p.Entries[p.Top + i];
                 bool sel = p.Top + i == p.Selected;
-                (ConsoleColor efg, ConsoleColor ebg) = sel
+                (Rgb efg, Rgb ebg) = sel
                     ? (_theme.DropSelFg, _theme.DropSelBg)
                     : e.IsDir
                         ? (e.Name == ".." ? _theme.PickerUpFg : _theme.PickerDirFg, bg)
@@ -1458,7 +1459,7 @@ internal sealed class TuiEditor
             {
                 string empty = p.Error == "BadPath" ? _loc["picker.badpath"]
                     : p.Error ?? (p.Entries.Count == 0 ? _loc["picker.empty"] : "");
-                ConsoleColor efg = p.Error is null ? _theme.PickerEmptyFg : _theme.PickerErrorFg;
+                Rgb efg = p.Error is null ? _theme.PickerEmptyFg : _theme.PickerErrorFg;
                 _screen.Text(x0, yy, "│" + empty.PadRight(inner)[..inner] + "│", efg, bg);
             }
         }
@@ -1485,8 +1486,8 @@ internal sealed class TuiEditor
         int y0 = Math.Max(0, (h - boxH) / 2);
         if (boxW < 16 || y0 + boxH > h)
             return;
-        ConsoleColor bg = _theme.ModalDangerBg;
-        ConsoleColor fg = _theme.ModalDangerFg;
+        Rgb bg = _theme.ModalDangerBg;
+        Rgb fg = _theme.ModalDangerFg;
         string owTitle = _loc["picker.ow.title"];
         _screen.Text(x0, y0, Screen.TitleRow(owTitle, boxW), fg, bg);
         for (int i = 0; i < lines.Length; i++)
@@ -1520,8 +1521,8 @@ internal sealed class TuiEditor
             return;
         ModalState m = _modal;
 
-        ConsoleColor bg = m.Danger ? _theme.ModalDangerBg : _theme.ModalBg;
-        ConsoleColor fg = m.Danger ? _theme.ModalDangerFg : _theme.ModalFg;
+        Rgb bg = m.Danger ? _theme.ModalDangerBg : _theme.ModalBg;
+        Rgb fg = m.Danger ? _theme.ModalDangerFg : _theme.ModalFg;
 
         int btnWidth = m.Buttons.Sum(b => b.Label.Length + 4) + (m.Buttons.Count - 1) * 2;
         int content = m.Title.Length + 2;
@@ -1579,7 +1580,7 @@ internal sealed class TuiEditor
             bx += cells[i].Length + 2;
         }
         // Хинт и низ.
-        ConsoleColor hintFg = m.Danger ? _theme.ModalHintDangerFg : _theme.ModalHintFg;
+        Rgb hintFg = m.Danger ? _theme.ModalHintDangerFg : _theme.ModalHintFg;
         _screen.Text(x0, y0 + 3 + m.Lines.Count, "│" + CenterPad(m.Hint, boxW - 2) + "│", hintFg, bg);
         _screen.Text(x0, y0 + 4 + m.Lines.Count, "└" + new string('─', boxW - 2) + "┘", fg, bg);
     }

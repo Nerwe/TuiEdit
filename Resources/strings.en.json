@@ -93,6 +93,7 @@
   "help.k9": "  F10 or Alt+F/E/H — menu (arrows/Enter/Esc, letter hotkey)",
   "help.k10": "  Open/Save as — file manager (arrows • Enter • Bksp up • Esc)",
   "help.status": "Status bar: position | encoding | line endings | indent | file.",
+  "help.config": "Config: {0}",
   "help.note1": "Note: classic Windows console may intercept ^S",
   "help.note2": "as output pause (XOFF) — press F2 then.",
 

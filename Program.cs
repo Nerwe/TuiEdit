@@ -4,8 +4,10 @@ using TuiEdit;
 Console.OutputEncoding = Encoding.UTF8;
 try { Console.InputEncoding = Encoding.UTF8; } catch { }
 
-var store = new SettingsStore(SettingsStore.DefaultPath());
+var store = new SettingsStore(SettingsStore.ResolvePath());
 AppSettings settings = store.Load();
+if (!File.Exists(store.Path))
+    store.Save(settings); // создать конфиг по умолчанию, чтобы было что править руками
 Loc loc = Loc.Load(settings.Language);
 
 string? file = null;
@@ -32,6 +34,7 @@ foreach (string a in args)
             Console.WriteLine(loc["help.k10"]);
             Console.WriteLine();
             Console.WriteLine(loc["help.status"]);
+            Console.WriteLine(loc.Format("help.config", store.Path));
             Console.WriteLine();
             Console.WriteLine(loc["help.note1"]);
             Console.WriteLine(loc["help.note2"]);
