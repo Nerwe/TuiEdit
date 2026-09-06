@@ -20,10 +20,9 @@
 
   "modal.unsaved.title": "Unsaved changes",
   "modal.unsaved.desc": "Save changes before quitting?",
-  "modal.unsaved.save": "Save",
-  "modal.unsaved.discard": "Don't save",
+  "modal.unsaved.save": "Save [Y]",
+  "modal.unsaved.discard": "Don't save [N]",
   "modal.unsaved.cancel": "Cancel",
-  "modal.unsaved.hint": "S — save • N — don't save • Enter — choose • Esc — cancel",
   "modal.about.title": "About",
   "modal.about.l1": "TuiEdit {0}",
   "modal.about.l2": "A simple TUI editor in the style of MS Edit / nano.",
@@ -44,7 +43,6 @@
   "picker.ow.exists": "File already exists:",
   "picker.ow.yes": "[ Yes ]",
   "picker.ow.no": "[ No ]",
-  "picker.ow.hint": "Y — yes • N — no • Enter — yes • Esc — no",
 
   "status.pos": "Ln {0}/{1} Col {2}",
   "status.sel": "Selected {0}",

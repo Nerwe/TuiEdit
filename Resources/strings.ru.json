@@ -20,10 +20,9 @@
 
   "modal.unsaved.title": "Несохранённые изменения",
   "modal.unsaved.desc": "Сохранить изменения перед выходом?",
-  "modal.unsaved.save": "Сохранить",
-  "modal.unsaved.discard": "Не сохранять",
+  "modal.unsaved.save": "Сохранить [Y]",
+  "modal.unsaved.discard": "Не сохранять [N]",
   "modal.unsaved.cancel": "Отмена",
-  "modal.unsaved.hint": "S — сохранить • N — не сохранять • Enter — выбор • Esc — отмена",
   "modal.about.title": "О программе",
   "modal.about.l1": "TuiEdit {0}",
   "modal.about.l2": "Простой TUI-редактор в стиле MS Edit / nano.",
@@ -44,7 +43,6 @@
   "picker.ow.exists": "Файл уже существует:",
   "picker.ow.yes": "[ Да ]",
   "picker.ow.no": "[ Нет ]",
-  "picker.ow.hint": "Y — да • N — нет • Enter — да • Esc — нет",
 
   "status.pos": "Стр {0}/{1} Стлб {2}",
   "status.sel": "Выделено {0}",

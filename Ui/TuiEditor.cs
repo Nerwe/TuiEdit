@@ -23,6 +23,7 @@ internal sealed class TuiEditor
     private ModalState? _modal; // null — попапа нет
     private PendingOp _pending = PendingOp.None;
     private string _pendingPath = string.Empty;
+    private string _overwritePath = string.Empty; // путь из модалки перезаписи
     private readonly List<int> _menuX = new(); // x-координаты меню в баре (из рендера)
     private FilePickerState? _picker; // null — менеджер закрыт
     private int _pickerCursorX = -1;  // курсор поля имени (из рендера)
@@ -472,6 +473,12 @@ internal sealed class TuiEditor
         string? path = PickSavePath(
             _buf.FilePath is null ? _loc["status.untitled"] : Path.GetFileName(_buf.FilePath));
         if (path is null) { SetMessage(_loc["msg.cancelled"]); return; }
+        if (File.Exists(path))
+        {
+            _overwritePath = path;
+            _modal = ModalState.Overwrite(_loc, Path.GetFileName(path));
+            return;
+        }
         try
         {
             _buf.Save(path);
@@ -651,7 +658,8 @@ internal sealed class TuiEditor
         _modal = null;
         if (o.Cancelled)
         {
-            // Esc: About/Error просто закрываются, ожидание действия отменяется.
+            // Esc: всё отменяется (включая ожидание перезаписи).
+            _overwritePath = string.Empty;
             if (_pending != PendingOp.None)
             {
                 _pending = PendingOp.None;
@@ -661,17 +669,59 @@ internal sealed class TuiEditor
         }
         switch (m.Kind, o.Button)
         {
-            case (ModalKind.UnsavedQuit, 0):
-                SaveFlowForPending(); // Сохранить
-                return;
-            case (ModalKind.UnsavedQuit, _):
-                ApplyPending(); // Не сохранять
+            case (ModalKind.UnsavedQuit, var b):
+                switch (MapUnsavedButton(b))
+                {
+                    case UnsavedAction.Save:
+                        SaveFlowForPending(); // Сохранить
+                        return;
+                    case UnsavedAction.Discard:
+                        ApplyPending(); // Не сохранять
+                        return;
+                    default:
+                        _pending = PendingOp.None; // Отмена — только попап
+                        SetMessage(_loc["msg.cancelled"]);
+                        return;
+                }
+            case (ModalKind.Overwrite, 0):
+                try
+                {
+                    _buf.Save(_overwritePath); // Да — перезаписать
+                    SetMessage(_loc.Format("msg.saved", _buf.FilePath));
+                }
+                catch (Exception ex)
+                {
+                    // Не сохранилось — отменяем всё, чтобы не потерять данные выходом.
+                    _overwritePath = string.Empty;
+                    _pending = PendingOp.None;
+                    _modal = ModalState.Error(_loc, _loc["error.save"], DisplayError(ex));
+                    return;
+                }
+                _overwritePath = string.Empty;
+                ApplyPending();
                 return;
             default:
-                _pending = PendingOp.None; // About / Error: любая кнопка закрывает
+                // About / Error / Нет — только закрыть (Нет отменяет и ожидание).
+                _overwritePath = string.Empty;
+                if (_pending != PendingOp.None)
+                {
+                    _pending = PendingOp.None;
+                    SetMessage(_loc["msg.cancelled"]);
+                }
                 return;
         }
     }
+
+    /// <summary>Действие кнопок попапа несохранённых изменений.</summary>
+    internal enum UnsavedAction { Save, Discard, Cancel }
+
+    /// <summary>Кнопка попапа → действие (0 — сохранить, 1 — не сохранять, прочее — отмена).</summary>
+    internal static UnsavedAction MapUnsavedButton(int button) => button switch
+    {
+        0 => UnsavedAction.Save,
+        1 => UnsavedAction.Discard,
+        _ => UnsavedAction.Cancel,
+    };
 
     /// <summary>Сохранение из попапа с последующим отложенным действием.</summary>
     private void SaveFlowForPending()
@@ -686,6 +736,12 @@ internal sealed class TuiEditor
                     {
                         _pending = PendingOp.None;
                         SetMessage(_loc["msg.cancelled"]);
+                        return;
+                    }
+                    if (File.Exists(path))
+                    {
+                        _overwritePath = path;
+                        _modal = ModalState.Overwrite(_loc, Path.GetFileName(path));
                         return;
                     }
                     _buf.Save(path);
@@ -767,24 +823,12 @@ internal sealed class TuiEditor
                 }
                 if (ev is PasteInput paste)
                 {
-                    _picker.DismissOverwrite();
                     _picker.InsertName(paste.Text.Replace("\r", "").Replace("\n", ""));
                     continue;
                 }
                 var k = ((KeyInput)ev).Key;
                 if ((k.Modifiers & ConsoleModifiers.Control) != 0)
                     continue; // Ctrl в менеджере не используется
-                if (_picker.OverwritePending)
-                {
-                    switch (k.Key, char.ToUpperInvariant(k.KeyChar))
-                    {
-                        case (ConsoleKey.Enter, _): return _picker.OverwritePath;
-                        case (_, 'Y'): return _picker.OverwritePath;
-                        case (_, 'Н'): return _picker.OverwritePath; // русская Y
-                        default: _picker.DismissOverwrite(); break; // Esc, N, прочие — назад
-                    }
-                    continue;
-                }
                 switch (k.Key)
                 {
                     case ConsoleKey.Escape: return null;
@@ -797,14 +841,7 @@ internal sealed class TuiEditor
                     case ConsoleKey.Enter:
                         var (res, path) = _picker.Enter();
                         if (res == PickerEnterResult.Accepted && path is not null)
-                        {
-                            if (mode == PickerMode.Save && File.Exists(path))
-                            {
-                                _picker.AskOverwrite(path);
-                                break;
-                            }
                             return path;
-                        }
                         break;
                     case ConsoleKey.Backspace: _picker.Backspace(); break;
                     case ConsoleKey.Delete: _picker.DeleteChar(); break;
@@ -823,7 +860,7 @@ internal sealed class TuiEditor
         }
     }
 
-    /// <summary>Путь для сохранения через менеджер (перезапись уже подтверждена внутри).</summary>
+    /// <summary>Путь для сохранения через менеджер (перезапись подтверждает модалка).</summary>
     private string? PickSavePath(string initialName) =>
         RunPicker(PickerMode.Save, StartDir(), initialName);
 
@@ -1467,38 +1504,6 @@ internal sealed class TuiEditor
         string hint = _loc["picker.hint"];
         _screen.Text(x0, y0 + bh - 2, "│" + CenterPad(hint, inner)[..inner] + "│", _theme.PickerHintFg, bg);
         _screen.Text(x0, y0 + bh - 1, "└" + new string('─', inner) + "┘", fg, bg);
-
-        if (p.OverwritePending)
-            DrawOverwriteBox(w, h, p.OverwritePath);
-    }
-
-    /// <summary>Красный вопрос о перезаписи поверх менеджера (как overwrite-modal в Edit).</summary>
-    private void DrawOverwriteBox(int w, int h, string path)
-    {
-        _pickerCursorX = -1; // курсор прячем
-        string name = path.Length > 40 ? "..." + path[^37..] : path;
-        string[] lines = [_loc["picker.ow.exists"], name];
-        string[] btns = [_loc["picker.ow.yes"], _loc["picker.ow.no"]];
-        int content = Math.Max(name.Length + 2, 30);
-        int boxW = Math.Min(content + 6, w);
-        int boxH = lines.Length + 4;
-        int x0 = Math.Max(0, (w - boxW) / 2);
-        int y0 = Math.Max(0, (h - boxH) / 2);
-        if (boxW < 16 || y0 + boxH > h)
-            return;
-        Rgb bg = _theme.ModalDangerBg;
-        Rgb fg = _theme.ModalDangerFg;
-        string owTitle = _loc["picker.ow.title"];
-        _screen.Text(x0, y0, Screen.TitleRow(owTitle, boxW), fg, bg);
-        for (int i = 0; i < lines.Length; i++)
-            _screen.Text(x0, y0 + 1 + i, "│" + CenterPad(lines[i], boxW - 2)[..(boxW - 2)] + "│", fg, bg);
-        int by = y0 + 1 + lines.Length;
-        int pad = Math.Max(1, (boxW - 2 - (btns[0].Length + 2 + btns[1].Length)) / 2);
-        _screen.Text(x0, by, "│" + new string(' ', boxW - 2) + "│", fg, bg);
-        _screen.Text(x0 + 1 + pad, by, btns[0], _theme.ButtonSelFg, _theme.ButtonSelBg);
-        _screen.Text(x0 + 1 + pad + btns[0].Length + 2, by, btns[1], fg, bg);
-        _screen.Text(x0, by + 1, "│" + CenterPad(_loc["picker.ow.hint"], boxW - 2)[..(boxW - 2)] + "│", _theme.ModalHintDangerFg, bg);
-        _screen.Text(x0, by + 2, "└" + new string('─', boxW - 2) + "┘", fg, bg);
     }
 
     private static string MiddleTruncate(string s, int width)
@@ -1533,7 +1538,7 @@ internal sealed class TuiEditor
         int boxW = Math.Min(Math.Max(content + 6, 24), w);
         if (boxW < 12)
             return;
-        int boxH = m.Lines.Count + 5; // верх, строки, кнопки, хинт, низ
+        int boxH = m.Lines.Count + (m.Hint.Length > 0 ? 5 : 4); // верх, строки, пусто, кнопки, [хинт,] низ
         int x0 = Math.Max(0, (w - boxW) / 2);
         int y0 = Math.Max(0, (h - boxH) / 2);
         if (y0 + boxH > h)
@@ -1544,25 +1549,25 @@ internal sealed class TuiEditor
         // Строки текста по центру.
         for (int i = 0; i < m.Lines.Count; i++)
             _screen.Text(x0, y0 + 1 + i, "│" + CenterPad(m.Lines[i], boxW - 2) + "│", fg, bg);
-        // Кнопки по центру: [ Label ] с подсветкой выбранной.
+        // Кнопки по центру (хоткеи уже в названиях, напр. [Y]).
         _screen.Text(x0, y0 + 1 + m.Lines.Count, "│" + new string(' ', boxW - 2) + "│", fg, bg);
         int used = 0;
         var cells = new List<string>();
         for (int i = 0; i < m.Buttons.Count; i++)
         {
-            string cell = $"[ {m.Buttons[i].Label} ]";
+            string cell = m.Buttons[i].Label;
             cells.Add(cell);
-            used += cell.Length + 2;
+            used += cell.Length + 4;
         }
-        used -= 2;
-        int padLeft = Math.Max(1, (boxW - 2 - used) / 2);
+        used -= 4;
+        int padLeft = Math.Max(2, (boxW - 2 - used) / 2);
         var btnRow = new System.Text.StringBuilder();
         btnRow.Append('│');
         btnRow.Append(' ', padLeft);
         for (int i = 0; i < m.Buttons.Count; i++)
         {
             if (i > 0)
-                btnRow.Append("  ");
+                btnRow.Append("    ");
             btnRow.Append(cells[i]);
         }
         int rest = boxW - 2 - padLeft - used;
@@ -1577,12 +1582,17 @@ internal sealed class TuiEditor
         {
             if (i == m.Selected)
                 _screen.Text(bx, btnY, cells[i], _theme.ButtonSelFg, _theme.ButtonSelBg);
-            bx += cells[i].Length + 2;
+            bx += cells[i].Length + 4;
         }
-        // Хинт и низ.
-        Rgb hintFg = m.Danger ? _theme.ModalHintDangerFg : _theme.ModalHintFg;
-        _screen.Text(x0, y0 + 3 + m.Lines.Count, "│" + CenterPad(m.Hint, boxW - 2) + "│", hintFg, bg);
-        _screen.Text(x0, y0 + 4 + m.Lines.Count, "└" + new string('─', boxW - 2) + "┘", fg, bg);
+        // Хинт (если есть) и низ.
+        int bottomY = btnY + 1;
+        if (m.Hint.Length > 0)
+        {
+            Rgb hintFg = m.Danger ? _theme.ModalHintDangerFg : _theme.ModalHintFg;
+            _screen.Text(x0, bottomY, "│" + CenterPad(m.Hint, boxW - 2) + "│", hintFg, bg);
+            bottomY++;
+        }
+        _screen.Text(x0, bottomY, "└" + new string('─', boxW - 2) + "┘", fg, bg);
     }
 
     private static string CenterPad(string s, int width)

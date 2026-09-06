@@ -9,6 +9,8 @@ public enum ModalKind
     About,
     /// <summary>Ошибка (красный).</summary>
     Error,
+    /// <summary>Перезапись файла (красный).</summary>
+    Overwrite,
 }
 
 /// <summary>Кнопка попапа: подпись и хоткей-буква (без Enter). '\0' — без хоткея.</summary>
@@ -53,7 +55,7 @@ public sealed class ModalState
     public int Selected { get; private set; }
 
     /// <summary>Красная (тревожная) расцветка.</summary>
-    public bool Danger => Kind is ModalKind.UnsavedQuit or ModalKind.Error;
+    public bool Danger => Kind is ModalKind.UnsavedQuit or ModalKind.Error or ModalKind.Overwrite;
 
     /// <summary>Строка-подсказка клавиш внутри попапа.</summary>
     public string Hint { get; }
@@ -68,19 +70,19 @@ public sealed class ModalState
         Hint = hint;
     }
 
-    /// <summary>Попап «несохранённые изменения»: Сохранить / Не сохранять / Отмена.</summary>
+    /// <summary>Попап «несохранённые изменения»: кнопки с хоткеями в скобках, без хинтов.</summary>
     public static ModalState UnsavedQuit(Loc loc) => new(
         ModalKind.UnsavedQuit,
         loc["modal.unsaved.title"],
         new List<string> { loc["modal.unsaved.desc"] },
         new List<ModalButton>
         {
-            new(loc["modal.unsaved.save"], 'S'),
+            new(loc["modal.unsaved.save"], 'Y'),
             new(loc["modal.unsaved.discard"], 'N'),
             new(loc["modal.unsaved.cancel"], '\0'),
         },
         selected: 0,
-        loc["modal.unsaved.hint"]);
+        hint: string.Empty);
 
     /// <summary>Попап «о программе».</summary>
     public static ModalState About(Loc loc, string version) => new(
@@ -104,6 +106,19 @@ public sealed class ModalState
         new List<ModalButton> { new(loc["modal.error.ok"], '\0') },
         selected: 0,
         loc["modal.close.hint"]);
+
+    /// <summary>Попап перезаписи: Да [Y] / Нет, без хинтов.</summary>
+    public static ModalState Overwrite(Loc loc, string fileName) => new(
+        ModalKind.Overwrite,
+        loc["picker.ow.title"],
+        new List<string> { loc["picker.ow.exists"], fileName },
+        new List<ModalButton>
+        {
+            new(loc["picker.ow.yes"], 'Y'),
+            new(loc["picker.ow.no"], 'N'),
+        },
+        selected: 0,
+        hint: string.Empty);
 
     /// <summary>
     /// Обрабатывает клавишу: стрелки/Home/End двигают подсветку,
@@ -152,9 +167,10 @@ public sealed class ModalState
     private static bool MatchesHotkey(char pressed, char hotkey) => char.ToUpperInvariant(hotkey) switch
     {
         '\0' => false,
-        // Русская раскладка: латинской S соответствует Ы, латинской N — Т.
+        // Русская раскладка: S→Ы, N→Т, Y→Н.
         'S' => pressed is 'S' or 'Ы',
         'N' => pressed is 'N' or 'Т',
+        'Y' => pressed is 'Y' or 'Н',
         var h => pressed == h,
     };
 }

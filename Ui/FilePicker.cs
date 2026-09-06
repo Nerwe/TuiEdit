@@ -58,14 +58,11 @@ public sealed class FilePickerState
     /// <summary>Курсор в поле имени.</summary>
     public int NamePos { get; private set; }
 
-    /// <summary>Ошибка чтения каталога (null — нет).</summary>
+    /// <summary>Имя как его оставил последний синк (для отличия ручного ввода).</summary>
+    private string _syncedName = string.Empty;
+
+    /// <summary>Ошибка чтения каталога (код BadPath маппится через Loc).</summary>
     public string? Error { get; private set; }
-
-    /// <summary>Ожидание подтверждения перезаписи.</summary>
-    public bool OverwritePending { get; private set; }
-
-    /// <summary>Путь, перезапись которого подтверждается.</summary>
-    public string OverwritePath { get; private set; } = string.Empty;
 
     /// <param name="mode">Режим.</param>
     /// <param name="startDir">Стартовый каталог ("" — диски на Windows).</param>
@@ -76,6 +73,7 @@ public sealed class FilePickerState
         CurrentDir = startDir ?? string.Empty;
         Name = initialName ?? string.Empty;
         NamePos = Name.Length;
+        _syncedName = Name;
         Refresh();
     }
 
@@ -129,14 +127,20 @@ public sealed class FilePickerState
     public PickerEntry? Highlighted() =>
         Entries.Count == 0 ? null : Entries[Math.Clamp(Selected, 0, Entries.Count - 1)];
 
-    /// <summary>Движение подсветки (в Open — подсветка подставляет имя).</summary>
+    /// <summary>
+    /// Движение подсветки. Подсветка файла подставляет имя;
+    /// подсветка папки имя не трогает (введённое сохраняется).
+    /// </summary>
     public void MoveHighlight(int delta)
     {
         if (Entries.Count == 0)
             return;
         Selected = Math.Clamp(Selected + delta, 0, Entries.Count - 1);
-        if (Mode == PickerMode.Open)
-            SetName(EntryBaseName(Highlighted()!));
+        PickerEntry h = Entries[Selected];
+        // Подсветка файла подставляет имя, но введённое руками не затираем.
+        // Подсветка папки имя не трогает никогда.
+        if ((Mode == PickerMode.Open || !h.IsDir) && Name == _syncedName)
+            SetName(EntryBaseName(h));
     }
 
     /// <summary>В начало / конец списка.</summary>
@@ -163,6 +167,7 @@ public sealed class FilePickerState
     {
         Name = name;
         NamePos = Math.Clamp(NamePos, 0, Name.Length);
+        _syncedName = name;
     }
 
     /// <summary>Ввод в поле имени.</summary>
@@ -174,16 +179,13 @@ public sealed class FilePickerState
         NamePos += text.Length;
     }
 
-    /// <summary>Backspace: стирает символ или идёт вверх при пустом имени.</summary>
+    /// <summary>Backspace: стирает символ; в начале поля (или пустом) — вверх.</summary>
     public void Backspace()
     {
-        if (Name.Length > 0)
+        if (NamePos > 0)
         {
-            if (NamePos > 0)
-            {
-                Name = Name.Remove(NamePos - 1, 1);
-                NamePos--;
-            }
+            Name = Name.Remove(NamePos - 1, 1);
+            NamePos--;
             return;
         }
         UpDir();
@@ -255,31 +257,28 @@ public sealed class FilePickerState
     }
 
     /// <summary>
-    /// Enter: пустое имя + подсветка-файл — подставить; каталог — перейти;
-    /// файл — принять путь. В корне дисков Enter переходит на диск.
+    /// Enter: папка под курсором — перейти (имя сохраняется);
+    /// иначе — разрешить имя: каталог — перейти, файл — принять путь.
+    /// В корне дисков Enter переходит на диск.
     /// </summary>
     public (PickerEnterResult Result, string? Path) Enter()
     {
         if (CurrentDir == "" && OperatingSystem.IsWindows())
             return EnterFromDrives();
+        PickerEntry? h = Highlighted();
+        if (h is not null && (h.Name == ".." || h.IsDir))
+        {
+            if (h.Name == "..")
+                UpDir();
+            else
+                NavigateDirEntry(h);
+            return (PickerEnterResult.Navigated, null);
+        }
         if (string.IsNullOrEmpty(Name))
         {
-            PickerEntry? h = Highlighted();
-            if (h is null || h.Name == ".." || !h.IsDir && Mode == PickerMode.Save)
-            {
-                if (h?.Name == "..")
-                {
-                    UpDir();
-                    return (PickerEnterResult.Navigated, null);
-                }
+            if (h is null)
                 return (PickerEnterResult.Stayed, null);
-            }
-            if (h.IsDir)
-            {
-                NavigateDirEntry(h);
-                return (PickerEnterResult.Navigated, null);
-            }
-            SetName(h.Name);
+            SetName(h.Name); // файл — подставить имя
         }
         string? full = ResolveName(Name);
         if (full is null)
@@ -350,19 +349,5 @@ public sealed class FilePickerState
         {
             Error = "BadPath";
         }
-    }
-
-    /// <summary>Начать подтверждение перезаписи.</summary>
-    public void AskOverwrite(string path)
-    {
-        OverwritePending = true;
-        OverwritePath = path;
-    }
-
-    /// <summary>Вернуться к обзору без подтверждения.</summary>
-    public void DismissOverwrite()
-    {
-        OverwritePending = false;
-        OverwritePath = string.Empty;
     }
 }
