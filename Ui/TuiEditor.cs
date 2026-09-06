@@ -29,16 +29,39 @@ internal sealed class TuiEditor
     private int _pickerCursorY = -1;
     private readonly Screen _screen = new(); // кадр + diff-вывод (без мигания)
     private readonly InputReader _input = new();
+    private readonly AppSettings _settings;
+    private readonly SettingsStore _store;
+    private Loc _loc;
+    private Theme _theme;
+    private bool _settingsOpen; // диалог настроек открыт
 
     private const string AppVersion = "0.1.0";
 
     /// <summary>Отложенное действие после диалога «несохранённые изменения».</summary>
     private enum PendingOp { None, Quit, New, Open }
 
-    public TuiEditor(TextBuffer buf)
+    public TuiEditor(TextBuffer buf, AppSettings settings, SettingsStore store)
     {
         _buf = buf;
+        _settings = settings;
+        _store = store;
+        _loc = Loc.Load(settings.Language);
+        _theme = Themes.Get(settings.Theme);
     }
+
+    /// <summary>Перечитать тему и язык из настроек (после диалога настроек).</summary>
+    private void ApplySettings()
+    {
+        _loc = Loc.Load(_settings.Language);
+        _theme = Themes.Get(_settings.Theme);
+    }
+
+    /// <summary>Текст ошибки для показа (технические коды маппим в Loc).</summary>
+    private string DisplayError(Exception ex) => ex switch
+    {
+        InvalidOperationException { Message: "NoFileName" } => _loc["error.nofilename"],
+        _ => ex.Message,
+    };
 
     public void Run()
     {
@@ -177,7 +200,8 @@ internal sealed class TuiEditor
             case EditorCommand.Quit: TryQuit(); return;
             case EditorCommand.NewFile: DoNew(); return;
             case EditorCommand.OpenFile: DoOpen(); return;
-            case EditorCommand.About: _modal = ModalState.About(AppVersion); return;
+            case EditorCommand.About: _modal = ModalState.About(_loc, AppVersion); return;
+            case EditorCommand.Settings: RunSettings(); return;
             case EditorCommand.Find: Find(); return;
             case EditorCommand.FindNext: FindNext(); return;
             case EditorCommand.GoToLine: GoToLine(); return;
@@ -185,8 +209,8 @@ internal sealed class TuiEditor
             case EditorCommand.CopyLine: CopyLine(); return;
             case EditorCommand.Paste: Paste(); return;
             case EditorCommand.SaveAs: SaveAs(); return;
-            case EditorCommand.Undo: _buf.Undo(); _sel.Clear(); ClampCursor(); SetMessage("Отмена"); return;
-            case EditorCommand.Redo: _buf.Redo(); _sel.Clear(); ClampCursor(); SetMessage("Возврат"); return;
+            case EditorCommand.Undo: _buf.Undo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.undo"]); return;
+            case EditorCommand.Redo: _buf.Redo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.redo"]); return;
             case EditorCommand.InsertEnter:
                 DeleteSelection(); // замена выделения
                 (_row, _col) = _buf.SplitLine(_row, _col);
@@ -307,7 +331,7 @@ internal sealed class TuiEditor
         _row = _buf.Count - 1;
         _col = _buf.GetLine(_row).Length;
         TrackCol();
-        SetMessage($"Выделено: {SelectionLength(0, 0, _row, _col)} зн.");
+        SetMessage(_loc.Format("status.sel", SelectionLength(0, 0, _row, _col)));
     }
 
     private void ClampCursor()
@@ -435,9 +459,9 @@ internal sealed class TuiEditor
                 try
                 {
                     _buf.Save();
-                    SetMessage($"Сохранено: {_buf.FilePath}");
+                    SetMessage(_loc.Format("msg.saved", _buf.FilePath));
                 }
-                catch (Exception ex) { SetMessage($"Ошибка сохранения: {ex.Message}"); }
+                catch (Exception ex) { SetMessage($"{_loc["error.save"]}: {DisplayError(ex)}"); }
                 return;
         }
     }
@@ -445,14 +469,14 @@ internal sealed class TuiEditor
     private void SaveAs()
     {
         string? path = PickSavePath(
-            _buf.FilePath is null ? "Без имени.txt" : Path.GetFileName(_buf.FilePath));
-        if (path is null) { SetMessage("Отменено"); return; }
+            _buf.FilePath is null ? _loc["status.untitled"] : Path.GetFileName(_buf.FilePath));
+        if (path is null) { SetMessage(_loc["msg.cancelled"]); return; }
         try
         {
             _buf.Save(path);
-            SetMessage($"Сохранено: {_buf.FilePath}");
+            SetMessage(_loc.Format("msg.saved", _buf.FilePath));
         }
-        catch (Exception ex) { SetMessage($"Ошибка сохранения: {ex.Message}"); }
+        catch (Exception ex) { SetMessage($"{_loc["error.save"]}: {DisplayError(ex)}"); }
     }
 
     private void TryQuit()
@@ -464,7 +488,7 @@ internal sealed class TuiEditor
         }
         // Красный попап Save / Don't save / Cancel, как unsaved-changes в MS Edit.
         _pending = PendingOp.Quit;
-        _modal = ModalState.UnsavedQuit();
+        _modal = ModalState.UnsavedQuit(_loc);
     }
 
     /// <summary>Новый документ (с диалогом при несохранённых изменениях).</summary>
@@ -476,7 +500,7 @@ internal sealed class TuiEditor
             return;
         }
         _pending = PendingOp.New;
-        _modal = ModalState.UnsavedQuit();
+        _modal = ModalState.UnsavedQuit(_loc);
     }
 
     /// <summary>Открыть файл через менеджер, затем диалог при несохранённых изменениях.</summary>
@@ -485,7 +509,7 @@ internal sealed class TuiEditor
         string? path = RunPicker(PickerMode.Open, StartDir(), string.Empty);
         if (path is null)
         {
-            SetMessage("Отменено");
+            SetMessage(_loc["msg.cancelled"]);
             return;
         }
         if (!_buf.IsModified)
@@ -495,14 +519,14 @@ internal sealed class TuiEditor
         }
         _pending = PendingOp.Open;
         _pendingPath = path;
-        _modal = ModalState.UnsavedQuit();
+        _modal = ModalState.UnsavedQuit(_loc);
     }
 
     private void ClearDoc()
     {
         _buf.Clear();
         ResetCursor();
-        SetMessage("Новый документ");
+        SetMessage(_loc["msg.newdoc"]);
     }
 
     private void ResetCursor()
@@ -517,12 +541,12 @@ internal sealed class TuiEditor
         {
             _buf.Open(path);
             ResetCursor();
-            SetMessage(existed ? $"Открыто: {path}" : $"Новый файл: {path}");
+            SetMessage(existed ? _loc.Format("msg.opened", path) : _loc.Format("msg.newfile", path));
         }
         catch (Exception ex)
         {
             _pending = PendingOp.None;
-            _modal = ModalState.Error("Ошибка открытия", ex.Message);
+            _modal = ModalState.Error(_loc, _loc["error.open"], DisplayError(ex));
         }
     }
 
@@ -580,7 +604,7 @@ internal sealed class TuiEditor
 
     private void OpenMenu(int index)
     {
-        _menu = new MenuState(BuildMenus());
+        _menu = new MenuState(BuildMenus(_loc));
         _menu.Open(index);
     }
 
@@ -588,30 +612,31 @@ internal sealed class TuiEditor
     /// Меню-бар в стиле MS Edit: File / Edit / Help.
     /// Состав пунктов повторяет draw_menubar.rs (New/Open/Save/SaveAs/Exit и т.д.).
     /// </summary>
-    private static List<TopMenu> BuildMenus() => new()
+    private static List<TopMenu> BuildMenus(Loc loc) => new()
     {
-        new TopMenu("File", 'F', new List<MenuItem>
+        new TopMenu(loc["menu.file"], 'F', new List<MenuItem>
         {
-            new("Новый", 'N', null, EditorCommand.NewFile),
-            new("Открыть...", 'O', null, EditorCommand.OpenFile),
-            new("Сохранить", 'S', "F2", EditorCommand.Save),
-            new("Сохранить как...", 'A', "^O", EditorCommand.SaveAs),
-            new("Выход", 'X', "^Q", EditorCommand.Quit),
+            new(loc["menu.new"], 'N', null, EditorCommand.NewFile),
+            new(loc["menu.open"], 'O', null, EditorCommand.OpenFile),
+            new(loc["menu.save"], 'S', "F2", EditorCommand.Save),
+            new(loc["menu.saveas"], 'A', "^O", EditorCommand.SaveAs),
+            new(loc["menu.settings"], 'P', null, EditorCommand.Settings),
+            new(loc["menu.exit"], 'X', "^Q", EditorCommand.Quit),
         }),
-        new TopMenu("Edit", 'E', new List<MenuItem>
+        new TopMenu(loc["menu.edit"], 'E', new List<MenuItem>
         {
-            new("Отмена", 'U', "^Z", EditorCommand.Undo),
-            new("Возврат", 'R', "^Y", EditorCommand.Redo),
-            new("Вырезать строку", 'T', "^K", EditorCommand.CutLine),
-            new("Копировать строку", 'C', "^C", EditorCommand.CopyLine),
-            new("Вставить", 'P', "^U", EditorCommand.Paste),
-            new("Найти...", 'F', "^F", EditorCommand.Find),
-            new("Строка...", 'G', "^G", EditorCommand.GoToLine),
-            new("Выделить всё", 'A', "^A", EditorCommand.SelectAll),
+            new(loc["menu.undo"], 'U', "^Z", EditorCommand.Undo),
+            new(loc["menu.redo"], 'R', "^Y", EditorCommand.Redo),
+            new(loc["menu.cut"], 'T', "^K", EditorCommand.CutLine),
+            new(loc["menu.copy"], 'C', "^C", EditorCommand.CopyLine),
+            new(loc["menu.paste"], 'P', "^U", EditorCommand.Paste),
+            new(loc["menu.find"], 'F', "^F", EditorCommand.Find),
+            new(loc["menu.goto"], 'G', "^G", EditorCommand.GoToLine),
+            new(loc["menu.selectall"], 'A', "^A", EditorCommand.SelectAll),
         }),
-        new TopMenu("Help", 'H', new List<MenuItem>
+        new TopMenu(loc["menu.help"], 'H', new List<MenuItem>
         {
-            new("О программе", 'A', null, EditorCommand.About),
+            new(loc["menu.about"], 'A', null, EditorCommand.About),
         }),
     };
 
@@ -629,7 +654,7 @@ internal sealed class TuiEditor
             if (_pending != PendingOp.None)
             {
                 _pending = PendingOp.None;
-                SetMessage("Отменено");
+                SetMessage(_loc["msg.cancelled"]);
             }
             return;
         }
@@ -655,11 +680,11 @@ internal sealed class TuiEditor
             switch (_buf.FilePath)
             {
                 case null:
-                    string? path = PickSavePath("Без имени.txt");
+                    string? path = PickSavePath(_loc["status.untitled"]);
                     if (path is null)
                     {
                         _pending = PendingOp.None;
-                        SetMessage("Отменено");
+                        SetMessage(_loc["msg.cancelled"]);
                         return;
                     }
                     _buf.Save(path);
@@ -668,13 +693,13 @@ internal sealed class TuiEditor
                     _buf.Save();
                     break;
             }
-            SetMessage($"Сохранено: {_buf.FilePath}");
+            SetMessage(_loc.Format("msg.saved", _buf.FilePath));
             ApplyPending();
         }
         catch (Exception ex)
         {
             _pending = PendingOp.None;
-            _modal = ModalState.Error("Ошибка сохранения", ex.Message);
+            _modal = ModalState.Error(_loc, _loc["error.save"], DisplayError(ex));
         }
     }
 
@@ -803,9 +828,9 @@ internal sealed class TuiEditor
 
     private void Find()
     {
-        string? term = Prompt("Найти: ", _lastSearch);
-        if (term is null) { SetMessage("Поиск отменён"); return; }
-        if (term.Length == 0) { SetMessage("Пустой запрос"); return; }
+        string? term = Prompt(_loc["prompt.find"], _lastSearch);
+        if (term is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
+        if (term.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
         _lastSearch = term;
         FindNext();
     }
@@ -814,19 +839,19 @@ internal sealed class TuiEditor
     {
         if (string.IsNullOrEmpty(_lastSearch)) { Find(); return; }
         var hit = _buf.FindNext(_lastSearch, _row, _col + 1);
-        if (hit is null) SetMessage($"«{_lastSearch}» не найдено");
+        if (hit is null) SetMessage(_loc.Format("msg.search.miss", _lastSearch));
         else
         {
             (_row, _col) = hit.Value;
             _sel.Clear(); // прыжок снимает выделение
             TrackCol();
-            SetMessage($"Найдено: «{_lastSearch}» (F3 — далее)");
+            SetMessage(_loc.Format("msg.search.hit", _lastSearch));
         }
     }
 
     private void GoToLine()
     {
-        string? s = Prompt($"Номер строки (1-{_buf.Count}): ", string.Empty);
+        string? s = Prompt(_loc.Format("prompt.goto", _buf.Count), string.Empty);
         if (s is null) return;
         if (int.TryParse(s.Trim(), out int n))
         {
@@ -835,7 +860,7 @@ internal sealed class TuiEditor
             _sel.Clear(); // прыжок снимает выделение
             TrackCol();
         }
-        else SetMessage("Не число");
+        else SetMessage(_loc["msg.notnumber"]);
     }
 
     private void CutLine()
@@ -849,14 +874,14 @@ internal sealed class TuiEditor
             int n = SelectionLength(sr, sc, er, ec);
             DeleteSelection();
             SystemClipboard.TryExport(_clipboard);
-            SetMessage($"Вырезано: {n} зн. (^U — вставить)");
+            SetMessage(_loc.Format("msg.cut.sel", n));
             return;
         }
         _clipboard.Add(_buf.CutLine(_row));
         _row = Math.Clamp(_row, 0, _buf.Count - 1);
         _col = Math.Min(_col, _buf.GetLine(_row).Length);
         TrackCol();
-        SetMessage("Строка вырезана (^U — вставить)");
+        SetMessage(_loc["msg.cut.line"]);
     }
 
     private void CopyLine()
@@ -868,17 +893,17 @@ internal sealed class TuiEditor
             var (sr, sc, er, ec) = _sel.Normalize(_row, _col);
             _clipboard.AddRange(_buf.GetRangeText(sr, sc, er, ec));
             SystemClipboard.TryExport(_clipboard);
-            SetMessage($"Скопировано: {SelectionLength(sr, sc, er, ec)} зн.");
+            SetMessage(_loc.Format("msg.copy.sel", SelectionLength(sr, sc, er, ec)));
             return;
         }
         _clipboard.Add(_buf.GetLine(_row));
         SystemClipboard.TryExport(_clipboard);
-        SetMessage("Строка скопирована");
+        SetMessage(_loc["msg.copy.line"]);
     }
 
     private void Paste()
     {
-        if (_clipboard.Count == 0) { SetMessage("Буфер пуст"); return; }
+        if (_clipboard.Count == 0) { SetMessage(_loc["msg.paste.empty"]); return; }
         ClampCursor();
         DeleteSelection(); // вставка поверх выделения
         _buf.PasteLines(_row, _col, _clipboard);
@@ -966,7 +991,7 @@ internal sealed class TuiEditor
         string text = title + input;
         if (text.Length > w)
             text = text[^w..];
-        _screen.Text(0, row, text.PadRight(w)[..w], ConsoleColor.White, ConsoleColor.DarkBlue);
+        _screen.Text(0, row, text.PadRight(w)[..w], _theme.PromptFg, _theme.PromptBg);
         _screen.Flush();
         int cursorX = Math.Min(w - 1, title.Length + pos - Math.Max(0, (title.Length + input.Length) - w));
         try
@@ -1013,7 +1038,7 @@ internal sealed class TuiEditor
             {
                 Console.Clear();
                 Console.ResetColor();
-                Console.WriteLine("Окно слишком маленькое для редактора.");
+                Console.WriteLine(_loc["error.smallwindow"]);
             }
             catch { }
             return;
@@ -1039,10 +1064,10 @@ internal sealed class TuiEditor
             int y = 1 + i;
             if (fileLine >= _buf.Count)
             {
-                _screen.Text(0, y, ("~".PadRight(w))[..w], ConsoleColor.DarkBlue, ConsoleColor.Black);
+                _screen.Text(0, y, ("~".PadRight(w))[..w], _theme.FillerFg, _theme.EditorBg);
                 continue;
             }
-            _screen.Text(0, y, $"{(fileLine + 1).ToString().PadLeft(numWidth)} │ ", ConsoleColor.DarkGray, ConsoleColor.Black);
+            _screen.Text(0, y, $"{(fileLine + 1).ToString().PadLeft(numWidth)} │ ", _theme.GutterFg, _theme.EditorBg);
 
             string line = _buf.GetLine(fileLine);
             bool isCur = fileLine == _row;
@@ -1065,10 +1090,10 @@ internal sealed class TuiEditor
                     bool match = vc < isMatch.Length && isMatch[vc];
                     (ConsoleColor fg, ConsoleColor bg) = (sel, match, isCur) switch
                     {
-                        (true, _, _) => (ConsoleColor.White, ConsoleColor.DarkBlue),
-                        (_, true, _) => (ConsoleColor.Black, ConsoleColor.DarkYellow),
-                        (_, _, true) => (ConsoleColor.White, ConsoleColor.DarkGray),
-                        _ => (ConsoleColor.Gray, ConsoleColor.Black),
+                        (true, _, _) => (_theme.SelFg, _theme.SelBg),
+                        (_, true, _) => (_theme.MatchFg, _theme.MatchBg),
+                        (_, _, true) => (_theme.CurLineFg, _theme.CurLineBg),
+                        _ => (_theme.EditorFg, _theme.EditorBg),
                     };
                     _screen.Set(gutterWidth + vc, y, c == '\t' ? ' ' : c, fg, bg);
                 }
@@ -1080,23 +1105,23 @@ internal sealed class TuiEditor
             // Хвост строки — пробелы обычным цветом.
             int filled = Math.Clamp(vpos - _left, 0, contentWidth);
             (ConsoleColor tailFg, ConsoleColor tailBg) = isCur
-                ? (ConsoleColor.White, ConsoleColor.DarkGray)
-                : (ConsoleColor.Gray, ConsoleColor.Black);
+                ? (_theme.CurLineFg, _theme.CurLineBg)
+                : (_theme.EditorFg, _theme.EditorBg);
             _screen.Fill(gutterWidth + filled, y, contentWidth - filled, ' ', tailFg, tailBg);
         }
 
         // Статусбар: слева позиция/сообщение, справа кодировка | EOL | отступ | файл.
         string msg = CurrentMessage;
-        string pos = $"Стр {_row + 1}/{_buf.Count} Стлб {_col + 1}{(_buf.IsModified ? " *" : "")}";
+        string pos = _loc.Format("status.pos", _row + 1, _buf.Count, _col + 1) + (_buf.IsModified ? " *" : "");
         if (_sel.HasSelection(_row, _col))
         {
             var (sr, sc, er, ec) = _sel.Normalize(_row, _col);
-            pos += $" | Выделено {SelectionLength(sr, sc, er, ec)}";
+            pos += " | " + _loc.Format("status.sel", SelectionLength(sr, sc, er, ec));
         }
         string left = string.IsNullOrEmpty(msg) ? $" {pos}" : $" {msg}";
-        string file = _buf.FilePath is null ? "без имени" : Path.GetFileName(_buf.FilePath);
+        string file = _buf.FilePath is null ? _loc["status.noname"] : Path.GetFileName(_buf.FilePath);
         string right = $" {_buf.EncodingLabel} | {_buf.EndingLabel} | {_buf.IndentLabel} | {file} ";
-        _screen.Text(0, h - 1, StatusBar.Build(left, right, w), ConsoleColor.Black, ConsoleColor.Gray);
+        _screen.Text(0, h - 1, StatusBar.Build(left, right, w), _theme.StatusFg, _theme.StatusBg);
 
         // Поверх текста: раскрытое меню, менеджер и модальный попап.
         DrawDropdown(w, h);
@@ -1107,11 +1132,11 @@ internal sealed class TuiEditor
         _screen.Flush();
 
         // Аппаратный курсор ставим один раз за кадр:
-        // менеджер — в поле имени, иначе текст (прячем под меню и попапом).
-        bool uiOpen = _menu is not null || _modal is not null;
+        // менеджер — в поле имени, иначе текст (прячем под меню, попапом, настройками).
+        bool uiOpen = _menu is not null || _modal is not null || _settingsOpen;
         int cx = gutterWidth + (TabStops.VisualWidth(_buf.GetLine(_row), _col) - _left);
         int cy = 1 + (_row - _top);
-        bool pickerCursor = _picker is not null && _modal is null && _pickerCursorX >= 0;
+        bool pickerCursor = _picker is not null && _modal is null && !_settingsOpen && _pickerCursorX >= 0;
         bool placed = pickerCursor
             || (!uiOpen && _picker is null && cy >= 1 && cy < 1 + textHeight && cx >= gutterWidth && cx < w);
         try
@@ -1159,7 +1184,7 @@ internal sealed class TuiEditor
     /// </summary>
     private void DrawMenuBar(int w)
     {
-        List<TopMenu> menus = _menu?.Menus ?? BuildMenus();
+        List<TopMenu> menus = _menu?.Menus ?? BuildMenus(_loc);
         _menuX.Clear();
         int x = 0;
         for (int i = 0; i < menus.Count; i++)
@@ -1170,18 +1195,18 @@ internal sealed class TuiEditor
                 break;
             if (_menu is not null && _menu.OpenIndex == i)
             {
-                // Раскрытое меню — зелёная подсветка, как в MS Edit.
-                _screen.Text(x, 0, cell, ConsoleColor.Black, ConsoleColor.Green);
+                // Раскрытое меню — подсветка, как в MS Edit.
+                _screen.Text(x, 0, cell, _theme.MenuOpenFg, _theme.MenuOpenBg);
             }
             else
             {
-                _screen.Text(x, 0, " ", ConsoleColor.Gray, ConsoleColor.DarkBlue);
+                _screen.Text(x, 0, " ", _theme.MenuFg, _theme.MenuBarBg);
                 WriteMenuCell(x + 1, menus[i].Label, menus[i].Hotkey);
-                _screen.Text(x + cell.Length - 1, 0, " ", ConsoleColor.Gray, ConsoleColor.DarkBlue);
+                _screen.Text(x + cell.Length - 1, 0, " ", _theme.MenuFg, _theme.MenuBarBg);
             }
             x += cell.Length;
         }
-        string name = _buf.FilePath ?? "без имени";
+        string name = _buf.FilePath ?? _loc["status.noname"];
         string dirty = _buf.IsModified ? "*" : string.Empty;
         string right = $" {name}{dirty} ";
         int rest = w - x;
@@ -1190,10 +1215,10 @@ internal sealed class TuiEditor
             case (<= 0, _):
                 break; // Места нет — имя файла не показываем.
             case (_, true):
-                _screen.Text(x, 0, right[..rest], ConsoleColor.White, ConsoleColor.DarkBlue);
+                _screen.Text(x, 0, right[..rest], _theme.MenuFg, _theme.MenuBarBg);
                 break;
             default:
-                _screen.Text(x, 0, new string(' ', rest - right.Length) + right, ConsoleColor.White, ConsoleColor.DarkBlue);
+                _screen.Text(x, 0, new string(' ', rest - right.Length) + right, _theme.MenuFg, _theme.MenuBarBg);
                 break;
         }
     }
@@ -1206,12 +1231,12 @@ internal sealed class TuiEditor
             idx = label.IndexOf(char.ToLowerInvariant(hotkey));
         if (idx < 0)
         {
-            _screen.Text(x, 0, label, ConsoleColor.Gray, ConsoleColor.DarkBlue);
+            _screen.Text(x, 0, label, _theme.MenuFg, _theme.MenuBarBg);
             return;
         }
-        _screen.Text(x, 0, label[..idx], ConsoleColor.Gray, ConsoleColor.DarkBlue);
-        _screen.Text(x + idx, 0, label[idx..(idx + 1)], ConsoleColor.Yellow, ConsoleColor.DarkBlue);
-        _screen.Text(x + idx + 1, 0, label[(idx + 1)..], ConsoleColor.Gray, ConsoleColor.DarkBlue);
+        _screen.Text(x, 0, label[..idx], _theme.MenuFg, _theme.MenuBarBg);
+        _screen.Text(x + idx, 0, label[idx..(idx + 1)], _theme.MenuHotkeyFg, _theme.MenuBarBg);
+        _screen.Text(x + idx + 1, 0, label[(idx + 1)..], _theme.MenuFg, _theme.MenuBarBg);
     }
 
     /// <summary>
@@ -1239,8 +1264,8 @@ internal sealed class TuiEditor
             return;
         int rows = Math.Min(m.Items.Count, maxRows - 2);
 
-        ConsoleColor borderFg = ConsoleColor.Gray;
-        ConsoleColor borderBg = ConsoleColor.Black;
+        ConsoleColor borderFg = _theme.DropBorderFg;
+        ConsoleColor borderBg = _theme.DropBg;
         _screen.Text(x, y, "┌" + new string('─', boxW - 2) + "┐", borderFg, borderBg);
         for (int i = 0; i < rows; i++)
         {
@@ -1248,18 +1273,126 @@ internal sealed class TuiEditor
             bool sel = i == _menu.SelectedIndex;
             // Выбранный пункт — зелёный, как в MS Edit.
             (ConsoleColor fg, ConsoleColor bg) = sel
-                ? (ConsoleColor.Black, ConsoleColor.Green)
-                : (ConsoleColor.Gray, ConsoleColor.Black);
+                ? (_theme.DropSelFg, _theme.DropSelBg)
+                : (_theme.DropFg, _theme.DropBg);
             _screen.Text(x, y + 1 + i, "│", borderFg, borderBg);
             string right = " " + (it.Shortcut ?? it.Hotkey.ToString());
             int room = boxW - 2 - right.Length - 1;
             string label = " " + (it.Label.Length > room ? it.Label[..Math.Max(0, room)] : it.Label);
             _screen.Text(x + 1, y + 1 + i, label.PadRight(boxW - 2 - right.Length), fg, bg);
             _screen.Text(x + 1 + boxW - 2 - right.Length, y + 1 + i, right,
-                sel ? fg : ConsoleColor.DarkGray, bg);
+                sel ? fg : _theme.DropDimFg, bg);
             _screen.Text(x + boxW - 1, y + 1 + i, "│", borderFg, borderBg);
         }
         _screen.Text(x, y + 1 + rows, "└" + new string('─', boxW - 2) + "┘", borderFg, borderBg);
+    }
+
+    /// <summary>Диалог настроек своим циклом ввода (как менеджер).</summary>
+    private void RunSettings()
+    {
+        var dlg = new SettingsDialogState();
+        _settingsOpen = true;
+        try
+        {
+            while (true)
+            {
+                Render();
+                DrawSettings(dlg);
+                _screen.Flush();
+                InputEvent ev;
+                try
+                {
+                    ev = _input.Read();
+                }
+                catch (InvalidOperationException)
+                {
+                    return;
+                }
+                if (ev is not KeyInput key)
+                    continue; // вставка в настройках не нужна
+                var k = key.Key;
+                if ((k.Modifiers & ConsoleModifiers.Control) != 0)
+                    continue;
+                switch (k.Key)
+                {
+                    case ConsoleKey.Escape:
+                    case ConsoleKey.Enter:
+                        return; // изменения сохраняются сразу при листании
+                    case ConsoleKey.UpArrow: dlg.Move(-1); break;
+                    case ConsoleKey.DownArrow: dlg.Move(1); break;
+                    case ConsoleKey.Home: dlg.Move(-SettingsDialogState.RowCount); break;
+                    case ConsoleKey.End: dlg.Move(SettingsDialogState.RowCount); break;
+                    case ConsoleKey.LeftArrow: CycleSetting(dlg, -1); break;
+                    case ConsoleKey.RightArrow: CycleSetting(dlg, 1); break;
+                }
+            }
+        }
+        finally
+        {
+            _settingsOpen = false;
+        }
+    }
+
+    /// <summary>Листание значения настройки с применением и сохранением.</summary>
+    private void CycleSetting(SettingsDialogState dlg, int dir)
+    {
+        switch (dlg.Row)
+        {
+            case 0:
+                int ti = SettingsDialogState.Cycle(
+                    Array.IndexOf(Themes.Names, _settings.Theme), Themes.Names.Length, dir);
+                _settings.Theme = Themes.Names[ti];
+                break;
+            default:
+                int li = SettingsDialogState.Cycle(
+                    Array.IndexOf(Loc.Supported, _settings.Language), Loc.Supported.Length, dir);
+                _settings.Language = Loc.Supported[li];
+                break;
+        }
+        _store.Save(_settings);
+        ApplySettings();
+    }
+
+    private string SettingsThemeName() => _settings.Theme == "light" ? _loc["settings.light"] : _loc["settings.dark"];
+
+    private static string SettingsLangName(string lang) => lang == "en" ? "English" : "Русский";
+
+    /// <summary>Отрисовка диалога настроек поверх всего.</summary>
+    private void DrawSettings(SettingsDialogState dlg)
+    {
+        int w = _screen.Width, h = _screen.Height;
+        if (w < 20 || h < 5)
+            return;
+        string title = _loc["settings.title"];
+        string[] labels = [_loc["settings.theme"], _loc["settings.lang"]];
+        string langName = SettingsLangName(_loc.Language);
+        string[] values = [SettingsThemeName(), langName];
+        int inner = _loc["settings.hint"].Length;
+        for (int i = 0; i < SettingsDialogState.RowCount; i++)
+            inner = Math.Max(inner, labels[i].Length + values[i].Length + 8);
+        int boxW = Math.Min(Math.Max(inner + 2, title.Length + 6), w);
+        inner = boxW - 2;
+        int boxH = SettingsDialogState.RowCount + 4;
+        int x0 = Math.Max(0, (w - boxW) / 2);
+        int y0 = Math.Max(0, (h - boxH) / 2);
+        if (y0 + boxH > h)
+            return;
+        Theme t = _theme;
+        _screen.Text(x0, y0, Screen.TitleRow(title, boxW), t.ModalFg, t.ModalBg);
+        for (int i = 0; i < SettingsDialogState.RowCount; i++)
+        {
+            string cell = $" {labels[i]}: < {values[i]} >";
+            if (cell.Length > inner)
+                cell = cell[..inner];
+            if (i == dlg.Row)
+                _screen.Text(x0, y0 + 1 + i, "│" + cell.PadRight(inner) + "│", t.ButtonSelFg, t.ButtonSelBg);
+            else
+                _screen.Text(x0, y0 + 1 + i, "│" + cell.PadRight(inner) + "│", t.ModalFg, t.ModalBg);
+        }
+        _screen.Text(x0, y0 + 1 + SettingsDialogState.RowCount,
+            "│" + CenterPad(_loc["settings.hint"], inner)[..inner] + "│", t.ModalHintFg, t.ModalBg);
+        _screen.Text(x0, y0 + 2 + SettingsDialogState.RowCount,
+            "└" + new string('─', inner) + "┘", t.ModalFg, t.ModalBg);
     }
 
     /// <summary>
@@ -1278,18 +1411,19 @@ internal sealed class TuiEditor
         int bh = Math.Min(Math.Max(h - 8, 14), h);
         int x0 = Math.Max(0, (w - bw) / 2);
         int y0 = Math.Max(0, (h - bh) / 2);
-        ConsoleColor bg = ConsoleColor.DarkBlue;
-        ConsoleColor fg = ConsoleColor.White;
+        ConsoleColor bg = _theme.ModalBg;
+        ConsoleColor fg = _theme.ModalFg;
         int inner = bw - 2;
 
-        string title = p.Mode == PickerMode.Open ? "Открыть" : "Сохранить как";
-        _screen.Text(x0, y0, "┌─ " + title + " " + new string('─', Math.Max(0, inner - title.Length - 4)) + "┐", fg, bg);
+        string title = p.Mode == PickerMode.Open ? _loc["picker.open.title"] : _loc["picker.save.title"];
+        _screen.Text(x0, y0, Screen.TitleRow(title, bw), fg, bg);
 
-        string dirRow = "Папка: " + MiddleTruncate(p.CurrentDirLabel, Math.Max(0, inner - 7));
+        string dirLabel = p.CurrentDir == "" ? _loc["picker.drives"] : p.CurrentDir;
+        string dirRow = _loc["picker.dir"] + MiddleTruncate(dirLabel, Math.Max(0, inner - _loc["picker.dir"].Length));
         _screen.Text(x0, y0 + 1, "│" + dirRow.PadRight(inner)[..inner] + "│", fg, bg);
 
         // Поле имени (хвост + курсор, как в промпте).
-        const string nameTag = "Имя: ";
+        string nameTag = _loc["picker.name"];
         string full = nameTag + p.Name;
         string vis = full.Length > inner ? full[^inner..] : full;
         _screen.Text(x0, y0 + 2, "│" + vis.PadRight(inner)[..inner] + "│", fg, bg);
@@ -1309,10 +1443,10 @@ internal sealed class TuiEditor
                 PickerEntry e = p.Entries[p.Top + i];
                 bool sel = p.Top + i == p.Selected;
                 (ConsoleColor efg, ConsoleColor ebg) = sel
-                    ? (ConsoleColor.Black, ConsoleColor.Green)
+                    ? (_theme.DropSelFg, _theme.DropSelBg)
                     : e.IsDir
-                        ? (e.Name == ".." ? ConsoleColor.DarkGray : ConsoleColor.Cyan, bg)
-                        : (ConsoleColor.Gray, bg);
+                        ? (e.Name == ".." ? _theme.PickerUpFg : _theme.PickerDirFg, bg)
+                        : (_theme.PickerFileFg, bg);
                 string label = e.DisplayName;
                 if (label.Length > inner)
                     label = label[..Math.Max(0, inner)];
@@ -1322,14 +1456,15 @@ internal sealed class TuiEditor
             }
             else
             {
-                string empty = p.Error ?? (p.Entries.Count == 0 ? "Пусто" : "");
-                ConsoleColor efg = p.Error is null ? ConsoleColor.DarkGray : ConsoleColor.Yellow;
+                string empty = p.Error == "BadPath" ? _loc["picker.badpath"]
+                    : p.Error ?? (p.Entries.Count == 0 ? _loc["picker.empty"] : "");
+                ConsoleColor efg = p.Error is null ? _theme.PickerEmptyFg : _theme.PickerErrorFg;
                 _screen.Text(x0, yy, "│" + empty.PadRight(inner)[..inner] + "│", efg, bg);
             }
         }
 
-        string hint = "Enter — открыть • Bksp — вверх • Esc — отмена";
-        _screen.Text(x0, y0 + bh - 2, "│" + CenterPad(hint, inner)[..inner] + "│", ConsoleColor.Gray, bg);
+        string hint = _loc["picker.hint"];
+        _screen.Text(x0, y0 + bh - 2, "│" + CenterPad(hint, inner)[..inner] + "│", _theme.PickerHintFg, bg);
         _screen.Text(x0, y0 + bh - 1, "└" + new string('─', inner) + "┘", fg, bg);
 
         if (p.OverwritePending)
@@ -1341,8 +1476,8 @@ internal sealed class TuiEditor
     {
         _pickerCursorX = -1; // курсор прячем
         string name = path.Length > 40 ? "..." + path[^37..] : path;
-        string[] lines = ["Файл уже существует:", name];
-        string[] btns = ["[ Да ]", "[ Нет ]"];
+        string[] lines = [_loc["picker.ow.exists"], name];
+        string[] btns = [_loc["picker.ow.yes"], _loc["picker.ow.no"]];
         int content = Math.Max(name.Length + 2, 30);
         int boxW = Math.Min(content + 6, w);
         int boxH = lines.Length + 4;
@@ -1350,17 +1485,19 @@ internal sealed class TuiEditor
         int y0 = Math.Max(0, (h - boxH) / 2);
         if (boxW < 16 || y0 + boxH > h)
             return;
-        ConsoleColor bg = ConsoleColor.DarkRed;
-        _screen.Text(x0, y0, "┌─ Перезаписать? " + new string('─', Math.Max(0, boxW - 17)) + "┐", ConsoleColor.White, bg);
+        ConsoleColor bg = _theme.ModalDangerBg;
+        ConsoleColor fg = _theme.ModalDangerFg;
+        string owTitle = _loc["picker.ow.title"];
+        _screen.Text(x0, y0, Screen.TitleRow(owTitle, boxW), fg, bg);
         for (int i = 0; i < lines.Length; i++)
-            _screen.Text(x0, y0 + 1 + i, "│" + CenterPad(lines[i], boxW - 2)[..(boxW - 2)] + "│", ConsoleColor.White, bg);
+            _screen.Text(x0, y0 + 1 + i, "│" + CenterPad(lines[i], boxW - 2)[..(boxW - 2)] + "│", fg, bg);
         int by = y0 + 1 + lines.Length;
         int pad = Math.Max(1, (boxW - 2 - (btns[0].Length + 2 + btns[1].Length)) / 2);
-        _screen.Text(x0, by, "│" + new string(' ', boxW - 2) + "│", ConsoleColor.White, bg);
-        _screen.Text(x0 + 1 + pad, by, btns[0], ConsoleColor.Black, ConsoleColor.Green);
-        _screen.Text(x0 + 1 + pad + btns[0].Length + 2, by, btns[1], ConsoleColor.White, bg);
-        _screen.Text(x0, by + 1, "│" + CenterPad("Y — да • N — нет • Enter — да • Esc — нет", boxW - 2)[..(boxW - 2)] + "│", ConsoleColor.Yellow, bg);
-        _screen.Text(x0, by + 2, "└" + new string('─', boxW - 2) + "┘", ConsoleColor.White, bg);
+        _screen.Text(x0, by, "│" + new string(' ', boxW - 2) + "│", fg, bg);
+        _screen.Text(x0 + 1 + pad, by, btns[0], _theme.ButtonSelFg, _theme.ButtonSelBg);
+        _screen.Text(x0 + 1 + pad + btns[0].Length + 2, by, btns[1], fg, bg);
+        _screen.Text(x0, by + 1, "│" + CenterPad(_loc["picker.ow.hint"], boxW - 2)[..(boxW - 2)] + "│", _theme.ModalHintDangerFg, bg);
+        _screen.Text(x0, by + 2, "└" + new string('─', boxW - 2) + "┘", fg, bg);
     }
 
     private static string MiddleTruncate(string s, int width)
@@ -1383,8 +1520,8 @@ internal sealed class TuiEditor
             return;
         ModalState m = _modal;
 
-        ConsoleColor bg = m.Danger ? ConsoleColor.DarkRed : ConsoleColor.DarkBlue;
-        ConsoleColor fg = ConsoleColor.White;
+        ConsoleColor bg = m.Danger ? _theme.ModalDangerBg : _theme.ModalBg;
+        ConsoleColor fg = m.Danger ? _theme.ModalDangerFg : _theme.ModalFg;
 
         int btnWidth = m.Buttons.Sum(b => b.Label.Length + 4) + (m.Buttons.Count - 1) * 2;
         int content = m.Title.Length + 2;
@@ -1402,10 +1539,7 @@ internal sealed class TuiEditor
             return;
 
         // Верх с заголовком: ┌─ Title ───┐
-        string titleSeg = $" {m.Title} ";
-        if (titleSeg.Length > boxW - 4)
-            titleSeg = titleSeg[..Math.Max(0, boxW - 4)];
-        _screen.Text(x0, y0, "┌─" + titleSeg + new string('─', Math.Max(0, boxW - 3 - titleSeg.Length)) + "┐", fg, bg);
+        _screen.Text(x0, y0, Screen.TitleRow(m.Title, boxW), fg, bg);
         // Строки текста по центру.
         for (int i = 0; i < m.Lines.Count; i++)
             _screen.Text(x0, y0 + 1 + i, "│" + CenterPad(m.Lines[i], boxW - 2) + "│", fg, bg);
@@ -1441,11 +1575,11 @@ internal sealed class TuiEditor
         for (int i = 0; i < m.Buttons.Count; i++)
         {
             if (i == m.Selected)
-                _screen.Text(bx, btnY, cells[i], ConsoleColor.Black, ConsoleColor.Green);
+                _screen.Text(bx, btnY, cells[i], _theme.ButtonSelFg, _theme.ButtonSelBg);
             bx += cells[i].Length + 2;
         }
         // Хинт и низ.
-        ConsoleColor hintFg = m.Danger ? ConsoleColor.Yellow : ConsoleColor.Gray;
+        ConsoleColor hintFg = m.Danger ? _theme.ModalHintDangerFg : _theme.ModalHintFg;
         _screen.Text(x0, y0 + 3 + m.Lines.Count, "│" + CenterPad(m.Hint, boxW - 2) + "│", hintFg, bg);
         _screen.Text(x0, y0 + 4 + m.Lines.Count, "└" + new string('─', boxW - 2) + "┘", fg, bg);
     }

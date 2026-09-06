@@ -55,6 +55,19 @@ public sealed class Screen
     }
 
     /// <summary>
+    /// Верхняя рамка модалки с заголовком ровно шириной <paramref name="boxW"/>:
+    /// <c>┌─ Title ───┐</c>. Единая формула для всех попапов
+    /// (раньше менеджер/настройки были короче на символ).
+    /// </summary>
+    public static string TitleRow(string title, int boxW)
+    {
+        string seg = $" {title} ";
+        if (seg.Length > boxW - 3)
+            seg = seg[..Math.Max(0, boxW - 3)];
+        return "┌─" + seg + new string('─', Math.Max(0, boxW - 3 - seg.Length)) + "┐";
+    }
+
+    /// <summary>
     /// Разница с предыдущим кадром runsами: подряд идущие изменившиеся
     /// ячейки одного цвета объединяются в одну операцию.
     /// </summary>

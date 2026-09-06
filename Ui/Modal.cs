@@ -56,52 +56,54 @@ public sealed class ModalState
     public bool Danger => Kind is ModalKind.UnsavedQuit or ModalKind.Error;
 
     /// <summary>Строка-подсказка клавиш внутри попапа.</summary>
-    public string Hint => Kind == ModalKind.UnsavedQuit
-        ? "S — сохранить • N — не сохранять • Enter — выбор • Esc — отмена"
-        : "Enter/Esc — закрыть";
+    public string Hint { get; }
 
-    private ModalState(ModalKind kind, string title, List<string> lines, List<ModalButton> buttons, int selected)
+    private ModalState(ModalKind kind, string title, List<string> lines, List<ModalButton> buttons, int selected, string hint)
     {
         Kind = kind;
         Title = title;
         Lines = lines;
         Buttons = buttons;
         Selected = Math.Clamp(selected, 0, buttons.Count - 1);
+        Hint = hint;
     }
 
     /// <summary>Попап «несохранённые изменения»: Сохранить / Не сохранять / Отмена.</summary>
-    public static ModalState UnsavedQuit() => new(
+    public static ModalState UnsavedQuit(Loc loc) => new(
         ModalKind.UnsavedQuit,
-        "Несохранённые изменения",
-        new List<string> { "Сохранить изменения перед выходом?" },
+        loc["modal.unsaved.title"],
+        new List<string> { loc["modal.unsaved.desc"] },
         new List<ModalButton>
         {
-            new("Сохранить", 'S'),
-            new("Не сохранять", 'N'),
-            new("Отмена", '\0'),
+            new(loc["modal.unsaved.save"], 'S'),
+            new(loc["modal.unsaved.discard"], 'N'),
+            new(loc["modal.unsaved.cancel"], '\0'),
         },
-        selected: 0);
+        selected: 0,
+        loc["modal.unsaved.hint"]);
 
     /// <summary>Попап «о программе».</summary>
-    public static ModalState About(string version) => new(
+    public static ModalState About(Loc loc, string version) => new(
         ModalKind.About,
-        "О программе",
+        loc["modal.about.title"],
         new List<string>
         {
-            "TuiEdit " + version,
-            "Простой TUI-редактор в стиле MS Edit / nano.",
-            "F2 — сохранить • ^O — как • F10 — меню",
+            loc.Format("modal.about.l1", version),
+            loc["modal.about.l2"],
+            loc["modal.about.l3"],
         },
-        new List<ModalButton> { new("OK", '\0') },
-        selected: 0);
+        new List<ModalButton> { new(loc["modal.about.ok"], '\0') },
+        selected: 0,
+        loc["modal.close.hint"]);
 
-    /// <summary>Попап ошибки.</summary>
-    public static ModalState Error(string title, string message) => new(
+    /// <summary>Попап ошибки (заголовок и текст уже локализованы вызывающим).</summary>
+    public static ModalState Error(Loc loc, string title, string message) => new(
         ModalKind.Error,
         title,
         message.Split('\n').Select(s => s.Trim()).Where(s => s.Length > 0).Take(6).ToList(),
-        new List<ModalButton> { new("OK", '\0') },
-        selected: 0);
+        new List<ModalButton> { new(loc["modal.error.ok"], '\0') },
+        selected: 0,
+        loc["modal.close.hint"]);
 
     /// <summary>
     /// Обрабатывает клавишу: стрелки/Home/End двигают подсветку,

@@ -4,33 +4,37 @@ using TuiEdit;
 Console.OutputEncoding = Encoding.UTF8;
 try { Console.InputEncoding = Encoding.UTF8; } catch { }
 
+var store = new SettingsStore(SettingsStore.DefaultPath());
+AppSettings settings = store.Load();
+Loc loc = Loc.Load(settings.Language);
+
 string? file = null;
 foreach (string a in args)
 {
     switch (a)
     {
         case "-h" or "--help" or "/?":
-            Console.WriteLine("TuiEdit — простой TUI текстовый редактор (стиль Microsoft Edit / nano).");
+            Console.WriteLine(loc["help.title"]);
             Console.WriteLine();
-            Console.WriteLine("Использование:");
-            Console.WriteLine("  tui-edit [файл]");
+            Console.WriteLine(loc["help.usage"]);
+            Console.WriteLine(loc["help.usage.line"]);
             Console.WriteLine();
-            Console.WriteLine("Горячие клавиши:");
-            Console.WriteLine("  F2 или ^S сохранить (без имени — запросит)   ^O сохранить как   ^Q выход");
-            Console.WriteLine("  ^F найти       F3 далее           ^G перейти к строке");
-            Console.WriteLine("  ^K вырезать строку  ^U/^V вставить  ^C копировать строку");
-        Console.WriteLine("  ^C кладёт копию и в системный буфер (Windows Terminal) — вставка Ctrl+V");
-            Console.WriteLine("  ^Z отмена  ^Y возврат  ^A выделить всё   Shift+стрелки — выделение");
-            Console.WriteLine("  стрелки/Home/End/PgUp/PgDn, Ctrl+стрелки — по словам");
-        Console.WriteLine("  Enter — новая строка, Tab — отступ, Shift+Tab — убрать отступ");
-        Console.WriteLine("  Вставка из обмена терминала — полным текстом за один шаг undo");
-            Console.WriteLine("  F10 или Alt+F/E/H — меню (стрелки/Enter/Esc, буква-хоткей)");
-        Console.WriteLine("  Открыть/Сохранить как — файловый менеджер (стрелки • Enter • Bksp вверх • Esc)");
+            Console.WriteLine(loc["help.keys"]);
+            Console.WriteLine(loc["help.k1"]);
+            Console.WriteLine(loc["help.k2"]);
+            Console.WriteLine(loc["help.k3"]);
+            Console.WriteLine(loc["help.k4"]);
+            Console.WriteLine(loc["help.k5"]);
+            Console.WriteLine(loc["help.k6"]);
+            Console.WriteLine(loc["help.k7"]);
+            Console.WriteLine(loc["help.k8"]);
+            Console.WriteLine(loc["help.k9"]);
+            Console.WriteLine(loc["help.k10"]);
             Console.WriteLine();
-            Console.WriteLine("Статусбар: позиция | кодировка | переводы строк | отступ | файл.");
+            Console.WriteLine(loc["help.status"]);
             Console.WriteLine();
-            Console.WriteLine("Примечание: в классической консоли Windows ^S может");
-            Console.WriteLine("перехватываться как пауза вывода (XOFF) — тогда жмите F2.");
+            Console.WriteLine(loc["help.note1"]);
+            Console.WriteLine(loc["help.note2"]);
             return 0;
         case "-v" or "--version":
             Console.WriteLine("TuiEdit 0.1.0 (net10.0, System.Console)");
@@ -47,11 +51,11 @@ Console.CancelKeyPress += (_, e) => e.Cancel = true; // Ctrl+C приходит 
 
 if (Console.IsInputRedirected || Console.IsOutputRedirected)
 {
-    Console.Error.WriteLine("TuiEdit требует интерактивную консоль (ввод/вывод перенаправлен).");
+    Console.Error.WriteLine(loc["error.interactive"]);
     return 1;
 }
 
 var buffer = new TextBuffer(file);
-var editor = new TuiEditor(buffer);
+var editor = new TuiEditor(buffer, settings, store);
 editor.Run();
 return 0;

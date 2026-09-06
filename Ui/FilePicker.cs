@@ -40,7 +40,7 @@ public sealed class FilePickerState
     /// <summary>Режим.</summary>
     public PickerMode Mode { get; }
 
-    /// <summary>Текущий каталог; "" — диски (Windows).</summary>
+    /// <summary>Текущий каталог; "" — диски (подпись маппит вызывающий через Loc).</summary>
     public string CurrentDir { get; private set; }
 
     /// <summary>Записи каталога: .., папки, файлы.</summary>
@@ -78,9 +78,6 @@ public sealed class FilePickerState
         NamePos = Name.Length;
         Refresh();
     }
-
-    /// <summary>Подпись текущего каталога ("Диски" для выбора дисков).</summary>
-    public string CurrentDirLabel => CurrentDir == "" ? "Диски" : CurrentDir;
 
     /// <summary>Перечитать каталог: .., папки, файлы (сортировка без учёта регистра).</summary>
     public void Refresh()
@@ -229,7 +226,7 @@ public sealed class FilePickerState
         }
         catch
         {
-            Error = "Некорректный путь";
+            Error = "BadPath";
             return;
         }
         Selected = 0;
@@ -351,7 +348,7 @@ public sealed class FilePickerState
         }
         catch
         {
-            Error = "Некорректный путь";
+            Error = "BadPath";
         }
     }
 

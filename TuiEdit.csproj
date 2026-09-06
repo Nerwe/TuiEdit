@@ -11,4 +11,9 @@
     <Description>Простой TUI текстовый редактор в стиле Microsoft Edit / nano на чистом System.Console.</Description>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- WithCulture=false: иначе .en./.ru. в имени уведут файлы в satellite-сборки -->
+    <EmbeddedResource Include="Resources\*.json" WithCulture="false" />
+  </ItemGroup>
+
 </Project>

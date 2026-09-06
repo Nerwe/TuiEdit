@@ -187,7 +187,7 @@ internal sealed class TextBuffer
     public void Save(string? path = null)
     {
         string target = path ?? FilePath
-            ?? throw new InvalidOperationException("Нет имени файла. Используйте «Сохранить как».");
+            ?? throw new InvalidOperationException("NoFileName");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(target)) ?? ".");
         string newline = Ending switch
         {
