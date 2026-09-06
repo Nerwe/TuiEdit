@@ -25,6 +25,7 @@ foreach (string a in args)
         Console.WriteLine("  Enter — новая строка, Tab — отступ, Shift+Tab — убрать отступ");
         Console.WriteLine("  Вставка из обмена терминала — полным текстом за один шаг undo");
             Console.WriteLine("  F10 или Alt+F/E/H — меню (стрелки/Enter/Esc, буква-хоткей)");
+        Console.WriteLine("  Открыть/Сохранить как — файловый менеджер (стрелки • Enter • Bksp вверх • Esc)");
             Console.WriteLine();
             Console.WriteLine("Статусбар: позиция | кодировка | переводы строк | отступ | файл.");
             Console.WriteLine();

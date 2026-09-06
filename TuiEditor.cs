@@ -24,6 +24,9 @@ internal sealed class TuiEditor
     private PendingOp _pending = PendingOp.None;
     private string _pendingPath = string.Empty;
     private readonly List<int> _menuX = new(); // x-координаты меню в баре (из рендера)
+    private FilePickerState? _picker; // null — менеджер закрыт
+    private int _pickerCursorX = -1;  // курсор поля имени (из рендера)
+    private int _pickerCursorY = -1;
     private readonly Screen _screen = new(); // кадр + diff-вывод (без мигания)
     private readonly InputReader _input = new();
 
@@ -441,12 +444,12 @@ internal sealed class TuiEditor
 
     private void SaveAs()
     {
-        string? path = Prompt("Сохранить как: ", _buf.FilePath ?? string.Empty);
+        string? path = PickSavePath(
+            _buf.FilePath is null ? "Без имени.txt" : Path.GetFileName(_buf.FilePath));
         if (path is null) { SetMessage("Отменено"); return; }
-        if (string.IsNullOrWhiteSpace(path)) { SetMessage("Пустое имя файла"); return; }
         try
         {
-            _buf.Save(path.Trim());
+            _buf.Save(path);
             SetMessage($"Сохранено: {_buf.FilePath}");
         }
         catch (Exception ex) { SetMessage($"Ошибка сохранения: {ex.Message}"); }
@@ -476,16 +479,15 @@ internal sealed class TuiEditor
         _modal = ModalState.UnsavedQuit();
     }
 
-    /// <summary>Открыть файл: запрос пути, затем диалог при несохранённых изменениях.</summary>
+    /// <summary>Открыть файл через менеджер, затем диалог при несохранённых изменениях.</summary>
     private void DoOpen()
     {
-        string? path = Prompt("Открыть: ", string.Empty);
-        if (string.IsNullOrWhiteSpace(path))
+        string? path = RunPicker(PickerMode.Open, StartDir(), string.Empty);
+        if (path is null)
         {
             SetMessage("Отменено");
             return;
         }
-        path = path.Trim();
         if (!_buf.IsModified)
         {
             LoadFile(path);
@@ -653,14 +655,14 @@ internal sealed class TuiEditor
             switch (_buf.FilePath)
             {
                 case null:
-                    string? path = Prompt("Сохранить как: ", string.Empty);
-                    if (string.IsNullOrWhiteSpace(path))
+                    string? path = PickSavePath("Без имени.txt");
+                    if (path is null)
                     {
                         _pending = PendingOp.None;
                         SetMessage("Отменено");
                         return;
                     }
-                    _buf.Save(path.Trim());
+                    _buf.Save(path);
                     break;
                 default:
                     _buf.Save();
@@ -689,6 +691,115 @@ internal sealed class TuiEditor
             default: break;
         }
     }
+
+    /// <summary>Стартовый каталог менеджера: папка файла или текущая.</summary>
+    private string StartDir()
+    {
+        try
+        {
+            if (_buf.FilePath is not null)
+            {
+                string? d = Path.GetDirectoryName(Path.GetFullPath(_buf.FilePath));
+                if (!string.IsNullOrEmpty(d) && Directory.Exists(d))
+                    return d;
+            }
+        }
+        catch
+        {
+        }
+        try
+        {
+            return Directory.GetCurrentDirectory();
+        }
+        catch
+        {
+            return OperatingSystem.IsWindows() ? "C:\\" : "/";
+        }
+    }
+
+    /// <summary>
+    /// Файловый менеджер модальным окном (свой цикл ввода, как Prompt).
+    /// В Save-режиме перезапись подтверждается внутри (красный бокс).
+    /// </summary>
+    /// <returns>Выбранный путь или null (Esc).</returns>
+    private string? RunPicker(PickerMode mode, string startDir, string initialName)
+    {
+        _picker = new FilePickerState(mode, startDir, initialName);
+        try
+        {
+            while (true)
+            {
+                Render();
+                InputEvent ev;
+                try
+                {
+                    ev = _input.Read();
+                }
+                catch (InvalidOperationException)
+                {
+                    return null;
+                }
+                if (ev is PasteInput paste)
+                {
+                    _picker.DismissOverwrite();
+                    _picker.InsertName(paste.Text.Replace("\r", "").Replace("\n", ""));
+                    continue;
+                }
+                var k = ((KeyInput)ev).Key;
+                if ((k.Modifiers & ConsoleModifiers.Control) != 0)
+                    continue; // Ctrl в менеджере не используется
+                if (_picker.OverwritePending)
+                {
+                    switch (k.Key, char.ToUpperInvariant(k.KeyChar))
+                    {
+                        case (ConsoleKey.Enter, _): return _picker.OverwritePath;
+                        case (_, 'Y'): return _picker.OverwritePath;
+                        case (_, 'Н'): return _picker.OverwritePath; // русская Y
+                        default: _picker.DismissOverwrite(); break; // Esc, N, прочие — назад
+                    }
+                    continue;
+                }
+                switch (k.Key)
+                {
+                    case ConsoleKey.Escape: return null;
+                    case ConsoleKey.UpArrow: _picker.MoveHighlight(-1); break;
+                    case ConsoleKey.DownArrow: _picker.MoveHighlight(1); break;
+                    case ConsoleKey.PageUp: _picker.MoveHighlight(-10); break;
+                    case ConsoleKey.PageDown: _picker.MoveHighlight(10); break;
+                    case ConsoleKey.Home: _picker.GotoFirst(); break;
+                    case ConsoleKey.End: _picker.GotoLast(); break;
+                    case ConsoleKey.Enter:
+                        var (res, path) = _picker.Enter();
+                        if (res == PickerEnterResult.Accepted && path is not null)
+                        {
+                            if (mode == PickerMode.Save && File.Exists(path))
+                            {
+                                _picker.AskOverwrite(path);
+                                break;
+                            }
+                            return path;
+                        }
+                        break;
+                    case ConsoleKey.Backspace: _picker.Backspace(); break;
+                    case ConsoleKey.Delete: _picker.DeleteChar(); break;
+                    case ConsoleKey.LeftArrow: _picker.MoveNameCursor(-1); break;
+                    case ConsoleKey.RightArrow: _picker.MoveNameCursor(1); break;
+                    default:
+                        if (!char.IsControl(k.KeyChar))
+                            _picker.InsertName(k.KeyChar.ToString());
+                        break;
+                }
+            }
+        }
+        finally
+        {
+            _picker = null;
+        }
+    }
+
+    /// <summary>Путь для сохранения через менеджер (перезапись уже подтверждена внутри).</summary>
+    private string? PickSavePath(string initialName) =>
+        RunPicker(PickerMode.Save, StartDir(), initialName);
 
     private void Find()
     {
@@ -987,22 +1098,26 @@ internal sealed class TuiEditor
         string right = $" {_buf.EncodingLabel} | {_buf.EndingLabel} | {_buf.IndentLabel} | {file} ";
         _screen.Text(0, h - 1, StatusBar.Build(left, right, w), ConsoleColor.Black, ConsoleColor.Gray);
 
-        // Поверх текста: раскрытое меню и модальный попап.
+        // Поверх текста: раскрытое меню, менеджер и модальный попап.
         DrawDropdown(w, h);
+        DrawPicker(w, h);
         DrawModal(w, h);
 
         // Один diff-вывод за кадр — без мигания.
         _screen.Flush();
 
-        // Аппаратный курсор ставим один раз за кадр (прячем под меню и попапом).
+        // Аппаратный курсор ставим один раз за кадр:
+        // менеджер — в поле имени, иначе текст (прячем под меню и попапом).
         bool uiOpen = _menu is not null || _modal is not null;
         int cx = gutterWidth + (TabStops.VisualWidth(_buf.GetLine(_row), _col) - _left);
         int cy = 1 + (_row - _top);
-        bool placed = !uiOpen && cy >= 1 && cy < 1 + textHeight && cx >= gutterWidth && cx < w;
+        bool pickerCursor = _picker is not null && _modal is null && _pickerCursorX >= 0;
+        bool placed = pickerCursor
+            || (!uiOpen && _picker is null && cy >= 1 && cy < 1 + textHeight && cx >= gutterWidth && cx < w);
         try
         {
             if (placed)
-                Console.SetCursorPosition(cx, cy);
+                Console.SetCursorPosition(pickerCursor ? _pickerCursorX : cx, pickerCursor ? _pickerCursorY : cy);
             Console.CursorVisible = placed;
         }
         catch { }
@@ -1145,6 +1260,117 @@ internal sealed class TuiEditor
             _screen.Text(x + boxW - 1, y + 1 + i, "│", borderFg, borderBg);
         }
         _screen.Text(x, y + 1 + rows, "└" + new string('─', boxW - 2) + "┘", borderFg, borderBg);
+    }
+
+    /// <summary>
+    /// Файловый менеджер большой модалкой (как file-picker в MS Edit):
+    /// путь, поле имени, список [.., папки/, файлы], хинт.
+    /// </summary>
+    private void DrawPicker(int w, int h)
+    {
+        if (_picker is null)
+        {
+            _pickerCursorX = -1;
+            return;
+        }
+        FilePickerState p = _picker;
+        int bw = Math.Min(Math.Max(w - 10, 30), w);
+        int bh = Math.Min(Math.Max(h - 8, 14), h);
+        int x0 = Math.Max(0, (w - bw) / 2);
+        int y0 = Math.Max(0, (h - bh) / 2);
+        ConsoleColor bg = ConsoleColor.DarkBlue;
+        ConsoleColor fg = ConsoleColor.White;
+        int inner = bw - 2;
+
+        string title = p.Mode == PickerMode.Open ? "Открыть" : "Сохранить как";
+        _screen.Text(x0, y0, "┌─ " + title + " " + new string('─', Math.Max(0, inner - title.Length - 4)) + "┐", fg, bg);
+
+        string dirRow = "Папка: " + MiddleTruncate(p.CurrentDirLabel, Math.Max(0, inner - 7));
+        _screen.Text(x0, y0 + 1, "│" + dirRow.PadRight(inner)[..inner] + "│", fg, bg);
+
+        // Поле имени (хвост + курсор, как в промпте).
+        const string nameTag = "Имя: ";
+        string full = nameTag + p.Name;
+        string vis = full.Length > inner ? full[^inner..] : full;
+        _screen.Text(x0, y0 + 2, "│" + vis.PadRight(inner)[..inner] + "│", fg, bg);
+        int shift = Math.Max(0, full.Length - inner);
+        int ncx = x0 + 1 + nameTag.Length + p.NamePos - shift;
+        _pickerCursorX = ncx >= x0 + 1 && ncx < x0 + bw - 1 ? ncx : -1;
+        _pickerCursorY = y0 + 2;
+
+        // Список с прокруткой: строки y0+3 .. y0+bh-3, хинт, низ.
+        int listRows = bh - 5;
+        p.EnsureVisible(Math.Max(1, listRows));
+        for (int i = 0; i < listRows; i++)
+        {
+            int yy = y0 + 3 + i;
+            if (i < p.Entries.Count - p.Top)
+            {
+                PickerEntry e = p.Entries[p.Top + i];
+                bool sel = p.Top + i == p.Selected;
+                (ConsoleColor efg, ConsoleColor ebg) = sel
+                    ? (ConsoleColor.Black, ConsoleColor.Green)
+                    : e.IsDir
+                        ? (e.Name == ".." ? ConsoleColor.DarkGray : ConsoleColor.Cyan, bg)
+                        : (ConsoleColor.Gray, bg);
+                string label = e.DisplayName;
+                if (label.Length > inner)
+                    label = label[..Math.Max(0, inner)];
+                _screen.Text(x0, yy, "│", fg, bg);
+                _screen.Text(x0 + 1, yy, label.PadRight(inner)[..inner], efg, ebg);
+                _screen.Text(x0 + bw - 1, yy, "│", fg, bg);
+            }
+            else
+            {
+                string empty = p.Error ?? (p.Entries.Count == 0 ? "Пусто" : "");
+                ConsoleColor efg = p.Error is null ? ConsoleColor.DarkGray : ConsoleColor.Yellow;
+                _screen.Text(x0, yy, "│" + empty.PadRight(inner)[..inner] + "│", efg, bg);
+            }
+        }
+
+        string hint = "Enter — открыть • Bksp — вверх • Esc — отмена";
+        _screen.Text(x0, y0 + bh - 2, "│" + CenterPad(hint, inner)[..inner] + "│", ConsoleColor.Gray, bg);
+        _screen.Text(x0, y0 + bh - 1, "└" + new string('─', inner) + "┘", fg, bg);
+
+        if (p.OverwritePending)
+            DrawOverwriteBox(w, h, p.OverwritePath);
+    }
+
+    /// <summary>Красный вопрос о перезаписи поверх менеджера (как overwrite-modal в Edit).</summary>
+    private void DrawOverwriteBox(int w, int h, string path)
+    {
+        _pickerCursorX = -1; // курсор прячем
+        string name = path.Length > 40 ? "..." + path[^37..] : path;
+        string[] lines = ["Файл уже существует:", name];
+        string[] btns = ["[ Да ]", "[ Нет ]"];
+        int content = Math.Max(name.Length + 2, 30);
+        int boxW = Math.Min(content + 6, w);
+        int boxH = lines.Length + 4;
+        int x0 = Math.Max(0, (w - boxW) / 2);
+        int y0 = Math.Max(0, (h - boxH) / 2);
+        if (boxW < 16 || y0 + boxH > h)
+            return;
+        ConsoleColor bg = ConsoleColor.DarkRed;
+        _screen.Text(x0, y0, "┌─ Перезаписать? " + new string('─', Math.Max(0, boxW - 17)) + "┐", ConsoleColor.White, bg);
+        for (int i = 0; i < lines.Length; i++)
+            _screen.Text(x0, y0 + 1 + i, "│" + CenterPad(lines[i], boxW - 2)[..(boxW - 2)] + "│", ConsoleColor.White, bg);
+        int by = y0 + 1 + lines.Length;
+        int pad = Math.Max(1, (boxW - 2 - (btns[0].Length + 2 + btns[1].Length)) / 2);
+        _screen.Text(x0, by, "│" + new string(' ', boxW - 2) + "│", ConsoleColor.White, bg);
+        _screen.Text(x0 + 1 + pad, by, btns[0], ConsoleColor.Black, ConsoleColor.Green);
+        _screen.Text(x0 + 1 + pad + btns[0].Length + 2, by, btns[1], ConsoleColor.White, bg);
+        _screen.Text(x0, by + 1, "│" + CenterPad("Y — да • N — нет • Enter — да • Esc — нет", boxW - 2)[..(boxW - 2)] + "│", ConsoleColor.Yellow, bg);
+        _screen.Text(x0, by + 2, "└" + new string('─', boxW - 2) + "┘", ConsoleColor.White, bg);
+    }
+
+    private static string MiddleTruncate(string s, int width)
+    {
+        if (s.Length <= width)
+            return s;
+        if (width <= 6)
+            return s[..Math.Max(0, width)];
+        int head = (width - 3) / 2;
+        return s[..head] + "..." + s[^(width - 3 - head)..];
     }
 
     /// <summary>
