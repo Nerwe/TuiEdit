@@ -29,6 +29,16 @@ public enum EditorCommand
     SaveAs,
     /// <summary>Выход (с подтверждением при несохранённых изменениях).</summary>
     Quit,
+    /// <summary>Новый документ (с проверкой несохранённых изменений).</summary>
+    NewFile,
+    /// <summary>Открыть файл (только из меню, своей клавиши нет).</summary>
+    OpenFile,
+    /// <summary>О программе (только из меню).</summary>
+    About,
+    /// <summary>Показать/скрыть меню-бар (F10).</summary>
+    ToggleMenu,
+    /// <summary>Раскрыть конкретное меню (Alt+буква).</summary>
+    OpenMenuFile, OpenMenuEdit, OpenMenuHelp,
     /// <summary>Поиск.</summary>
     Find,
     /// <summary>Следующее вхождение поиска (F3).</summary>
@@ -41,6 +51,10 @@ public enum EditorCommand
     Undo, Redo,
     /// <summary>Вставка: Enter, Backspace, Delete, Tab, печатный символ.</summary>
     InsertEnter, InsertBackspace, InsertDelete, InsertTab, InsertChar,
+    /// <summary>Убрать отступ (Shift+Tab).</summary>
+    Unindent,
+    /// <summary>Выделить всё (Ctrl+A).</summary>
+    SelectAll,
 }
 
 /// <summary>
@@ -63,8 +77,22 @@ public static class KeyMap
     /// <returns>Команда редактора или <see cref="EditorCommand.None"/>.</returns>
     public static EditorCommand Map(ConsoleKeyInfo key)
     {
-        if ((key.Modifiers & ConsoleModifiers.Alt) != 0)
-            return EditorCommand.None; // Alt-комбинации не используем
+        bool alt = (key.Modifiers & ConsoleModifiers.Alt) != 0;
+        bool ctrl = (key.Modifiers & ConsoleModifiers.Control) != 0;
+
+        // Alt+буква открывает меню (как в MS Edit: Alt+F/E/V/H).
+        if (alt && !ctrl)
+        {
+            return key.Key switch
+            {
+                ConsoleKey.F => EditorCommand.OpenMenuFile,
+                ConsoleKey.E => EditorCommand.OpenMenuEdit,
+                ConsoleKey.H => EditorCommand.OpenMenuHelp,
+                _ => EditorCommand.None,
+            };
+        }
+        if (alt)
+            return EditorCommand.None; // прочие Alt-комбинации не используем
 
         if ((key.Modifiers & ConsoleModifiers.Control) != 0)
         {
@@ -73,6 +101,7 @@ public static class KeyMap
                 ConsoleKey.S => EditorCommand.Save,
                 ConsoleKey.O => EditorCommand.SaveAs,
                 ConsoleKey.Q => EditorCommand.Quit,
+                ConsoleKey.N => EditorCommand.NewFile,
                 ConsoleKey.F => EditorCommand.Find,
                 ConsoleKey.G => EditorCommand.GoToLine,
                 ConsoleKey.K => EditorCommand.CutLine,
@@ -81,7 +110,7 @@ public static class KeyMap
                 ConsoleKey.C => EditorCommand.CopyLine,
                 ConsoleKey.Z => EditorCommand.Undo,
                 ConsoleKey.Y => EditorCommand.Redo,
-                ConsoleKey.A => EditorCommand.GoHome, // как в nano
+                ConsoleKey.A => EditorCommand.SelectAll, // как в MS Edit (Home — клавишей Home)
                 ConsoleKey.E => EditorCommand.GoEnd,
                 ConsoleKey.Home => EditorCommand.GoDocStart,
                 ConsoleKey.End => EditorCommand.GoDocEnd,
@@ -105,11 +134,14 @@ public static class KeyMap
             ConsoleKey.PageDown => EditorCommand.PageDown,
             ConsoleKey.F2 => EditorCommand.Save, // дубль ^S, не перехватывается терминалом
             ConsoleKey.F3 => EditorCommand.FindNext,
+            ConsoleKey.F10 => EditorCommand.ToggleMenu, // фокус на меню-бар, как в MS Edit
             ConsoleKey.Escape => EditorCommand.None,
             ConsoleKey.Enter => EditorCommand.InsertEnter,
             ConsoleKey.Backspace => EditorCommand.InsertBackspace,
             ConsoleKey.Delete => EditorCommand.InsertDelete,
-            ConsoleKey.Tab => EditorCommand.InsertTab,
+            ConsoleKey.Tab => (key.Modifiers & ConsoleModifiers.Shift) != 0
+                ? EditorCommand.Unindent
+                : EditorCommand.InsertTab,
             _ => char.IsControl(key.KeyChar) ? EditorCommand.None : EditorCommand.InsertChar,
         };
     }
