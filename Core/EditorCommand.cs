@@ -33,6 +33,8 @@ public enum EditorCommand
     NewFile,
     /// <summary>Открыть файл (только из меню, своей клавиши нет).</summary>
     OpenFile,
+    /// <summary>Недавние файлы (только из меню).</summary>
+    OpenRecent,
     /// <summary>О программе (только из меню).</summary>
     About,
     /// <summary>Справка по клавишам (F1).</summary>

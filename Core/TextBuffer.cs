@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace TuiEdit;
 
@@ -184,11 +185,33 @@ internal sealed class TextBuffer
         IsModified = false;
     }
 
-    public void Save(string? path = null)
+    /// <summary>
+    /// Восстановить содержимое из черновика: замена строк, undo сброшен, dirty.
+    /// Путь и кодировка не трогаются (черновик — только текст и курсор).
+    /// </summary>
+    public void RestoreContent(IList<string> lines)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        Lines = new List<string>(lines);
+        if (Lines.Count == 0)
+            Lines.Add(string.Empty);
+        _undo.Clear();
+        _redo.Clear();
+        IsModified = true;
+    }
+
+    /// <param name="path">Путь (null — текущий).</param>
+    /// <param name="backup">Сначала скопировать существующий файл в .bak (ошибки молча).</param>
+    public void Save(string? path = null, bool backup = false)
     {
         string target = path ?? FilePath
             ?? throw new InvalidOperationException("NoFileName");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(target)) ?? ".");
+        if (backup && File.Exists(target))
+        {
+            try { File.Copy(target, target + ".bak", overwrite: true); }
+            catch { }
+        }
         string newline = Ending switch
         {
             LineEnding.CrLf => "\r\n",
@@ -484,6 +507,30 @@ internal sealed class TextBuffer
         return true;
     }
 
+    /// <summary>Таймаут regex-поиска (защита от катастрофического бэктрекинга).</summary>
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>Плохой ли regex-шаблон (проверка до поиска, для сообщения).</summary>
+    public static bool IsBadRegex(string term, bool matchCase, bool wholeWord) =>
+        TryBuildRegex(term, matchCase, wholeWord) is null;
+
+    /// <summary>Скомпилировать шаблон (null — пустой/некорректный).</summary>
+    internal static Regex? TryBuildRegex(string term, bool matchCase, bool wholeWord)
+    {
+        if (string.IsNullOrEmpty(term)) return null;
+        try
+        {
+            string pat = wholeWord ? $@"\b(?:{term})\b" : term;
+            RegexOptions opts = RegexOptions.CultureInvariant;
+            if (!matchCase) opts |= RegexOptions.IgnoreCase;
+            return new Regex(pat, opts, RegexTimeout);
+        }
+        catch (ArgumentException)
+        {
+            return null; // некорректный шаблон
+        }
+    }
+
     /// <summary>
     /// Поиск вперёд от (startRow, startCol): вхождения, начинающиеся на позиции
     /// с индексом &gt;= startCol в стартовой строке. При wrap=true зацикливает
@@ -496,9 +543,34 @@ internal sealed class TextBuffer
 
     /// <inheritdoc cref="FindNext(string, int, int)"/>
     public (int row, int col, bool wrapped)? FindNext(
-        string term, int startRow, int startCol, bool matchCase, bool wholeWord, bool wrap = true)
+        string term, int startRow, int startCol, bool matchCase, bool wholeWord,
+        bool wrap = true, bool useRegex = false)
     {
         if (string.IsNullOrEmpty(term)) return null;
+        if (useRegex)
+        {
+            Regex? rx = TryBuildRegex(term, matchCase, wholeWord);
+            if (rx is null) return null;
+            try
+            {
+                startRow = Math.Clamp(startRow, 0, Lines.Count - 1);
+                for (int r = startRow; r < Lines.Count; r++)
+                {
+                    int from = (r == startRow) ? Math.Min(Math.Max(startCol, 0), Lines[r].Length) : 0;
+                    int idx = RegexIndexOf(Lines[r], rx, from, Lines[r].Length);
+                    if (idx >= 0) return (r, idx, false);
+                }
+                if (!wrap) return null;
+                for (int r = 0; r <= startRow && r < Lines.Count; r++)
+                {
+                    int to = (r == startRow) ? Math.Min(Math.Max(startCol, 0), Lines[r].Length) : Lines[r].Length;
+                    int idx = RegexIndexOf(Lines[r], rx, 0, to);
+                    if (idx >= 0) return (r, idx, true);
+                }
+                return null;
+            }
+            catch (RegexMatchTimeoutException) { return null; }
+        }
         startRow = Math.Clamp(startRow, 0, Lines.Count - 1);
         for (int r = startRow; r < Lines.Count; r++)
         {
@@ -521,9 +593,34 @@ internal sealed class TextBuffer
     /// startCol в стартовой строке. При wrap=true зацикливает с конца файла.
     /// </summary>
     public (int row, int col, bool wrapped)? FindPrev(
-        string term, int startRow, int startCol, bool matchCase, bool wholeWord, bool wrap = true)
+        string term, int startRow, int startCol, bool matchCase, bool wholeWord,
+        bool wrap = true, bool useRegex = false)
     {
         if (string.IsNullOrEmpty(term)) return null;
+        if (useRegex)
+        {
+            Regex? rx = TryBuildRegex(term, matchCase, wholeWord);
+            if (rx is null) return null;
+            try
+            {
+                startRow = Math.Clamp(startRow, 0, Lines.Count - 1);
+                for (int r = startRow; r >= 0; r--)
+                {
+                    int to = (r == startRow) ? Math.Min(Math.Max(startCol, 0), Lines[r].Length) : Lines[r].Length;
+                    int idx = LastRegexIndexOf(Lines[r], rx, 0, to);
+                    if (idx >= 0) return (r, idx, false);
+                }
+                if (!wrap) return null;
+                for (int r = Lines.Count - 1; r >= startRow; r--)
+                {
+                    int from = (r == startRow) ? Math.Min(Math.Max(startCol, 0), Lines[r].Length) : 0;
+                    int idx = LastRegexIndexOf(Lines[r], rx, from, Lines[r].Length);
+                    if (idx >= 0) return (r, idx, true);
+                }
+                return null;
+            }
+            catch (RegexMatchTimeoutException) { return null; }
+        }
         startRow = Math.Clamp(startRow, 0, Lines.Count - 1);
         for (int r = startRow; r >= 0; r--)
         {
@@ -542,9 +639,23 @@ internal sealed class TextBuffer
     }
 
     /// <summary>Число вхождений term в документе (без пересечений, слева направо).</summary>
-    public int CountMatches(string term, bool matchCase, bool wholeWord)
+    public int CountMatches(string term, bool matchCase, bool wholeWord, bool useRegex = false)
     {
         if (string.IsNullOrEmpty(term)) return 0;
+        if (useRegex)
+        {
+            Regex? rx = TryBuildRegex(term, matchCase, wholeWord);
+            if (rx is null) return 0;
+            try
+            {
+                int total = 0;
+                foreach (string line in Lines)
+                    foreach (Match _ in rx.Matches(line))
+                        total++;
+                return total;
+            }
+            catch (RegexMatchTimeoutException) { return 0; }
+        }
         int n = 0;
         foreach (string line in Lines)
         {
@@ -564,9 +675,31 @@ internal sealed class TextBuffer
     /// Порядковый номер (1-based) вхождения, начинающегося в (row, col):
     /// число вхождений строго левее позиции + 1. Для сообщения «k/N».
     /// </summary>
-    public int MatchOrdinal(string term, int row, int col, bool matchCase, bool wholeWord)
+    public int MatchOrdinal(string term, int row, int col, bool matchCase, bool wholeWord, bool useRegex = false)
     {
         if (string.IsNullOrEmpty(term)) return 0;
+        if (useRegex)
+        {
+            Regex? rx = TryBuildRegex(term, matchCase, wholeWord);
+            if (rx is null) return 0;
+            try
+            {
+                int total = 0;
+                for (int r = 0; r < Lines.Count; r++)
+                {
+                    int end = (r == row) ? Math.Min(Math.Max(col, 0), Lines[r].Length)
+                        : (r < row ? Lines[r].Length : -1);
+                    if (end < 0) break;
+                    foreach (Match m in rx.Matches(Lines[r]))
+                    {
+                        if (m.Index >= end) break;
+                        total++;
+                    }
+                }
+                return total + 1;
+            }
+            catch (RegexMatchTimeoutException) { return 0; }
+        }
         int n = 0;
         for (int r = 0; r < Lines.Count; r++)
         {
@@ -588,12 +721,15 @@ internal sealed class TextBuffer
     /// <summary>
     /// Заменяет все вхождения от позиции (fromRow, fromCol) до конца документа.
     /// Один шаг undo на всё (или ни одного при отсутствии вхождений).
+    /// В regex-режиме в replacement работают группы $1 (как в MS Edit).
     /// </summary>
     /// <returns>Число замен.</returns>
     public int ReplaceAll(string term, string replacement,
-        int fromRow, int fromCol, bool matchCase, bool wholeWord)
+        int fromRow, int fromCol, bool matchCase, bool wholeWord, bool useRegex = false)
     {
         if (string.IsNullOrEmpty(term)) return 0;
+        if (useRegex)
+            return ReplaceAllRegex(term, replacement, fromRow, fromCol, matchCase, wholeWord);
         fromRow = Math.Clamp(fromRow, 0, Lines.Count - 1);
         int total = 0;
         bool pushed = false;
@@ -627,6 +763,63 @@ internal sealed class TextBuffer
 
     private static StringComparison Cmp(bool matchCase) =>
         matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+    /// <summary>
+    /// Regex-замена: сначала собираем совпадения (таймаут — до любых правок),
+    /// затем применяем. Пустые совпадения поглощают один символ (как в MS Edit).
+    /// </summary>
+    private int ReplaceAllRegex(string term, string replacement,
+        int fromRow, int fromCol, bool matchCase, bool wholeWord)
+    {
+        Regex? rx = TryBuildRegex(term, matchCase, wholeWord);
+        if (rx is null) return 0;
+        fromRow = Math.Clamp(fromRow, 0, Lines.Count - 1);
+        var plan = new List<(int row, int start, List<Match> ms)>();
+        try
+        {
+            for (int r = fromRow; r < Lines.Count; r++)
+            {
+                string line = Lines[r];
+                int p = (r == fromRow) ? Math.Min(Math.Max(fromCol, 0), line.Length) : 0;
+                var ms = new List<Match>();
+                foreach (Match m in rx.Matches(line))
+                {
+                    if (m.Index >= p)
+                        ms.Add(m);
+                }
+                if (ms.Count > 0)
+                    plan.Add((r, p, ms));
+            }
+        }
+        catch (RegexMatchTimeoutException) { return 0; }
+        if (plan.Count == 0) return 0;
+        PushUndo();
+        int total = 0;
+        foreach (var (r, p, ms) in plan)
+        {
+            string line = Lines[r];
+            var sb = new StringBuilder(line.Length + 16);
+            sb.Append(line, 0, p);
+            int cur = p;
+            foreach (Match m in ms)
+            {
+                if (m.Index < cur) continue;
+                sb.Append(line, cur, m.Index - cur);
+                sb.Append(m.Result(replacement));
+                total++;
+                cur = m.Index + m.Length;
+                if (m.Length == 0)
+                {
+                    if (cur >= line.Length) break;
+                    sb.Append(line[cur]);
+                    cur++;
+                }
+            }
+            sb.Append(line, cur, line.Length - cur);
+            Lines[r] = sb.ToString();
+        }
+        return total;
+    }
 
     /// <summary>
     /// Первое вхождение, <b>начинающееся</b> в [start, end): -1 если нет.
@@ -667,6 +860,33 @@ internal sealed class TextBuffer
     private static bool IsWholeOk(string line, int idx, int len) =>
         (idx == 0 || !IsWordChar(line[idx - 1])) &&
         (idx + len >= line.Length || !IsWordChar(line[idx + len]));
+
+    /// <summary>Первое regex-совпадение, начинающееся в [start, end).</summary>
+    private static int RegexIndexOf(string line, Regex rx, int start, int end)
+    {
+        int lim = Math.Clamp(end, 0, line.Length);
+        foreach (Match m in rx.Matches(line))
+        {
+            if (m.Index < start) continue;
+            if (m.Index >= lim) break;
+            return m.Index;
+        }
+        return -1;
+    }
+
+    /// <summary>Последнее regex-совпадение, начинающееся в [start, end).</summary>
+    private static int LastRegexIndexOf(string line, Regex rx, int start, int end)
+    {
+        int lim = Math.Clamp(end, 0, line.Length);
+        int last = -1;
+        foreach (Match m in rx.Matches(line))
+        {
+            if (m.Index < start) continue;
+            if (m.Index >= lim) break;
+            last = m.Index;
+        }
+        return last;
+    }
 
     public static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_';
 }

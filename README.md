@@ -40,6 +40,10 @@ F1 — справка   Alt+N — номера строк   Alt+Z — перен
 |---|---|---|
 | ![Модалка](docs/shots/unsaved.png) | ![Менеджер](docs/shots/picker.png) | ![Настройки](docs/shots/settings.png) |
 
+| Восстановление |
+|---|
+| ![Восстановление](docs/shots/restore.png) |
+
 ![Справка](docs/shots/help.png)
 
 ## Сборка и запуск

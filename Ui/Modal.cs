@@ -11,6 +11,10 @@ public enum ModalKind
     Error,
     /// <summary>Перезапись файла (красный).</summary>
     Overwrite,
+    /// <summary>Недавние файлы (синий, кнопки списком).</summary>
+    Recent,
+    /// <summary>Восстановление черновиков (синий, кнопки списком).</summary>
+    Restore,
 }
 
 /// <summary>Кнопка попапа: подпись и хоткей-буква (без Enter). '\0' — без хоткея.</summary>
@@ -54,13 +58,19 @@ public sealed class ModalState
     /// <summary>Индекс подсвеченной кнопки.</summary>
     public int Selected { get; private set; }
 
+    /// <summary>Первая видимая кнопка (скролл вертикального списка).</summary>
+    public int ButtonTop { get; private set; }
+
+    /// <summary>Сколько кнопок видно разом (скролл вертикального списка).</summary>
+    public int MaxVisibleButtons { get; }
+
     /// <summary>Красная (тревожная) расцветка.</summary>
     public bool Danger => Kind is ModalKind.UnsavedQuit or ModalKind.Error or ModalKind.Overwrite;
 
     /// <summary>Строка-подсказка клавиш внутри попапа.</summary>
     public string Hint { get; }
 
-    private ModalState(ModalKind kind, string title, List<string> lines, List<ModalButton> buttons, int selected, string hint)
+    private ModalState(ModalKind kind, string title, List<string> lines, List<ModalButton> buttons, int selected, string hint, int maxVisibleButtons = int.MaxValue)
     {
         Kind = kind;
         Title = title;
@@ -68,6 +78,17 @@ public sealed class ModalState
         Buttons = buttons;
         Selected = Math.Clamp(selected, 0, buttons.Count - 1);
         Hint = hint;
+        MaxVisibleButtons = Math.Max(1, maxVisibleButtons);
+        EnsureButtonVisible();
+    }
+
+    /// <summary>Держать подсветку в видимой зоне.</summary>
+    private void EnsureButtonVisible()
+    {
+        if (Selected < ButtonTop)
+            ButtonTop = Selected;
+        else if (Selected >= ButtonTop + MaxVisibleButtons)
+            ButtonTop = Selected - MaxVisibleButtons + 1;
     }
 
     /// <summary>Попап «несохранённые изменения»: кнопки с хоткеями в скобках, без хинтов.</summary>
@@ -121,6 +142,60 @@ public sealed class ModalState
         hint: string.Empty);
 
     /// <summary>
+    /// Попап недавних файлов: каждый файл — кнопка-строка с хоткеем 1..9,0.
+    /// Видно разом 5, остальные — скроллом. Рисуется вертикально (см. DrawModal).
+    /// Пустой список запрещён.
+    /// </summary>
+    public static ModalState Recent(Loc loc, List<string> files)
+    {
+        if (files.Count == 0)
+            throw new ArgumentException("Нет файлов.", nameof(files));
+        return new(
+            ModalKind.Recent,
+            loc["modal.recent.title"],
+            new List<string>(),
+            files.Select((f, i) => new ModalButton(NumberedLabel(i, ShortPath(f)), NumberHotkey(i))).ToList(),
+            selected: 0,
+            hint: string.Empty,
+            maxVisibleButtons: 5);
+    }
+
+    private static string ShortPath(string path) =>
+        path.Length <= 48 ? path : "..." + path[^45..];
+
+    /// <summary>Хоткей кнопки по индексу: 1..9,0, дальше — без хоткея.</summary>
+    private static char NumberHotkey(int i) => i < 9 ? (char)('1' + i) : i == 9 ? '0' : '\0';
+
+    private static string NumberedLabel(int i, string text)
+    {
+        char hot = NumberHotkey(i);
+        return hot == '\0' ? $"     {text}" : $"[{hot}] {text}";
+    }
+
+    /// <summary>
+    /// Попап восстановления черновиков: каждый — кнопка-строка с хоткеем 1..9,0
+    /// и датой сохранения. Видно разом 5, остальные — скроллом.
+    /// Рисуется вертикально (см. DrawModal). Пустой список запрещён.
+    /// </summary>
+    /// <param name="loc">Локализация.</param>
+    /// <param name="items">Имя и время сохранения (UTC).</param>
+    public static ModalState Restore(Loc loc, List<(string name, DateTime savedAt)> items)
+    {
+        if (items.Count == 0)
+            throw new ArgumentException("Нет черновиков.", nameof(items));
+        return new(
+            ModalKind.Restore,
+            loc["modal.restore.title"],
+            new List<string> { loc["modal.restore.desc"] },
+            items.Select((it, i) => new ModalButton(
+                NumberedLabel(i, $"{ShortPath(it.name)}  {it.savedAt.ToLocalTime():dd.MM HH:mm}"),
+                NumberHotkey(i))).ToList(),
+            selected: 0,
+            hint: string.Empty,
+            maxVisibleButtons: 5);
+    }
+
+    /// <summary>
     /// Обрабатывает клавишу: стрелки/Home/End двигают подсветку,
     /// Enter нажимает подсвеченную кнопку, Esc — отмена,
     /// буква-хоткей нажимает кнопку сразу. Остальное глотается.
@@ -138,16 +213,22 @@ public sealed class ModalState
         switch (key.Key)
         {
             case ConsoleKey.LeftArrow:
+            case ConsoleKey.UpArrow:
                 Selected = (Selected - 1 + Buttons.Count) % Buttons.Count;
+                EnsureButtonVisible();
                 return ModalKeyOutcome.Open;
             case ConsoleKey.RightArrow:
+            case ConsoleKey.DownArrow:
                 Selected = (Selected + 1) % Buttons.Count;
+                EnsureButtonVisible();
                 return ModalKeyOutcome.Open;
             case ConsoleKey.Home:
                 Selected = 0;
+                EnsureButtonVisible();
                 return ModalKeyOutcome.Open;
             case ConsoleKey.End:
                 Selected = Buttons.Count - 1;
+                EnsureButtonVisible();
                 return ModalKeyOutcome.Open;
             case ConsoleKey.Enter:
                 return ModalKeyOutcome.Press(Selected);

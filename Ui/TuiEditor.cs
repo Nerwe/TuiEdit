@@ -3,6 +3,8 @@
 // ReadKey(true), SetCursorPosition, WindowWidth/WindowHeight, CursorVisible,
 // ForegroundColor/BackgroundColor, TreatControlCAsInput, OutputEncoding, Clear, ResetColor.
 
+using System.Text.RegularExpressions;
+
 namespace TuiEdit;
 
 internal sealed class TuiEditor
@@ -26,6 +28,10 @@ internal sealed class TuiEditor
     private PendingOp _pending = PendingOp.None;
     private string _pendingPath = string.Empty;
     private string _overwritePath = string.Empty; // путь из модалки перезаписи
+    private readonly List<string> _recentPaths = new(); // пути из модалки недавних
+    private readonly DraftStore _drafts = new(DraftStore.DefaultDir());
+    private DateTime _lastDraftAt = DateTime.MinValue;
+    private readonly List<(string key, DocDraft draft)> _restoreDrafts = new();
     private readonly List<int> _menuX = new(); // x-координаты меню в баре (из рендера)
     private FilePickerState? _picker; // null — менеджер закрыт
     private int _pickerCursorX = -1;  // курсор поля имени (из рендера)
@@ -81,6 +87,7 @@ internal sealed class TuiEditor
             // приходит одним событием и кладётся полным текстом, а не посимвольно.
             try { Console.Write("\x1b[?2004h"); } catch (IOException) { }
             Render(); // первичная отрисовка
+            MaybeRestore(); // черновики после краша (если есть)
             while (!_quitRequested)
             {
                 Render();
@@ -95,6 +102,7 @@ internal sealed class TuiEditor
                     return;
                 }
                 HandleInput(ev);
+                AutoDraft(); // черновик грязного буфера, не чаще раза в 30 с
             }
         }
         finally
@@ -104,6 +112,82 @@ internal sealed class TuiEditor
             Console.Clear();
             Console.CursorVisible = true;
         }
+    }
+
+    /// <summary>Пора ли писать черновик (чистая функция для тестов).</summary>
+    internal static bool DraftDue(DateTime last, DateTime now) =>
+        (now - last).TotalSeconds >= 30;
+
+    /// <summary>Черновик грязного буфера (тихо, с троттлингом).</summary>
+    private void AutoDraft()
+    {
+        if (!_buf.IsModified || !DraftDue(_lastDraftAt, DateTime.Now))
+            return;
+        _lastDraftAt = DateTime.Now;
+        try
+        {
+            _drafts.Write(_buf.FilePath, _buf.Lines, _row, _col);
+        }
+        catch
+        {
+        }
+    }
+
+    /// <summary>Предложить восстановление черновиков на старте (буфер всегда чист).</summary>
+    private void MaybeRestore()
+    {
+        List<(string key, DocDraft draft)> all;
+        try
+        {
+            all = _drafts.ReadAll();
+        }
+        catch
+        {
+            return;
+        }
+        if (all.Count == 0)
+            return;
+        _restoreDrafts.Clear();
+        _restoreDrafts.AddRange(all.Take(20));
+        _modal = ModalState.Restore(_loc,
+            _restoreDrafts.Select(d => (d.draft.File ?? _loc["status.noname"], d.draft.SavedAt)).ToList());
+    }
+
+    /// <summary>Применить черновик из модалки восстановления (индекс кнопки).</summary>
+    private void ApplyRestore(int button)
+    {
+        if (_restoreDrafts.Count == 0)
+            return;
+        var (key, d) = _restoreDrafts[Math.Clamp(button, 0, _restoreDrafts.Count - 1)];
+        _restoreDrafts.Clear();
+        if (d.File is not null)
+        {
+            try
+            {
+                _buf.Open(d.File);
+            }
+            catch
+            {
+                _buf.Clear();
+            }
+        }
+        else
+        {
+            _buf.Clear();
+        }
+        _buf.RestoreContent(d.Lines);
+        ResetCursor();
+        _row = Math.Clamp(d.Row, 0, _buf.Count - 1);
+        _col = Math.Min(Math.Max(d.Col, 0), _buf.GetLine(_row).Length);
+        TrackCol();
+        try
+        {
+            _drafts.DeleteKey(key); // восстановлен — дальше ведут автосейв/сейв/выход
+        }
+        catch
+        {
+        }
+        SetMessage(_loc["msg.restored"]);
     }
 
     private void HandleInput(InputEvent input)
@@ -213,6 +297,7 @@ internal sealed class TuiEditor
             case EditorCommand.Quit: TryQuit(); return;
             case EditorCommand.NewFile: DoNew(); return;
             case EditorCommand.OpenFile: DoOpen(); return;
+            case EditorCommand.OpenRecent: DoRecent(); return;
             case EditorCommand.About: _modal = ModalState.About(_loc, AppVersion); return;
             case EditorCommand.Help: _helpOpen = true; _helpScroll = 0; return;
             case EditorCommand.ToggleLineNumbers:
@@ -477,6 +562,15 @@ internal sealed class TuiEditor
 
     // ---------- Команды ----------
 
+    /// <summary>Отметить файл недавним и сохранить настройки.</summary>
+    private void TouchRecent(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+        _settings.TouchRecent(path);
+        _store.Save(_settings);
+    }
+
     private void Save()
     {
         switch (_buf.FilePath)
@@ -487,7 +581,9 @@ internal sealed class TuiEditor
             default:
                 try
                 {
-                    _buf.Save();
+                    _buf.Save(backup: _settings.BackupOnSave);
+                    TouchRecent(_buf.FilePath);
+                    _drafts.Delete(_buf.FilePath);
                     SetMessage(_loc.Format("msg.saved", _buf.FilePath));
                 }
                 catch (Exception ex) { SetMessage($"{_loc["error.save"]}: {DisplayError(ex)}"); }
@@ -508,7 +604,9 @@ internal sealed class TuiEditor
         }
         try
         {
-            _buf.Save(path);
+            _buf.Save(path, _settings.BackupOnSave);
+            TouchRecent(_buf.FilePath);
+            _drafts.Delete(_buf.FilePath);
             SetMessage(_loc.Format("msg.saved", _buf.FilePath));
         }
         catch (Exception ex) { SetMessage($"{_loc["error.save"]}: {DisplayError(ex)}"); }
@@ -557,6 +655,38 @@ internal sealed class TuiEditor
         _modal = ModalState.UnsavedQuit(_loc);
     }
 
+    /// <summary>Недавние файлы модалкой (пустой список — сообщение).</summary>
+    private void DoRecent()
+    {
+        _settings.PruneRecent();
+        _store.Save(_settings);
+        if (_settings.RecentFiles.Count == 0)
+        {
+            SetMessage(_loc["msg.recent.empty"]);
+            return;
+        }
+        _recentPaths.Clear();
+        _recentPaths.AddRange(_settings.RecentFiles);
+        _modal = ModalState.Recent(_loc, _recentPaths);
+    }
+
+    /// <summary>Выбор из модалки недавних (индекс кнопки).</summary>
+    private void OpenRecentPick(int button)
+    {
+        if (_recentPaths.Count == 0)
+            return;
+        string path = _recentPaths[Math.Clamp(button, 0, _recentPaths.Count - 1)];
+        _recentPaths.Clear();
+        if (!_buf.IsModified)
+        {
+            LoadFile(path);
+            return;
+        }
+        _pending = PendingOp.Open;
+        _pendingPath = path;
+        _modal = ModalState.UnsavedQuit(_loc);
+    }
+
     private void ClearDoc()
     {
         _buf.Clear();
@@ -576,6 +706,7 @@ internal sealed class TuiEditor
         {
             _buf.Open(path);
             ResetCursor();
+            TouchRecent(path);
             SetMessage(existed ? _loc.Format("msg.opened", path) : _loc.Format("msg.newfile", path));
         }
         catch (Exception ex)
@@ -653,6 +784,7 @@ internal sealed class TuiEditor
         {
             new(loc["menu.new"], 'N', null, EditorCommand.NewFile),
             new(loc["menu.open"], 'O', null, EditorCommand.OpenFile),
+            new(loc["menu.recent"], 'R', null, EditorCommand.OpenRecent),
             new(loc["menu.save"], 'S', "F2", EditorCommand.Save),
             new(loc["menu.saveas"], 'A', "^O", EditorCommand.SaveAs),
             new(loc["menu.settings"], 'P', null, EditorCommand.Settings),
@@ -688,8 +820,9 @@ internal sealed class TuiEditor
         _modal = null;
         if (o.Cancelled)
         {
-            // Esc: всё отменяется (включая ожидание перезаписи).
+            // Esc: всё отменяется (включая ожидание перезаписи и список недавних).
             _overwritePath = string.Empty;
+            _recentPaths.Clear();
             if (_pending != PendingOp.None)
             {
                 _pending = PendingOp.None;
@@ -706,6 +839,7 @@ internal sealed class TuiEditor
                         SaveFlowForPending(); // Сохранить
                         return;
                     case UnsavedAction.Discard:
+                        _drafts.Delete(_buf.FilePath); // черновик больше не нужен
                         ApplyPending(); // Не сохранять
                         return;
                     default:
@@ -716,7 +850,9 @@ internal sealed class TuiEditor
             case (ModalKind.Overwrite, 0):
                 try
                 {
-                    _buf.Save(_overwritePath); // Да — перезаписать
+                    _buf.Save(_overwritePath, _settings.BackupOnSave); // Да — перезаписать
+                    TouchRecent(_buf.FilePath);
+                    _drafts.Delete(_buf.FilePath);
                     SetMessage(_loc.Format("msg.saved", _buf.FilePath));
                 }
                 catch (Exception ex)
@@ -729,6 +865,12 @@ internal sealed class TuiEditor
                 }
                 _overwritePath = string.Empty;
                 ApplyPending();
+                return;
+            case (ModalKind.Recent, var b):
+                OpenRecentPick(b);
+                return;
+            case (ModalKind.Restore, var b):
+                ApplyRestore(b);
                 return;
             default:
                 // About / Error / Нет — только закрыть (Нет отменяет и ожидание).
@@ -774,12 +916,14 @@ internal sealed class TuiEditor
                         _modal = ModalState.Overwrite(_loc, Path.GetFileName(path));
                         return;
                     }
-                    _buf.Save(path);
+                    _buf.Save(path, _settings.BackupOnSave);
                     break;
                 default:
-                    _buf.Save();
+                    _buf.Save(backup: _settings.BackupOnSave);
                     break;
             }
+            TouchRecent(_buf.FilePath);
+            _drafts.Delete(_buf.FilePath);
             SetMessage(_loc.Format("msg.saved", _buf.FilePath));
             ApplyPending();
         }
@@ -930,8 +1074,21 @@ internal sealed class TuiEditor
         string? term = Prompt(_loc["prompt.find"], _lastSearch);
         if (term is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
         if (term.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
+        if (BadPattern(term)) return;
         _lastSearch = term;
         FindNext();
+    }
+
+    /// <summary>Плохой regex-шаблон? Показывает сообщение и возвращает true.</summary>
+    private bool BadPattern(string term)
+    {
+        if (_settings.SearchUseRegex &&
+            TextBuffer.IsBadRegex(term, _settings.SearchMatchCase, _settings.SearchWholeWord))
+        {
+            SetMessage(_loc.Format("msg.search.badpattern", term));
+            return true;
+        }
+        return false;
     }
 
     private void FindNext() => JumpSearch(wrap: true, backward: false);
@@ -942,16 +1099,16 @@ internal sealed class TuiEditor
     private void JumpSearch(bool wrap, bool backward)
     {
         if (string.IsNullOrEmpty(_lastSearch)) { Find(); return; }
-        bool mc = _settings.SearchMatchCase, ww = _settings.SearchWholeWord;
+        bool mc = _settings.SearchMatchCase, ww = _settings.SearchWholeWord, rx = _settings.SearchUseRegex;
         var hit = backward
-            ? _buf.FindPrev(_lastSearch, _row, _col, mc, ww, wrap)
-            : _buf.FindNext(_lastSearch, _row, _col + 1, mc, ww, wrap);
+            ? _buf.FindPrev(_lastSearch, _row, _col, mc, ww, wrap, rx)
+            : _buf.FindNext(_lastSearch, _row, _col + 1, mc, ww, wrap, rx);
         if (hit is null) { SetMessage(_loc.Format("msg.search.miss", _lastSearch)); return; }
         (_row, _col) = (hit.Value.row, hit.Value.col);
         _sel.Clear(); // прыжок снимает выделение
         TrackCol();
-        int total = _buf.CountMatches(_lastSearch, mc, ww);
-        int idx = _buf.MatchOrdinal(_lastSearch, _row, _col, mc, ww);
+        int total = _buf.CountMatches(_lastSearch, mc, ww, rx);
+        int idx = _buf.MatchOrdinal(_lastSearch, _row, _col, mc, ww, rx);
         string key = hit.Value.wrapped ? "msg.search.wrap" : "msg.search.hit";
         SetMessage(_loc.Format(key, _lastSearch, idx, total));
     }
@@ -967,9 +1124,11 @@ internal sealed class TuiEditor
         if (term.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
         string? rep = Prompt(_loc["prompt.replace.with"], _lastReplace);
         if (rep is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
+        if (BadPattern(term)) return;
         _lastSearch = term;
         _lastReplace = rep;
-        int n = _buf.ReplaceAll(term, rep, 0, 0, _settings.SearchMatchCase, _settings.SearchWholeWord);
+        int n = _buf.ReplaceAll(term, rep, 0, 0,
+            _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex);
         ClampCursor();
         SetMessage(n > 0
             ? _loc.Format("msg.replace.done", n)
@@ -1348,8 +1507,8 @@ internal sealed class TuiEditor
                     _screen.Text(0, y, s == 0
                         ? $"{(fileLine + 1).ToString().PadLeft(numWidth)} │ "
                         : $"{new string(' ', numWidth)} │ ", _theme.GutterFg, _theme.EditorBg);
-                bool[] isMatch = FindMatches(TabStops.Slice(line, @base, contentWidth),
-                    _lastSearch, _settings.SearchMatchCase, _settings.SearchWholeWord);
+            bool[] isMatch = FindMatches(TabStops.Slice(line, @base, contentWidth),
+                _lastSearch, _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex);
                 int vpos = 0; // визуальная позиция в строке
                 int ci = 0;   // индекс символа
                 foreach (char c in line)
@@ -1413,11 +1572,28 @@ internal sealed class TuiEditor
     }
 
     /// <summary>Маска совпадений поиска по раскрытой строке (с учётом опций).</summary>
-    private static bool[] FindMatches(string expanded, string term, bool matchCase, bool wholeWord)
+    private static bool[] FindMatches(string expanded, string term, bool matchCase, bool wholeWord, bool useRegex)
     {
         var m = new bool[expanded.Length];
         if (string.IsNullOrEmpty(term))
             return m;
+        if (useRegex)
+        {
+            Regex? rx = TextBuffer.TryBuildRegex(term, matchCase, wholeWord);
+            if (rx is null)
+                return m;
+            try
+            {
+                foreach (Match mt in rx.Matches(expanded))
+                {
+                    int len = Math.Max(1, mt.Length); // нулевое — один символ
+                    for (int j = mt.Index; j < mt.Index + len && j < m.Length; j++)
+                        m[j] = true;
+                }
+            }
+            catch (RegexMatchTimeoutException) { }
+            return m;
+        }
         var cmp = matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
         int p = 0;
         while (p <= expanded.Length - term.Length &&
@@ -1615,8 +1791,14 @@ internal sealed class TuiEditor
             case 4:
                 _settings.ShowLineNumbers = !_settings.ShowLineNumbers;
                 break;
-            default:
+            case 5:
                 _settings.WordWrap = !_settings.WordWrap;
+                break;
+            case 6:
+                _settings.BackupOnSave = !_settings.BackupOnSave;
+                break;
+            default:
+                _settings.SearchUseRegex = !_settings.SearchUseRegex;
                 break;
         }
         _store.Save(_settings);
@@ -1638,11 +1820,13 @@ internal sealed class TuiEditor
         string title = _loc["settings.title"];
         string[] labels = [_loc["settings.theme"], _loc["settings.lang"],
             _loc["settings.matchcase"], _loc["settings.wholeword"],
-            _loc["settings.shownumbers"], _loc["settings.wordwrap"]];
+            _loc["settings.shownumbers"], _loc["settings.wordwrap"],
+            _loc["settings.backup"], _loc["settings.useregex"]];
         string langName = SettingsLangName(_loc.Language);
         string[] values = [SettingsThemeName(), langName,
             OnOff(_settings.SearchMatchCase), OnOff(_settings.SearchWholeWord),
-            OnOff(_settings.ShowLineNumbers), OnOff(_settings.WordWrap)];
+            OnOff(_settings.ShowLineNumbers), OnOff(_settings.WordWrap),
+            OnOff(_settings.BackupOnSave), OnOff(_settings.SearchUseRegex)];
         int inner = 0;
         for (int i = 0; i < SettingsDialogState.RowCount; i++)
             inner = Math.Max(inner, labels[i].Length + values[i].Length + 8);
@@ -1845,7 +2029,10 @@ internal sealed class TuiEditor
         Rgb bg = m.Danger ? _theme.ModalDangerBg : _theme.ModalBg;
         Rgb fg = m.Danger ? _theme.ModalDangerFg : _theme.ModalFg;
 
-        int btnWidth = m.Buttons.Sum(b => b.Label.Length + 4) + (m.Buttons.Count - 1) * 2;
+        bool vertical = m.Kind is ModalKind.Recent or ModalKind.Restore; // списком, а не в ряд
+        int btnWidth = m.Buttons.Count == 0 ? 0 : vertical
+            ? m.Buttons.Max(b => b.Label.Length)
+            : m.Buttons.Sum(b => b.Label.Length + 4) + (m.Buttons.Count - 1) * 2;
         int content = m.Title.Length + 2;
         foreach (string line in m.Lines)
             content = Math.Max(content, line.Length);
@@ -1854,7 +2041,8 @@ internal sealed class TuiEditor
         int boxW = Math.Min(Math.Max(content + 6, 24), w);
         if (boxW < 12)
             return;
-        int boxH = m.Lines.Count + (m.Hint.Length > 0 ? 5 : 4); // верх, строки, пусто, кнопки, [хинт,] низ
+        int boxH = m.Lines.Count + (vertical ? Math.Min(m.MaxVisibleButtons, m.Buttons.Count) : 1)
+            + (m.Hint.Length > 0 ? 3 : 2); // верх, строки, кнопки, [хинт,] низ (+пусто в ряд)
         int x0 = Math.Max(0, (w - boxW) / 2);
         int y0 = Math.Max(0, (h - boxH) / 2);
         if (y0 + boxH > h)
@@ -1865,8 +2053,34 @@ internal sealed class TuiEditor
         // Строки текста по центру.
         for (int i = 0; i < m.Lines.Count; i++)
             _screen.Text(x0, y0 + 1 + i, "│" + CenterPad(m.Lines[i], boxW - 2) + "│", fg, bg);
-        // Кнопки по центру (хоткеи уже в названиях, напр. [Y]).
-        _screen.Text(x0, y0 + 1 + m.Lines.Count, "│" + new string(' ', boxW - 2) + "│", fg, bg);
+        int bottomY;
+        int btnY = 0;
+        if (vertical)
+        {
+            // Кнопки списком слева, выбранная подсвечена целиком;
+            // длинный список — срез со стрелками скролла.
+            int visCount = Math.Min(m.MaxVisibleButtons, m.Buttons.Count - m.ButtonTop);
+            for (int vi = 0; vi < visCount; vi++)
+            {
+                int i = m.ButtonTop + vi;
+                string label = m.Buttons[i].Label;
+                if (vi == 0 && m.ButtonTop > 0)
+                    label += " ↑";
+                if (vi == visCount - 1 && m.ButtonTop + visCount < m.Buttons.Count)
+                    label += " ↓";
+                int by = y0 + 1 + m.Lines.Count + vi;
+                string cell = (" " + label).PadRight(boxW - 2)[..(boxW - 2)];
+                if (i == m.Selected)
+                    _screen.Text(x0, by, "│" + cell + "│", _theme.ButtonSelFg, _theme.ButtonSelBg);
+                else
+                    _screen.Text(x0, by, "│" + cell + "│", fg, bg);
+            }
+            bottomY = y0 + 1 + m.Lines.Count + visCount;
+        }
+        else
+        {
+            // Кнопки по центру (хоткеи уже в названиях, напр. [Y]).
+            _screen.Text(x0, y0 + 1 + m.Lines.Count, "│" + new string(' ', boxW - 2) + "│", fg, bg);
         int used = 0;
         var cells = new List<string>();
         for (int i = 0; i < m.Buttons.Count; i++)
@@ -1890,7 +2104,7 @@ internal sealed class TuiEditor
         if (rest > 0)
             btnRow.Append(' ', rest);
         btnRow.Append('│');
-        int btnY = y0 + 2 + m.Lines.Count;
+        btnY = y0 + 2 + m.Lines.Count;
         _screen.Text(x0, btnY, btnRow.ToString(), fg, bg);
         // Подсветка выбранной кнопки поверх.
         int bx = x0 + 1 + padLeft;
@@ -1900,8 +2114,9 @@ internal sealed class TuiEditor
                 _screen.Text(bx, btnY, cells[i], _theme.ButtonSelFg, _theme.ButtonSelBg);
             bx += cells[i].Length + 4;
         }
+        bottomY = btnY + 1;
+        } // конец горизонтальных кнопок
         // Хинт (если есть) и низ.
-        int bottomY = btnY + 1;
         if (m.Hint.Length > 0)
         {
             Rgb hintFg = m.Danger ? _theme.ModalHintDangerFg : _theme.ModalHintFg;

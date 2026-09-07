@@ -3,12 +3,12 @@ namespace TuiEdit;
 /// <summary>
 /// Состояние диалога настроек: выбранная строка (значения живут в <see cref="AppSettings"/>).
 /// Строка 0 — тема, 1 — язык, 2 — регистр поиска, 3 — целые слова,
-/// 4 — номера строк, 5 — перенос строк.
+/// 4 — номера строк, 5 — перенос строк, 6 — копия .bak, 7 — регулярки.
 /// </summary>
 public sealed class SettingsDialogState
 {
     /// <summary>Число строк.</summary>
-    public const int RowCount = 6;
+    public const int RowCount = 8;
 
     /// <summary>Выбранная строка.</summary>
     public int Row { get; private set; }
