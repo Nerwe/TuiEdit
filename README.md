@@ -84,11 +84,15 @@ Core/TabStops.cs      табы + WordWrap (сегменты мягкого пе�
 Core/EditorCommand.cs команды редактора
 Input/KeyMap.cs       клавиши → команды
 Input/InputReader.cs  ввод + bracketed paste
-Ui/TuiEditor.cs       движок: рендер, меню, диалоги, менеджер
+Ui/TuiEditor.cs       движок: рендер, меню, исходы диалогов
+Ui/Dialog.cs          база окон: рамка, центрирование, цикл (наследование)
+Ui/ModalDialog.cs     попапы поверх ModalState
+Ui/FileDialog.cs      менеджер поверх FilePickerState
+Ui/SettingsDialog.cs  настройки поверх SettingsDialogState
 Ui/Screen.cs          diff-буфер кадра (без мигания)
 Ui/FilePicker.cs      файловый менеджер (чистая модель)
 Ui/Modal.cs           модальные попапы (чистая модель)
-Ui/SettingsDialog.cs  состояние диалога настроек
+Ui/SettingsDialogState.cs состояние диалога настроек (чистая модель)
 Config/               AppSettings + SettingsStore (JSON)
 Resources/            strings.ru/en.json (паритет ключей обязателен)
 ```

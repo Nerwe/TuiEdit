@@ -24,7 +24,7 @@ internal sealed class TuiEditor
     private bool _quitRequested;
     private readonly TextSelection _sel = new();
     private MenuState? _menu;   // null — меню-бар закрыт
-    private ModalState? _modal; // null — попапа нет
+    private Dialog? _dialog;    // null — диалогового окна нет (модалка/менеджер/настройки)
     private PendingOp _pending = PendingOp.None;
     private string _pendingPath = string.Empty;
     private string _overwritePath = string.Empty; // путь из модалки перезаписи
@@ -33,17 +33,12 @@ internal sealed class TuiEditor
     private DateTime _lastDraftAt = DateTime.MinValue;
     private readonly List<(string key, DocDraft draft)> _restoreDrafts = new();
     private readonly List<int> _menuX = new(); // x-координаты меню в баре (из рендера)
-    private FilePickerState? _picker; // null — менеджер закрыт
-    private int _pickerCursorX = -1;  // курсор поля имени (из рендера)
-    private int _pickerCursorY = -1;
     private readonly Screen _screen = new(); // кадр + diff-вывод (без мигания)
     private readonly InputReader _input = new();
     private readonly AppSettings _settings;
     private readonly SettingsStore _store;
     private Loc _loc;
     private Theme _theme;
-    private bool _settingsOpen; // диалог настроек открыт
-    private SettingsDialogState? _settingsDlg; // состояние диалога (рисуется внутри Render)
     private bool _helpOpen;   // экран справки открыт (ловушка ввода)
     private int _helpScroll;  // прокрутка справки
 
@@ -151,8 +146,9 @@ internal sealed class TuiEditor
             return;
         _restoreDrafts.Clear();
         _restoreDrafts.AddRange(all.Take(20));
-        _modal = ModalState.Restore(_loc,
-            _restoreDrafts.Select(d => (d.draft.File ?? _loc["status.noname"], d.draft.SavedAt)).ToList());
+        _dialog = new ModalDialog(ModalState.Restore(_loc,
+            _restoreDrafts.Select(d => (d.draft.File ?? _loc["status.noname"], d.draft.SavedAt)).ToList()),
+            ApplyModalOutcome);
     }
 
     /// <summary>Применить черновик из модалки восстановления (индекс кнопки).</summary>
@@ -196,8 +192,11 @@ internal sealed class TuiEditor
     {
         if (input is PasteInput paste)
         {
-            if (_modal is not null)
-                return; // модалки глотают ввод
+            if (_dialog is not null)
+            {
+                _dialog.Paste(paste.Text); // менеджер вставляет, остальные игнорят
+                return;
+            }
             _menu = null;
             DeleteSelection();
             ClampCursor();
@@ -219,10 +218,13 @@ internal sealed class TuiEditor
             HandleHelpKey(k);
             return;
         }
-        // Модалка глотает весь ввод (как modal_end в MS Edit).
-        if (_modal is not null)
+        // Открытый диалог глотает весь ввод (как modal_end в MS Edit).
+        if (_dialog is not null)
         {
-            ApplyModalKey(k);
+            Dialog d = _dialog;
+            d.HandleKey(k);
+            if (ReferenceEquals(_dialog, d) && d.Closed)
+                _dialog = null;
             return;
         }
 
@@ -300,7 +302,7 @@ internal sealed class TuiEditor
             case EditorCommand.NewFile: DoNew(); return;
             case EditorCommand.OpenFile: DoOpen(); return;
             case EditorCommand.OpenRecent: DoRecent(); return;
-            case EditorCommand.About: _modal = ModalState.About(_loc, AppVersion); return;
+            case EditorCommand.About: _dialog = new ModalDialog(ModalState.About(_loc, AppVersion), ApplyModalOutcome); return;
             case EditorCommand.Help: _helpOpen = true; _helpScroll = 0; return;
             case EditorCommand.ToggleLineNumbers:
                 _settings.ShowLineNumbers = !_settings.ShowLineNumbers;
@@ -601,7 +603,7 @@ internal sealed class TuiEditor
         if (File.Exists(path))
         {
             _overwritePath = path;
-            _modal = ModalState.Overwrite(_loc, Path.GetFileName(path));
+            _dialog = new ModalDialog(ModalState.Overwrite(_loc, Path.GetFileName(path)), ApplyModalOutcome);
             return;
         }
         try
@@ -623,7 +625,7 @@ internal sealed class TuiEditor
         }
         // Красный попап Save / Don't save / Cancel, как unsaved-changes в MS Edit.
         _pending = PendingOp.Quit;
-        _modal = ModalState.UnsavedQuit(_loc);
+        _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc), ApplyModalOutcome);
     }
 
     /// <summary>Новый документ (с диалогом при несохранённых изменениях).</summary>
@@ -635,7 +637,7 @@ internal sealed class TuiEditor
             return;
         }
         _pending = PendingOp.New;
-        _modal = ModalState.UnsavedQuit(_loc);
+        _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc), ApplyModalOutcome);
     }
 
     /// <summary>Открыть файл через менеджер, затем диалог при несохранённых изменениях.</summary>
@@ -654,7 +656,7 @@ internal sealed class TuiEditor
         }
         _pending = PendingOp.Open;
         _pendingPath = path;
-        _modal = ModalState.UnsavedQuit(_loc);
+        _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc), ApplyModalOutcome);
     }
 
     /// <summary>Недавние файлы модалкой (пустой список — сообщение).</summary>
@@ -669,7 +671,7 @@ internal sealed class TuiEditor
         }
         _recentPaths.Clear();
         _recentPaths.AddRange(_settings.RecentFiles);
-        _modal = ModalState.Recent(_loc, _recentPaths);
+        _dialog = new ModalDialog(ModalState.Recent(_loc, _recentPaths), ApplyModalOutcome);
     }
 
     /// <summary>Выбор из модалки недавних (индекс кнопки).</summary>
@@ -686,7 +688,7 @@ internal sealed class TuiEditor
         }
         _pending = PendingOp.Open;
         _pendingPath = path;
-        _modal = ModalState.UnsavedQuit(_loc);
+        _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc), ApplyModalOutcome);
     }
 
     private void ClearDoc()
@@ -714,7 +716,7 @@ internal sealed class TuiEditor
         catch (Exception ex)
         {
             _pending = PendingOp.None;
-            _modal = ModalState.Error(_loc, _loc["error.open"], DisplayError(ex));
+            _dialog = new ModalDialog(ModalState.Error(_loc, _loc["error.open"], DisplayError(ex)), ApplyModalOutcome);
         }
     }
 
@@ -812,14 +814,9 @@ internal sealed class TuiEditor
         }),
     };
 
-    /// <summary>Маршрут клавиши при открытом попапе.</summary>
-    private void ApplyModalKey(ConsoleKeyInfo k)
+    /// <summary>Исход закрытой модалки: кнопки и отмена (pending-действия живут здесь).</summary>
+    private void ApplyModalOutcome(ModalState m, ModalKeyOutcome o)
     {
-        ModalKeyOutcome o = _modal!.HandleKey(k);
-        if (!o.Done)
-            return;
-        ModalState m = _modal!;
-        _modal = null;
         if (o.Cancelled)
         {
             // Esc: всё отменяется (включая ожидание перезаписи и список недавних).
@@ -862,7 +859,7 @@ internal sealed class TuiEditor
                     // Не сохранилось — отменяем всё, чтобы не потерять данные выходом.
                     _overwritePath = string.Empty;
                     _pending = PendingOp.None;
-                    _modal = ModalState.Error(_loc, _loc["error.save"], DisplayError(ex));
+                    _dialog = new ModalDialog(ModalState.Error(_loc, _loc["error.save"], DisplayError(ex)), ApplyModalOutcome);
                     return;
                 }
                 _overwritePath = string.Empty;
@@ -915,7 +912,7 @@ internal sealed class TuiEditor
                     if (File.Exists(path))
                     {
                         _overwritePath = path;
-                        _modal = ModalState.Overwrite(_loc, Path.GetFileName(path));
+                        _dialog = new ModalDialog(ModalState.Overwrite(_loc, Path.GetFileName(path)), ApplyModalOutcome);
                         return;
                     }
                     _buf.Save(path, _settings.BackupOnSave);
@@ -932,7 +929,7 @@ internal sealed class TuiEditor
         catch (Exception ex)
         {
             _pending = PendingOp.None;
-            _modal = ModalState.Error(_loc, _loc["error.save"], DisplayError(ex));
+            _dialog = new ModalDialog(ModalState.Error(_loc, _loc["error.save"], DisplayError(ex)), ApplyModalOutcome);
         }
     }
 
@@ -976,16 +973,16 @@ internal sealed class TuiEditor
     }
 
     /// <summary>
-    /// Файловый менеджер модальным окном (свой цикл ввода, как Prompt).
-    /// В Save-режиме перезапись подтверждается внутри (красный бокс).
+    /// Общий драйвер диалоговых окон: ставит диалог, качает Render/Read,
+    /// пока не закроется. Заменяет дублировавшиеся циклы менеджера и настроек.
     /// </summary>
-    /// <returns>Выбранный путь или null (Esc).</returns>
-    private string? RunPicker(PickerMode mode, string startDir, string initialName)
+    private void RunDialog(Dialog dlg)
     {
-        _picker = new FilePickerState(mode, startDir, initialName);
+        Dialog? prev = _dialog;
+        _dialog = dlg;
         try
         {
-            while (true)
+            while (!dlg.Closed)
             {
                 Render();
                 InputEvent ev;
@@ -995,76 +992,35 @@ internal sealed class TuiEditor
                 }
                 catch (InvalidOperationException)
                 {
-                    return null;
+                    dlg.Cancel();
+                    break;
                 }
                 if (ev is PasteInput paste)
                 {
-                    _picker.InsertName(paste.Text.Replace("\r", "").Replace("\n", ""));
+                    dlg.Paste(paste.Text);
                     continue;
                 }
-                var k = ((KeyInput)ev).Key;
-                bool shift = (k.Modifiers & ConsoleModifiers.Shift) != 0;
-                bool alt = (k.Modifiers & ConsoleModifiers.Alt) != 0;
-                if (alt && (k.Modifiers & ConsoleModifiers.Control) == 0)
-                {
-                    // Навигация по каталогам (Backspace текст не трогает).
-                    switch (k.Key)
-                    {
-                        case ConsoleKey.LeftArrow: _picker.UpDir(); break;
-                        case ConsoleKey.RightArrow: _picker.EnterDir(); break;
-                    }
-                    continue;
-                }
-                if ((k.Modifiers & ConsoleModifiers.Control) != 0
-                    && (k.Modifiers & ConsoleModifiers.Alt) == 0)
-                {
-                    // Ctrl в поле имени: по словам и удаление слов.
-                    switch (k.Key)
-                    {
-                        case ConsoleKey.LeftArrow: _picker.MoveNameWord(-1, shift); break;
-                        case ConsoleKey.RightArrow: _picker.MoveNameWord(1, shift); break;
-                        case ConsoleKey.Backspace: _picker.DeleteNameWord(-1); break;
-                        case ConsoleKey.Delete: _picker.DeleteNameWord(1); break;
-                    }
-                    continue; // прочий Ctrl в менеджере не используется
-                }
-                if ((k.Modifiers & ConsoleModifiers.Control) != 0)
-                    continue; // Ctrl+Alt (AltGr) в менеджере не используется
-                switch (k.Key)
-                {
-                    case ConsoleKey.Escape: return null;
-                    case ConsoleKey.UpArrow: _picker.MoveHighlight(-1); break;
-                    case ConsoleKey.DownArrow: _picker.MoveHighlight(1); break;
-                    case ConsoleKey.PageUp: _picker.MoveHighlight(-10); break;
-                    case ConsoleKey.PageDown: _picker.MoveHighlight(10); break;
-                    case ConsoleKey.Home:
-                        if (shift) _picker.HomeName(true);
-                        else _picker.GotoFirst();
-                        break;
-                    case ConsoleKey.End:
-                        if (shift) _picker.EndName(true);
-                        else _picker.GotoLast();
-                        break;
-                    case ConsoleKey.Enter:
-                        var (res, path) = _picker.Enter();
-                        if (res == PickerEnterResult.Accepted && path is not null)
-                            return path;
-                        break;
-                    case ConsoleKey.Backspace: _picker.Backspace(); break;
-                    case ConsoleKey.Delete: _picker.DeleteChar(); break;
-                    case ConsoleKey.LeftArrow: _picker.MoveNameCursor(-1, shift); break;
-                    case ConsoleKey.RightArrow: _picker.MoveNameCursor(1, shift); break;
-                    default:
-                        if (!char.IsControl(k.KeyChar))
-                            _picker.InsertName(k.KeyChar.ToString());
-                        break;
-                }
+                dlg.HandleKey(((KeyInput)ev).Key);
             }
         }
         finally
         {
-            _picker = null;
+            if (ReferenceEquals(_dialog, dlg))
+                _dialog = prev;
         }
+    }
+
+    /// <summary>
+    /// Файловый менеджер модальным окном (свой цикл ввода, как Prompt).
+    /// В Save-режиме перезапись подтверждается внутри (красный бокс).
+    /// </summary>
+    /// <returns>Выбранный путь или null (Esc).</returns>
+    private string? RunPicker(PickerMode mode, string startDir, string initialName)
+    {
+        var dlg = new FileDialog(new FilePickerState(mode, startDir, initialName),
+            _loc["picker.open.title"], _loc["picker.save.title"]);
+        RunDialog(dlg);
+        return dlg.Result;
     }
 
     /// <summary>Путь для сохранения через менеджер (перезапись подтверждает модалка).</summary>
@@ -1451,19 +1407,17 @@ internal sealed class TuiEditor
         string right = $" {_buf.EncodingLabel} | {_buf.EndingLabel} | {_buf.IndentLabel} | {file} ";
         _screen.Text(0, h - 1, StatusBar.Build(left, right, w), _theme.StatusFg, _theme.StatusBg);
 
-        // Поверх текста: раскрытое меню, менеджер, модальный попап и настройки.
+        // Поверх текста: раскрытое меню и активное диалоговое окно.
         DrawDropdown(w, h);
-        DrawPicker(w, h);
-        DrawModal(w, h);
-        if (_settingsOpen && _settingsDlg is not null)
-            DrawSettings(_settingsDlg);
+        _dialog?.Draw(_screen, _theme, _loc);
 
         // Один diff-вывод за кадр — без мигания.
         _screen.Flush();
 
         // Аппаратный курсор ставим один раз за кадр:
-        // менеджер — в поле имени, иначе текст (прячем под меню, попапом, настройками, справкой).
-        bool uiOpen = _menu is not null || _modal is not null || _settingsOpen || _helpOpen;
+        // диалог с курсором (поле имени менеджера) — туда, иначе текст
+        // (прячем под меню, диалогом и справкой).
+        bool uiOpen = _menu is not null || _dialog is not null || _helpOpen;
         string curLine = _buf.GetLine(_row);
         int vcolCur = TabStops.VisualWidth(curLine, _col);
         int curBase = wrap
@@ -1471,13 +1425,14 @@ internal sealed class TuiEditor
             : _left;
         int cx = gutterWidth + (vcolCur - curBase);
         int cy = 1 + CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, wrap, textHeight);
-        bool pickerCursor = _picker is not null && _modal is null && !_settingsOpen && _pickerCursorX >= 0;
+        (int x, int y)? dlgCursor = _dialog?.Cursor;
+        bool pickerCursor = dlgCursor is not null;
         bool placed = pickerCursor
-            || (!uiOpen && _picker is null && cy >= 1 && cy < 1 + textHeight && cx >= gutterWidth && cx < w);
+            || (!uiOpen && cy >= 1 && cy < 1 + textHeight && cx >= gutterWidth && cx < w);
         try
         {
             if (placed)
-                Console.SetCursorPosition(pickerCursor ? _pickerCursorX : cx, pickerCursor ? _pickerCursorY : cy);
+                Console.SetCursorPosition(pickerCursor ? dlgCursor!.Value.x : cx, pickerCursor ? dlgCursor!.Value.y : cy);
             Console.CursorVisible = placed;
         }
         catch { }
@@ -1723,137 +1678,13 @@ internal sealed class TuiEditor
         _screen.Text(x, y + 1 + rows, "└" + new string('─', boxW - 2) + "┘", borderFg, borderBg);
     }
 
-    /// <summary>Диалог настроек своим циклом ввода (как менеджер; рисуется внутри Render).</summary>
+    /// <summary>Диалог настроек общим драйвером (рисуется внутри Render).</summary>
     private void RunSettings()
     {
-        var dlg = new SettingsDialogState();
-        _settingsOpen = true;
-        _settingsDlg = dlg;
-        try
-        {
-            while (true)
-            {
-                Render(); // один flush за кадр вместе с диалогом — без мигания
-                InputEvent ev;
-                try
-                {
-                    ev = _input.Read();
-                }
-                catch (InvalidOperationException)
-                {
-                    return;
-                }
-                if (ev is not KeyInput key)
-                    continue; // вставка в настройках не нужна
-                var k = key.Key;
-                if ((k.Modifiers & ConsoleModifiers.Control) != 0)
-                    continue;
-                switch (k.Key)
-                {
-                    case ConsoleKey.Escape:
-                    case ConsoleKey.Enter:
-                        return; // изменения сохраняются сразу при листании
-                    case ConsoleKey.UpArrow: dlg.Move(-1); break;
-                    case ConsoleKey.DownArrow: dlg.Move(1); break;
-                    case ConsoleKey.Home: dlg.Move(-SettingsDialogState.RowCount); break;
-                    case ConsoleKey.End: dlg.Move(SettingsDialogState.RowCount); break;
-                    case ConsoleKey.LeftArrow: CycleSetting(dlg, -1); break;
-                    case ConsoleKey.RightArrow: CycleSetting(dlg, 1); break;
-                }
-            }
-        }
-        finally
-        {
-            _settingsOpen = false;
-            _settingsDlg = null;
-        }
+        RunDialog(new SettingsDialog(_settings, _store, ApplySettings));
     }
-
-    /// <summary>Листание значения настройки с применением и сохранением (тогглы — переворот).</summary>
-    private void CycleSetting(SettingsDialogState dlg, int dir)
-    {
-        switch (dlg.Row)
-        {
-            case 0:
-                int ti = SettingsDialogState.Cycle(
-                    Array.IndexOf(Themes.Names, _settings.Theme), Themes.Names.Length, dir);
-                _settings.Theme = Themes.Names[ti];
-                break;
-            case 1:
-                int li = SettingsDialogState.Cycle(
-                    Array.IndexOf(Loc.Supported, _settings.Language), Loc.Supported.Length, dir);
-                _settings.Language = Loc.Supported[li];
-                break;
-            case 2:
-                _settings.SearchMatchCase = !_settings.SearchMatchCase;
-                break;
-            case 3:
-                _settings.SearchWholeWord = !_settings.SearchWholeWord;
-                break;
-            case 4:
-                _settings.ShowLineNumbers = !_settings.ShowLineNumbers;
-                break;
-            case 5:
-                _settings.WordWrap = !_settings.WordWrap;
-                break;
-            case 6:
-                _settings.BackupOnSave = !_settings.BackupOnSave;
-                break;
-            default:
-                _settings.SearchUseRegex = !_settings.SearchUseRegex;
-                break;
-        }
-        _store.Save(_settings);
-        ApplySettings();
-    }
-
-    private string SettingsThemeName() => _settings.Theme == "light" ? _loc["settings.light"] : _loc["settings.dark"];
 
     private string OnOff(bool v) => v ? _loc["settings.on"] : _loc["settings.off"];
-
-    private static string SettingsLangName(string lang) => lang == "en" ? "English" : "Русский";
-
-    /// <summary>Отрисовка диалога настроек поверх всего (без хинта).</summary>
-    private void DrawSettings(SettingsDialogState dlg)
-    {
-        int w = _screen.Width, h = _screen.Height;
-        if (w < 20 || h < 5)
-            return;
-        string title = _loc["settings.title"];
-        string[] labels = [_loc["settings.theme"], _loc["settings.lang"],
-            _loc["settings.matchcase"], _loc["settings.wholeword"],
-            _loc["settings.shownumbers"], _loc["settings.wordwrap"],
-            _loc["settings.backup"], _loc["settings.useregex"]];
-        string langName = SettingsLangName(_loc.Language);
-        string[] values = [SettingsThemeName(), langName,
-            OnOff(_settings.SearchMatchCase), OnOff(_settings.SearchWholeWord),
-            OnOff(_settings.ShowLineNumbers), OnOff(_settings.WordWrap),
-            OnOff(_settings.BackupOnSave), OnOff(_settings.SearchUseRegex)];
-        int inner = 0;
-        for (int i = 0; i < SettingsDialogState.RowCount; i++)
-            inner = Math.Max(inner, labels[i].Length + values[i].Length + 8);
-        int boxW = Math.Min(Math.Max(inner + 2, title.Length + 6), w);
-        inner = boxW - 2;
-        int boxH = SettingsDialogState.RowCount + 2; // заголовок + строки + низ
-        int x0 = Math.Max(0, (w - boxW) / 2);
-        int y0 = Math.Max(0, (h - boxH) / 2);
-        if (y0 + boxH > h)
-            return;
-        Theme t = _theme;
-        _screen.Text(x0, y0, Screen.TitleRow(title, boxW), t.ModalFg, t.ModalBg);
-        for (int i = 0; i < SettingsDialogState.RowCount; i++)
-        {
-            string cell = $" {labels[i]}: < {values[i]} >";
-            if (cell.Length > inner)
-                cell = cell[..inner];
-            if (i == dlg.Row)
-                _screen.Text(x0, y0 + 1 + i, "│" + cell.PadRight(inner) + "│", t.ButtonSelFg, t.ButtonSelBg);
-            else
-                _screen.Text(x0, y0 + 1 + i, "│" + cell.PadRight(inner) + "│", t.ModalFg, t.ModalBg);
-        }
-        _screen.Text(x0, y0 + 1 + SettingsDialogState.RowCount,
-            "└" + new string('─', inner) + "┘", t.ModalFg, t.ModalBg);
-    }
 
     /// <summary>Клавиша на экране справки: Esc/F1/Enter — закрыть, остальное — скролл/игнор.</summary>
     private void HandleHelpKey(ConsoleKeyInfo k)
@@ -1918,219 +1749,4 @@ internal sealed class TuiEditor
                 title ? _theme.MenuOpenBg : _theme.EditorBg);
         }
     }
-
-    /// <summary>
-    /// Файловый менеджер большой модалкой (как file-picker в MS Edit):
-    /// путь, поле имени, список [.., папки/, файлы], хинт.
-    /// </summary>
-    private void DrawPicker(int w, int h)
-    {
-        if (_picker is null)
-        {
-            _pickerCursorX = -1;
-            return;
-        }
-        FilePickerState p = _picker;
-        int bw = Math.Min(Math.Max(w - 10, 30), w);
-        int bh = Math.Min(Math.Max(h - 8, 14), h);
-        int x0 = Math.Max(0, (w - bw) / 2);
-        int y0 = Math.Max(0, (h - bh) / 2);
-        Rgb bg = _theme.ModalBg;
-        Rgb fg = _theme.ModalFg;
-        int inner = bw - 2;
-
-        string title = p.Mode == PickerMode.Open ? _loc["picker.open.title"] : _loc["picker.save.title"];
-        _screen.Text(x0, y0, Screen.TitleRow(title, bw), fg, bg);
-
-        string dirLabel = p.CurrentDir == "" ? _loc["picker.drives"] : p.CurrentDir;
-        string dirRow = _loc["picker.dir"] + MiddleTruncate(dirLabel, Math.Max(0, inner - _loc["picker.dir"].Length));
-        _screen.Text(x0, y0 + 1, "│" + dirRow.PadRight(inner)[..inner] + "│", fg, bg);
-
-        // Поле имени (хвост + курсор, как в промпте; выделение — инверсией).
-        string nameTag = _loc["picker.name"];
-        string full = nameTag + p.Name;
-        int shift = Math.Max(0, full.Length - inner);
-        p.GetNameSelection(out int selA, out int selB);
-        for (int i = 0; i < inner; i++)
-        {
-            int fi = shift + i; // индекс в full
-            char ch = fi < full.Length ? full[fi] : ' ';
-            bool sel = false;
-            if (fi >= nameTag.Length)
-            {
-                int ni = fi - nameTag.Length; // индекс в Name
-                sel = ni >= selA && ni < selB;
-            }
-            _screen.Set(x0 + 1 + i, y0 + 2, ch, sel ? _theme.SelFg : fg, sel ? _theme.SelBg : bg);
-        }
-        _screen.Text(x0, y0 + 2, "│", fg, bg);
-        _screen.Text(x0 + bw - 1, y0 + 2, "│", fg, bg);
-        int ncx = x0 + 1 + nameTag.Length + p.NamePos - shift;
-        _pickerCursorX = ncx >= x0 + 1 && ncx < x0 + bw - 1 ? ncx : -1;
-        _pickerCursorY = y0 + 2;
-
-        // Список с прокруткой: строки y0+3 .. y0+bh-3, хинт, низ.
-        int listRows = bh - 5;
-        p.EnsureVisible(Math.Max(1, listRows));
-        for (int i = 0; i < listRows; i++)
-        {
-            int yy = y0 + 3 + i;
-            if (i < p.Entries.Count - p.Top)
-            {
-                PickerEntry e = p.Entries[p.Top + i];
-                bool sel = p.Top + i == p.Selected;
-                (Rgb efg, Rgb ebg) = sel
-                    ? (_theme.DropSelFg, _theme.DropSelBg)
-                    : e.IsDir
-                        ? (e.Name == ".." ? _theme.PickerUpFg : _theme.PickerDirFg, bg)
-                        : (_theme.PickerFileFg, bg);
-                string label = e.DisplayName;
-                if (label.Length > inner)
-                    label = label[..Math.Max(0, inner)];
-                _screen.Text(x0, yy, "│", fg, bg);
-                _screen.Text(x0 + 1, yy, label.PadRight(inner)[..inner], efg, ebg);
-                _screen.Text(x0 + bw - 1, yy, "│", fg, bg);
-            }
-            else
-            {
-                string empty = p.Error == "BadPath" ? _loc["picker.badpath"]
-                    : p.Error ?? (p.Entries.Count == 0 ? _loc["picker.empty"] : "");
-                Rgb efg = p.Error is null ? _theme.PickerEmptyFg : _theme.PickerErrorFg;
-                _screen.Text(x0, yy, "│" + empty.PadRight(inner)[..inner] + "│", efg, bg);
-            }
-        }
-
-        string hint = _loc["picker.hint"];
-        _screen.Text(x0, y0 + bh - 2, "│" + CenterPad(hint, inner)[..inner] + "│", _theme.PickerHintFg, bg);
-        _screen.Text(x0, y0 + bh - 1, "└" + new string('─', inner) + "┘", fg, bg);
-    }
-
-    private static string MiddleTruncate(string s, int width)
-    {
-        if (s.Length <= width)
-            return s;
-        if (width <= 6)
-            return s[..Math.Max(0, width)];
-        int head = (width - 3) / 2;
-        return s[..head] + "..." + s[^(width - 3 - head)..];
-    }
-
-    /// <summary>
-    /// Центрированный модальный попап с рамкой и заголовком
-    /// (аналог modal_begin/modal_end в MS Edit).
-    /// </summary>
-    private void DrawModal(int w, int h)
-    {
-        if (_modal is null)
-            return;
-        ModalState m = _modal;
-
-        Rgb bg = m.Danger ? _theme.ModalDangerBg : _theme.ModalBg;
-        Rgb fg = m.Danger ? _theme.ModalDangerFg : _theme.ModalFg;
-
-        bool vertical = m.Kind is ModalKind.Recent or ModalKind.Restore; // списком, а не в ряд
-        int btnWidth = m.Buttons.Count == 0 ? 0 : vertical
-            ? m.Buttons.Max(b => b.Label.Length)
-            : m.Buttons.Sum(b => b.Label.Length + 4) + (m.Buttons.Count - 1) * 2;
-        int content = m.Title.Length + 2;
-        foreach (string line in m.Lines)
-            content = Math.Max(content, line.Length);
-        content = Math.Max(content, btnWidth);
-        content = Math.Max(content, m.Hint.Length);
-        int boxW = Math.Min(Math.Max(content + 6, 24), w);
-        if (boxW < 12)
-            return;
-        int boxH = m.Lines.Count + (vertical ? Math.Min(m.MaxVisibleButtons, m.Buttons.Count) : 1)
-            + (m.Hint.Length > 0 ? 3 : 2); // верх, строки, кнопки, [хинт,] низ (+пусто в ряд)
-        int x0 = Math.Max(0, (w - boxW) / 2);
-        int y0 = Math.Max(0, (h - boxH) / 2);
-        if (y0 + boxH > h)
-            return;
-
-        // Верх с заголовком: ┌─ Title ───┐
-        _screen.Text(x0, y0, Screen.TitleRow(m.Title, boxW), fg, bg);
-        // Строки текста по центру.
-        for (int i = 0; i < m.Lines.Count; i++)
-            _screen.Text(x0, y0 + 1 + i, "│" + CenterPad(m.Lines[i], boxW - 2) + "│", fg, bg);
-        int bottomY;
-        int btnY = 0;
-        if (vertical)
-        {
-            // Кнопки списком слева, выбранная подсвечена целиком;
-            // длинный список — срез со стрелками скролла.
-            int visCount = Math.Min(m.MaxVisibleButtons, m.Buttons.Count - m.ButtonTop);
-            for (int vi = 0; vi < visCount; vi++)
-            {
-                int i = m.ButtonTop + vi;
-                string label = m.Buttons[i].Label;
-                if (vi == 0 && m.ButtonTop > 0)
-                    label += " ↑";
-                if (vi == visCount - 1 && m.ButtonTop + visCount < m.Buttons.Count)
-                    label += " ↓";
-                int by = y0 + 1 + m.Lines.Count + vi;
-                string cell = (" " + label).PadRight(boxW - 2)[..(boxW - 2)];
-                if (i == m.Selected)
-                    _screen.Text(x0, by, "│" + cell + "│", _theme.ButtonSelFg, _theme.ButtonSelBg);
-                else
-                    _screen.Text(x0, by, "│" + cell + "│", fg, bg);
-            }
-            bottomY = y0 + 1 + m.Lines.Count + visCount;
-        }
-        else
-        {
-            // Кнопки по центру (хоткеи уже в названиях, напр. [Y]).
-            _screen.Text(x0, y0 + 1 + m.Lines.Count, "│" + new string(' ', boxW - 2) + "│", fg, bg);
-        int used = 0;
-        var cells = new List<string>();
-        for (int i = 0; i < m.Buttons.Count; i++)
-        {
-            string cell = m.Buttons[i].Label;
-            cells.Add(cell);
-            used += cell.Length + 4;
-        }
-        used -= 4;
-        int padLeft = Math.Max(2, (boxW - 2 - used) / 2);
-        var btnRow = new System.Text.StringBuilder();
-        btnRow.Append('│');
-        btnRow.Append(' ', padLeft);
-        for (int i = 0; i < m.Buttons.Count; i++)
-        {
-            if (i > 0)
-                btnRow.Append("    ");
-            btnRow.Append(cells[i]);
-        }
-        int rest = boxW - 2 - padLeft - used;
-        if (rest > 0)
-            btnRow.Append(' ', rest);
-        btnRow.Append('│');
-        btnY = y0 + 2 + m.Lines.Count;
-        _screen.Text(x0, btnY, btnRow.ToString(), fg, bg);
-        // Подсветка выбранной кнопки поверх.
-        int bx = x0 + 1 + padLeft;
-        for (int i = 0; i < m.Buttons.Count; i++)
-        {
-            if (i == m.Selected)
-                _screen.Text(bx, btnY, cells[i], _theme.ButtonSelFg, _theme.ButtonSelBg);
-            bx += cells[i].Length + 4;
-        }
-        bottomY = btnY + 1;
-        } // конец горизонтальных кнопок
-        // Хинт (если есть) и низ.
-        if (m.Hint.Length > 0)
-        {
-            Rgb hintFg = m.Danger ? _theme.ModalHintDangerFg : _theme.ModalHintFg;
-            _screen.Text(x0, bottomY, "│" + CenterPad(m.Hint, boxW - 2) + "│", hintFg, bg);
-            bottomY++;
-        }
-        _screen.Text(x0, bottomY, "└" + new string('─', boxW - 2) + "┘", fg, bg);
-    }
-
-    private static string CenterPad(string s, int width)
-    {
-        if (s.Length >= width)
-            return s[..Math.Max(0, width)];
-        int left = (width - s.Length) / 2;
-        return new string(' ', left) + s + new string(' ', width - s.Length - left);
-    }
-
 }
