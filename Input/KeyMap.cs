@@ -24,6 +24,7 @@ public static class KeyMap
         bool ctrl = (key.Modifiers & ConsoleModifiers.Control) != 0;
 
         // Alt+буква открывает меню (как в MS Edit: Alt+F/E/V/H).
+        // Alt+↑/↓ двигает строку/блок (как move line в VS Code).
         if (alt && !ctrl)
         {
             return key.Key switch
@@ -31,6 +32,8 @@ public static class KeyMap
                 ConsoleKey.F => EditorCommand.OpenMenuFile,
                 ConsoleKey.E => EditorCommand.OpenMenuEdit,
                 ConsoleKey.H => EditorCommand.OpenMenuHelp,
+                ConsoleKey.UpArrow => EditorCommand.MoveLineUp,
+                ConsoleKey.DownArrow => EditorCommand.MoveLineDown,
                 _ => EditorCommand.None,
             };
         }
@@ -46,11 +49,13 @@ public static class KeyMap
                 ConsoleKey.Q => EditorCommand.Quit,
                 ConsoleKey.N => EditorCommand.NewFile,
                 ConsoleKey.F => EditorCommand.Find,
+                ConsoleKey.H => EditorCommand.Replace, // как замена в MS Edit
                 ConsoleKey.G => EditorCommand.GoToLine,
                 ConsoleKey.K => EditorCommand.CutLine,
                 ConsoleKey.U => EditorCommand.Paste,
                 ConsoleKey.V => EditorCommand.Paste, // дублируем nano ^U
                 ConsoleKey.C => EditorCommand.CopyLine,
+                ConsoleKey.D => EditorCommand.DuplicateLine,
                 ConsoleKey.Z => EditorCommand.Undo,
                 ConsoleKey.Y => EditorCommand.Redo,
                 ConsoleKey.A => EditorCommand.SelectAll, // как в MS Edit (Home — клавишей Home)
@@ -64,6 +69,10 @@ public static class KeyMap
                 _ => EditorCommand.None,
             };
         }
+
+        // Shift+F3 — поиск назад (модификатор виден в ConsoleKeyInfo).
+        if (key.Key == ConsoleKey.F3 && (key.Modifiers & ConsoleModifiers.Shift) != 0)
+            return EditorCommand.FindPrev;
 
         return key.Key switch
         {

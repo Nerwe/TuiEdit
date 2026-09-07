@@ -11,6 +11,12 @@ public sealed class AppSettings
     /// <summary>Язык: ru | en.</summary>
     public string Language { get; set; } = "ru";
 
+    /// <summary>Поиск/замена: учитывать регистр.</summary>
+    public bool SearchMatchCase { get; set; } = true;
+
+    /// <summary>Поиск/замена: только целые слова.</summary>
+    public bool SearchWholeWord { get; set; } = false;
+
     /// <summary>Привести к допустимым значениям.</summary>
     public void Normalize()
     {
