@@ -17,6 +17,7 @@ internal sealed class TuiEditor
     private DateTime _messageUntil = DateTime.MinValue;
     private readonly List<string> _clipboard = new();
     private string _lastSearch = string.Empty;
+    private string _lastReplace = string.Empty;
     private bool _quitRequested;
     private readonly TextSelection _sel = new();
     private MenuState? _menu;   // null — меню-бар закрыт
@@ -206,10 +207,15 @@ internal sealed class TuiEditor
             case EditorCommand.Settings: RunSettings(); return;
             case EditorCommand.Find: Find(); return;
             case EditorCommand.FindNext: FindNext(); return;
+            case EditorCommand.FindPrev: FindPrev(); return;
+            case EditorCommand.Replace: Replace(); return;
             case EditorCommand.GoToLine: GoToLine(); return;
             case EditorCommand.CutLine: CutLine(); return;
             case EditorCommand.CopyLine: CopyLine(); return;
             case EditorCommand.Paste: Paste(); return;
+            case EditorCommand.DuplicateLine: DuplicateBlock(); return;
+            case EditorCommand.MoveLineUp: MoveLineBlock(-1); return;
+            case EditorCommand.MoveLineDown: MoveLineBlock(1); return;
             case EditorCommand.SaveAs: SaveAs(); return;
             case EditorCommand.Undo: _buf.Undo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.undo"]); return;
             case EditorCommand.Redo: _buf.Redo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.redo"]); return;
@@ -638,7 +644,9 @@ internal sealed class TuiEditor
             new(loc["menu.cut"], 'T', "^K", EditorCommand.CutLine),
             new(loc["menu.copy"], 'C', "^C", EditorCommand.CopyLine),
             new(loc["menu.paste"], 'P', "^U", EditorCommand.Paste),
+            new(loc["menu.duplicate"], 'D', "^D", EditorCommand.DuplicateLine),
             new(loc["menu.find"], 'F', "^F", EditorCommand.Find),
+            new(loc["menu.replace"], 'H', "^H", EditorCommand.Replace),
             new(loc["menu.goto"], 'G', "^G", EditorCommand.GoToLine),
             new(loc["menu.selectall"], 'A', "^A", EditorCommand.SelectAll),
         }),
@@ -873,18 +881,46 @@ internal sealed class TuiEditor
         FindNext();
     }
 
-    private void FindNext()
+    private void FindNext() => JumpSearch(wrap: true, backward: false);
+
+    private void FindPrev() => JumpSearch(wrap: true, backward: true);
+
+    /// <summary>Прыжок к следующему/предыдущему вхождению со счётчиком «k/N».</summary>
+    private void JumpSearch(bool wrap, bool backward)
     {
         if (string.IsNullOrEmpty(_lastSearch)) { Find(); return; }
-        var hit = _buf.FindNext(_lastSearch, _row, _col + 1);
-        if (hit is null) SetMessage(_loc.Format("msg.search.miss", _lastSearch));
-        else
-        {
-            (_row, _col) = hit.Value;
-            _sel.Clear(); // прыжок снимает выделение
-            TrackCol();
-            SetMessage(_loc.Format("msg.search.hit", _lastSearch));
-        }
+        bool mc = _settings.SearchMatchCase, ww = _settings.SearchWholeWord;
+        var hit = backward
+            ? _buf.FindPrev(_lastSearch, _row, _col, mc, ww, wrap)
+            : _buf.FindNext(_lastSearch, _row, _col + 1, mc, ww, wrap);
+        if (hit is null) { SetMessage(_loc.Format("msg.search.miss", _lastSearch)); return; }
+        (_row, _col) = (hit.Value.row, hit.Value.col);
+        _sel.Clear(); // прыжок снимает выделение
+        TrackCol();
+        int total = _buf.CountMatches(_lastSearch, mc, ww);
+        int idx = _buf.MatchOrdinal(_lastSearch, _row, _col, mc, ww);
+        string key = hit.Value.wrapped ? "msg.search.wrap" : "msg.search.hit";
+        SetMessage(_loc.Format(key, _lastSearch, idx, total));
+    }
+
+    /// <summary>
+    /// Мгновенная замена по всему документу (как Replace All в MS Edit:
+    /// одна undo-группа, курсор на месте). Два промпта — что и на что.
+    /// </summary>
+    private void Replace()
+    {
+        string? term = Prompt(_loc["prompt.replace.find"], _lastSearch);
+        if (term is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
+        if (term.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
+        string? rep = Prompt(_loc["prompt.replace.with"], _lastReplace);
+        if (rep is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
+        _lastSearch = term;
+        _lastReplace = rep;
+        int n = _buf.ReplaceAll(term, rep, 0, 0, _settings.SearchMatchCase, _settings.SearchWholeWord);
+        ClampCursor();
+        SetMessage(n > 0
+            ? _loc.Format("msg.replace.done", n)
+            : _loc.Format("msg.search.miss", term));
     }
 
     private void GoToLine()
@@ -899,6 +935,40 @@ internal sealed class TuiEditor
             TrackCol();
         }
         else SetMessage(_loc["msg.notnumber"]);
+    }
+
+    /// <summary>Строки для построчных операций: охват выделения или текущая строка.</summary>
+    private (int start, int end) LineBlock()
+    {
+        if (_sel.HasSelection(_row, _col))
+        {
+            var (sr, _, er, _) = _sel.Normalize(_row, _col);
+            return (sr, er);
+        }
+        return (_row, _row);
+    }
+
+    /// <summary>Дублирует строку/блок ниже, курсор — в копию на ту же относительную строку.</summary>
+    private void DuplicateBlock()
+    {
+        var (s, e) = LineBlock();
+        int copy = _buf.DuplicateLines(s, e);
+        _row = copy + (_row - s);
+        _sel.Clear();
+        ClampCursor();
+        TrackCol();
+    }
+
+    /// <summary>Двигает строку/блок на одну вверх (dir=-1) или вниз; на краю — тихо.</summary>
+    private void MoveLineBlock(int dir)
+    {
+        var (s, e) = LineBlock();
+        bool ok = dir < 0 ? _buf.MoveLinesUp(s, e) : _buf.MoveLinesDown(s, e);
+        if (!ok) return;
+        _row += dir; // блок сдвинулся целиком — курсор едет с ним
+        _sel.Clear();
+        ClampCursor();
+        TrackCol();
     }
 
     private void CutLine()
@@ -1109,7 +1179,8 @@ internal sealed class TuiEditor
 
             string line = _buf.GetLine(fileLine);
             bool isCur = fileLine == _row;
-            bool[] isMatch = FindMatches(TabStops.Slice(line, _left, contentWidth), _lastSearch);
+            bool[] isMatch = FindMatches(TabStops.Slice(line, _left, contentWidth),
+                _lastSearch, _settings.SearchMatchCase, _settings.SearchWholeWord);
             GetRowSelection(fileLine, line.Length, out int selA, out int selB);
 
             int vpos = 0; // визуальная позиция в строке
@@ -1200,21 +1271,29 @@ internal sealed class TuiEditor
         b = Math.Min(fileLine == er ? ec : lineLen, lineLen);
     }
 
-    /// <summary>Маска совпадений поиска по раскрытой строке.</summary>
-    private static bool[] FindMatches(string expanded, string term)
+    /// <summary>Маска совпадений поиска по раскрытой строке (с учётом опций).</summary>
+    private static bool[] FindMatches(string expanded, string term, bool matchCase, bool wholeWord)
     {
         var m = new bool[expanded.Length];
         if (string.IsNullOrEmpty(term))
             return m;
+        var cmp = matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
         int p = 0;
-        while ((p = expanded.IndexOf(term, p, StringComparison.Ordinal)) >= 0)
+        while (p <= expanded.Length - term.Length &&
+            (p = expanded.IndexOf(term, p, expanded.Length - p, cmp)) >= 0)
         {
-            for (int j = p; j < p + term.Length && j < m.Length; j++)
-                m[j] = true;
+            if (!wholeWord || IsWhole(expanded, p, term.Length))
+                for (int j = p; j < p + term.Length && j < m.Length; j++)
+                    m[j] = true;
             p++;
         }
         return m;
     }
+
+    /// <summary>Границы слова в раскрытой строке (для подсветки).</summary>
+    private static bool IsWhole(string s, int idx, int len) =>
+        (idx == 0 || !(char.IsLetterOrDigit(s[idx - 1]) || s[idx - 1] == '_')) &&
+        (idx + len >= s.Length || !(char.IsLetterOrDigit(s[idx + len]) || s[idx + len] == '_'));
 
     /// <summary>
     /// Меню-бар в строке 0 (как menubar в MS Edit): меню слева, имя файла справа.
@@ -1371,7 +1450,7 @@ internal sealed class TuiEditor
         }
     }
 
-    /// <summary>Листание значения настройки с применением и сохранением.</summary>
+    /// <summary>Листание значения настройки с применением и сохранением (тогглы — переворот).</summary>
     private void CycleSetting(SettingsDialogState dlg, int dir)
     {
         switch (dlg.Row)
@@ -1381,10 +1460,16 @@ internal sealed class TuiEditor
                     Array.IndexOf(Themes.Names, _settings.Theme), Themes.Names.Length, dir);
                 _settings.Theme = Themes.Names[ti];
                 break;
-            default:
+            case 1:
                 int li = SettingsDialogState.Cycle(
                     Array.IndexOf(Loc.Supported, _settings.Language), Loc.Supported.Length, dir);
                 _settings.Language = Loc.Supported[li];
+                break;
+            case 2:
+                _settings.SearchMatchCase = !_settings.SearchMatchCase;
+                break;
+            default:
+                _settings.SearchWholeWord = !_settings.SearchWholeWord;
                 break;
         }
         _store.Save(_settings);
@@ -1392,6 +1477,8 @@ internal sealed class TuiEditor
     }
 
     private string SettingsThemeName() => _settings.Theme == "light" ? _loc["settings.light"] : _loc["settings.dark"];
+
+    private string OnOff(bool v) => v ? _loc["settings.on"] : _loc["settings.off"];
 
     private static string SettingsLangName(string lang) => lang == "en" ? "English" : "Русский";
 
@@ -1402,9 +1489,11 @@ internal sealed class TuiEditor
         if (w < 20 || h < 5)
             return;
         string title = _loc["settings.title"];
-        string[] labels = [_loc["settings.theme"], _loc["settings.lang"]];
+        string[] labels = [_loc["settings.theme"], _loc["settings.lang"],
+            _loc["settings.matchcase"], _loc["settings.wholeword"]];
         string langName = SettingsLangName(_loc.Language);
-        string[] values = [SettingsThemeName(), langName];
+        string[] values = [SettingsThemeName(), langName,
+            OnOff(_settings.SearchMatchCase), OnOff(_settings.SearchWholeWord)];
         int inner = _loc["settings.hint"].Length;
         for (int i = 0; i < SettingsDialogState.RowCount; i++)
             inner = Math.Max(inner, labels[i].Length + values[i].Length + 8);

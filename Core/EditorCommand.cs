@@ -45,10 +45,18 @@ public enum EditorCommand
     Find,
     /// <summary>Следующее вхождение поиска (F3).</summary>
     FindNext,
+    /// <summary>Предыдущее вхождение поиска (Shift+F3).</summary>
+    FindPrev,
+    /// <summary>Замена (^H).</summary>
+    Replace,
     /// <summary>Переход к строке.</summary>
     GoToLine,
     /// <summary>Вырезать/копировать/вставить строку.</summary>
     CutLine, CopyLine, Paste,
+    /// <summary>Дублировать строку/блок ниже (^D).</summary>
+    DuplicateLine,
+    /// <summary>Переместить строку/блок вверх/вниз (Alt+↑/↓).</summary>
+    MoveLineUp, MoveLineDown,
     /// <summary>Отмена/возврат правки.</summary>
     Undo, Redo,
     /// <summary>Вставка: Enter, Backspace, Delete, Tab, печатный символ.</summary>
