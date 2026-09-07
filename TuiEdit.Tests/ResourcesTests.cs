@@ -59,6 +59,7 @@ public sealed class ResourcesTests
     [InlineData("msg.search.badpattern")]
     [InlineData("help.k1")]
     [InlineData("help.k12")]
+    [InlineData("help.k13")]
     [InlineData("modal.about.title")]
     [InlineData("modal.about.ok")]
     [InlineData("help.dlg.title")]

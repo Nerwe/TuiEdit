@@ -3,6 +3,7 @@
 // ReadKey(true), SetCursorPosition, WindowWidth/WindowHeight, CursorVisible,
 // ForegroundColor/BackgroundColor, TreatControlCAsInput, OutputEncoding, Clear, ResetColor.
 
+using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace TuiEdit;
@@ -21,9 +22,13 @@ internal sealed class TuiEditor
     private readonly List<string> _clipboard = new();
     private string _lastSearch = string.Empty;
     private string _lastReplace = string.Empty;
+    /// <summary>Живой термин подсветки во время ввода в промпте (null — выкл).</summary>
+    internal string? _liveSearch;
     private bool _quitRequested;
     private readonly TextSelection _sel = new();
     private MenuState? _menu;   // null — меню-бар закрыт
+    private SidebarState? _sidebar; // null — панель файлов закрыта (ширина SidebarState.Width)
+    private bool _sidebarFocus;     // ввод идёт в панель, а не в текст
     private Dialog? _dialog;    // null — диалогового окна нет (модалка/менеджер/настройки/справка)
     private PendingOp _pending = PendingOp.None;
     private string _pendingPath = string.Empty;
@@ -40,7 +45,9 @@ internal sealed class TuiEditor
     private Loc _loc;
     private Theme _theme;
 
-    private const string AppVersion = "0.1.0";
+    /// <summary>Версия из сборки (csproj Version); fallback — на случай ручной сборки.</summary>
+    internal static string AppVersion { get; } =
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.2.0";
 
     /// <summary>Отложенное действие после диалога «несохранённые изменения».</summary>
     private enum PendingOp { None, Quit, New, Open }
@@ -227,6 +234,13 @@ internal sealed class TuiEditor
             return;
         }
 
+        // Фокус в панели файлов: навигация и Enter глотаются панелью.
+        if (_sidebarFocus && _sidebar is not null)
+        {
+            HandleSidebarKey(k);
+            return;
+        }
+
         // Esc гасит активное выделение.
         if (k.Key == ConsoleKey.Escape && _sel.HasSelection(_row, _col))
         {
@@ -306,6 +320,7 @@ internal sealed class TuiEditor
                 _store.Save(_settings);
                 SetMessage($"{_loc["settings.wordwrap"]}: {OnOff(_settings.WordWrap)}");
                 return;
+            case EditorCommand.ToggleSidebar: ToggleSidebar(); return;
             case EditorCommand.Settings: RunSettings(); return;
             case EditorCommand.Find: Find(); return;
             case EditorCommand.FindNext: FindNext(); return;
@@ -641,6 +656,12 @@ internal sealed class TuiEditor
             SetMessage(_loc["msg.cancelled"]);
             return;
         }
+        OpenPicked(path);
+    }
+
+    /// <summary>Открыть выбранный путь (менеджер, недавние, панель): сразу или через диалог.</summary>
+    private void OpenPicked(string path)
+    {
         if (!_buf.IsModified)
         {
             LoadFile(path);
@@ -649,6 +670,64 @@ internal sealed class TuiEditor
         _pending = PendingOp.Open;
         _pendingPath = path;
         _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc), ApplyModalOutcome);
+    }
+
+    /// <summary>
+    /// Панель файлов: закрыта — открыть с фокусом; в фокусе — закрыть;
+    /// открыта без фокуса — вернуть фокус. Корень — папка текущего файла.
+    /// </summary>
+    private void ToggleSidebar()
+    {
+        if (_sidebar is null)
+        {
+            string root = _buf.FilePath is null
+                ? Directory.GetCurrentDirectory()
+                : Path.GetDirectoryName(Path.GetFullPath(_buf.FilePath)) ?? Directory.GetCurrentDirectory();
+            _sidebar = new SidebarState(root);
+            _sidebarFocus = true;
+            return;
+        }
+        if (_sidebarFocus)
+        {
+            _sidebar = null;
+            _sidebarFocus = false;
+            return;
+        }
+        _sidebarFocus = true;
+    }
+
+    /// <summary>Клавиша при фокусе в панели: навигация, Enter, Esc/Ctrl+B.</summary>
+    private void HandleSidebarKey(ConsoleKeyInfo k)
+    {
+        if (_sidebar is null)
+        {
+            _sidebarFocus = false;
+            return;
+        }
+        bool ctrl = (k.Modifiers & ConsoleModifiers.Control) != 0;
+        if (ctrl && k.Key == ConsoleKey.B) { ToggleSidebar(); return; }
+        if (ctrl || (k.Modifiers & ConsoleModifiers.Alt) != 0)
+            return; // системные комбинации в панели не работают
+        switch (k.Key)
+        {
+            case ConsoleKey.Escape: _sidebarFocus = false; return;
+            case ConsoleKey.UpArrow: _sidebar.MoveHighlight(-1, TextHeight()); return;
+            case ConsoleKey.DownArrow: _sidebar.MoveHighlight(1, TextHeight()); return;
+            case ConsoleKey.Home: _sidebar.MoveHighlight(int.MinValue / 2, TextHeight()); return;
+            case ConsoleKey.End: _sidebar.MoveHighlight(int.MaxValue / 2, TextHeight()); return;
+            case ConsoleKey.PageUp: _sidebar.MoveHighlight(-Math.Max(1, TextHeight() - 1), TextHeight()); return;
+            case ConsoleKey.PageDown: _sidebar.MoveHighlight(Math.Max(1, TextHeight() - 1), TextHeight()); return;
+            case ConsoleKey.Enter:
+                if (_sidebar.EnterSelected())
+                    return; // зашли в папку
+                string? path = _sidebar.SelectedPath;
+                if (path is null)
+                    return;
+                _sidebarFocus = false;
+                OpenPicked(path);
+                return;
+        }
+        // Печать и прочее в фокусе панели глотается.
     }
 
     /// <summary>Недавние файлы модалкой (пустой список — сообщение).</summary>
@@ -673,14 +752,7 @@ internal sealed class TuiEditor
             return;
         string path = _recentPaths[Math.Clamp(button, 0, _recentPaths.Count - 1)];
         _recentPaths.Clear();
-        if (!_buf.IsModified)
-        {
-            LoadFile(path);
-            return;
-        }
-        _pending = PendingOp.Open;
-        _pendingPath = path;
-        _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc), ApplyModalOutcome);
+        OpenPicked(path);
     }
 
     private void ClearDoc()
@@ -1021,7 +1093,7 @@ internal sealed class TuiEditor
 
     private void Find()
     {
-        string? term = Prompt(_loc["prompt.find"], _lastSearch);
+        string? term = Prompt(_loc["prompt.find"], _lastSearch, liveHighlight: true);
         if (term is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
         if (term.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
         if (BadPattern(term)) return;
@@ -1069,7 +1141,7 @@ internal sealed class TuiEditor
     /// </summary>
     private void Replace()
     {
-        string? term = Prompt(_loc["prompt.replace.find"], _lastSearch);
+        string? term = Prompt(_loc["prompt.replace.find"], _lastSearch, liveHighlight: true);
         if (term is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
         if (term.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
         string? rep = Prompt(_loc["prompt.replace.with"], _lastReplace);
@@ -1193,10 +1265,19 @@ internal sealed class TuiEditor
 
     // ---------- Диалоги (в строке статуса) ----------
 
-    private string? Prompt(string title, string initial)
+    private string? Prompt(string title, string initial, bool liveHighlight = false)
     {
         var input = initial ?? string.Empty;
         int pos = input.Length;
+        // Живая подсветка: превью-термин + ререндер на каждое нажатие (курсор не двигаем).
+        void RefreshLive()
+        {
+            if (!liveHighlight)
+                return;
+            _liveSearch = input;
+            Render();
+        }
+        RefreshLive();
         while (true)
         {
             DrawPrompt(title, input, pos);
@@ -1207,6 +1288,7 @@ internal sealed class TuiEditor
             }
             catch (InvalidOperationException)
             {
+                _liveSearch = null;
                 return null;
             }
             if (ev is PasteInput paste)
@@ -1215,6 +1297,7 @@ internal sealed class TuiEditor
                 string t = paste.Text.Replace("\r", "").Replace("\n", "");
                 input = input.Insert(pos, t);
                 pos += t.Length;
+                RefreshLive();
                 continue;
             }
             var k = ((KeyInput)ev).Key;
@@ -1222,13 +1305,15 @@ internal sealed class TuiEditor
             if (ctrl) continue;
             switch (k.Key)
             {
-                case ConsoleKey.Escape: return null;
-                case ConsoleKey.Enter: return input;
+                case ConsoleKey.Escape: _liveSearch = null; if (liveHighlight) Render(); return null;
+                case ConsoleKey.Enter: _liveSearch = null; return input;
                 case ConsoleKey.Backspace:
                     if (pos > 0) { input = input.Remove(pos - 1, 1); pos--; }
+                    RefreshLive();
                     break;
                 case ConsoleKey.Delete:
                     if (pos < input.Length) input = input.Remove(pos, 1);
+                    RefreshLive();
                     break;
                 case ConsoleKey.LeftArrow: if (pos > 0) pos--; break;
                 case ConsoleKey.RightArrow: if (pos < input.Length) pos++; break;
@@ -1239,11 +1324,15 @@ internal sealed class TuiEditor
                     {
                         input = input.Insert(pos, k.KeyChar.ToString());
                         pos++;
+                        RefreshLive();
                     }
                     break;
             }
         }
     }
+
+    /// <summary>Термин подсветки: живой ввод в промпте важнее последнего поиска.</summary>
+    internal string EffectiveSearchTerm => _liveSearch ?? _lastSearch;
 
     private void DrawPrompt(string title, string input, int pos)
     {
@@ -1372,7 +1461,8 @@ internal sealed class TuiEditor
         bool wrap = _settings.WordWrap;
         int numWidth = Math.Max(4, _buf.Count.ToString().Length);
         int gutterWidth = _settings.ShowLineNumbers ? numWidth + 3 : 0; // "1234 │ " или нет
-        int contentWidth = Math.Max(1, w - gutterWidth);
+        int sideW = _sidebar is null ? 0 : SidebarState.Width; // панель файлов слева
+        int contentWidth = Math.Max(1, w - gutterWidth - sideW);
 
         EnsureVisible(textHeight, contentWidth);
         if (_screen.Width != w || _screen.Height != h)
@@ -1381,7 +1471,8 @@ internal sealed class TuiEditor
         // Меню-бар (строка 0): File / Edit / Help + имя файла справа.
         DrawMenuBar(w);
 
-        DrawText(w, textHeight, contentWidth, gutterWidth, numWidth, wrap);
+        DrawText(sideW, w, textHeight, contentWidth, gutterWidth, numWidth, wrap);
+        DrawSidebar(textHeight);
 
         // Статусбар: слева позиция/сообщение, справа кодировка | EOL | отступ | файл.
         string msg = CurrentMessage;
@@ -1405,19 +1496,19 @@ internal sealed class TuiEditor
 
         // Аппаратный курсор ставим один раз за кадр:
         // диалог с курсором (поле имени менеджера) — туда, иначе текст
-        // (прячем под меню и диалогом).
-        bool uiOpen = _menu is not null || _dialog is not null;
+        // (прячем под меню, диалогом и фокусом панели).
+        bool uiOpen = _menu is not null || _dialog is not null || _sidebarFocus;
         string curLine = _buf.GetLine(_row);
         int vcolCur = TabStops.VisualWidth(curLine, _col);
         int curBase = wrap
             ? WordWrap.SegmentStarts(curLine, contentWidth)[CursorSeg(curLine, _col, contentWidth)]
             : _left;
-        int cx = gutterWidth + (vcolCur - curBase);
+        int cx = sideW + gutterWidth + (vcolCur - curBase);
         int cy = 1 + CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, wrap, textHeight);
         (int x, int y)? dlgCursor = _dialog?.Cursor;
         bool pickerCursor = dlgCursor is not null;
         bool placed = pickerCursor
-            || (!uiOpen && cy >= 1 && cy < 1 + textHeight && cx >= gutterWidth && cx < w);
+            || (!uiOpen && cy >= 1 && cy < 1 + textHeight && cx >= sideW + gutterWidth && cx < w);
         try
         {
             if (placed)
@@ -1432,8 +1523,9 @@ internal sealed class TuiEditor
     /// выделения / совпадения поиска / текущей строки.
     /// Без wrap — один экранный ряд на строку; с wrap — по сегменту
     /// (номер только на первом, дальше пустой гуттер).
+    /// x0 — сдвиг вправо на ширину панели файлов (0 — нет панели).
     /// </summary>
-    private void DrawText(int w, int textHeight, int contentWidth, int gutterWidth, int numWidth, bool wrap)
+    private void DrawText(int x0, int w, int textHeight, int contentWidth, int gutterWidth, int numWidth, bool wrap)
     {
         int y = 1;
         int fileLine = _top;
@@ -1450,11 +1542,11 @@ internal sealed class TuiEditor
                 int segEnd = s + 1 < starts.Count ? starts[s + 1] : int.MaxValue;
                 int @base = wrap ? segStart : _left;
                 if (gutterWidth > 0)
-                    _screen.Text(0, y, s == 0
+                    _screen.Text(x0, y, s == 0
                         ? $"{(fileLine + 1).ToString().PadLeft(numWidth)} │ "
                         : $"{new string(' ', numWidth)} │ ", _theme.GutterFg, _theme.EditorBg);
-            bool[] isMatch = FindMatches(TabStops.Slice(line, @base, contentWidth),
-                _lastSearch, _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex);
+                bool[] isMatch = FindMatches(TabStops.Slice(line, @base, contentWidth),
+                    EffectiveSearchTerm, _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex);
                 int vpos = 0; // визуальная позиция в строке
                 int ci = 0;   // индекс символа
                 foreach (char c in line)
@@ -1478,7 +1570,7 @@ internal sealed class TuiEditor
                             (_, _, true) => (_theme.CurLineFg, _theme.CurLineBg),
                             _ => (_theme.EditorFg, _theme.EditorBg),
                         };
-                        _screen.Set(gutterWidth + vc, y, c == '\t' ? ' ' : c, fg, bg);
+                        _screen.Set(x0 + gutterWidth + vc, y, c == '\t' ? ' ' : c, fg, bg);
                     }
                     vpos += cw;
                     if (vpos - @base >= contentWidth)
@@ -1490,7 +1582,7 @@ internal sealed class TuiEditor
                 (Rgb tailFg, Rgb tailBg) = isCur
                     ? (_theme.CurLineFg, _theme.CurLineBg)
                     : (_theme.EditorFg, _theme.EditorBg);
-                _screen.Fill(gutterWidth + filled, y, contentWidth - filled, ' ', tailFg, tailBg);
+                _screen.Fill(x0 + gutterWidth + filled, y, contentWidth - filled, ' ', tailFg, tailBg);
                 y++;
             }
             fileLine++;
@@ -1498,9 +1590,49 @@ internal sealed class TuiEditor
         }
         while (y < 1 + textHeight)
         {
-            _screen.Text(0, y, ("~".PadRight(w))[..w], _theme.FillerFg, _theme.EditorBg);
+            _screen.Text(x0, y, ("~".PadRight(w - x0))[..(w - x0)], _theme.FillerFg, _theme.EditorBg);
             y++;
         }
+    }
+
+    /// <summary>
+    /// Панель файлов слева (ширина <see cref="SidebarState.Width"/>):
+    /// имя папки + список со скроллом, выбранная строка подсвечена.
+    /// Закрыта — ничего не рисует (текст уже занимает всю ширину).
+    /// </summary>
+    private void DrawSidebar(int textHeight)
+    {
+        if (_sidebar is null)
+            return;
+        int sw = SidebarState.Width;
+        int inner = sw - 1; // последняя колонка — разделитель
+        string title = "▸ " + Path.GetFileName(
+            _sidebar.CurrentDir.TrimEnd(Path.DirectorySeparatorChar));
+        if (title.Length > inner)
+            title = "…" + title[^(inner - 1)..];
+        _screen.Text(0, 1, title.PadRight(inner)[..inner] + "│", _theme.MenuOpenFg, _theme.MenuOpenBg);
+        int visCount = Math.Max(1, textHeight - 1);
+        int vis = Math.Min(visCount, _sidebar.Entries.Count - _sidebar.Top);
+        for (int vi = 0; vi < vis; vi++)
+        {
+            int i = _sidebar.Top + vi;
+            SidebarEntry e = _sidebar.Entries[i];
+            string label = (e.IsDir ? "+ " : "  ") + e.Name;
+            if (label.Length > inner)
+                label = label[..(inner - 1)] + "…";
+            if (vi == 0 && _sidebar.Top > 0)
+                label = label[..^1] + "↑";
+            if (vi == vis - 1 && _sidebar.Top + vis < _sidebar.Entries.Count)
+                label = label[..^1] + "↓";
+            string cell = label.PadRight(inner)[..inner] + "│";
+            int row = 2 + vi;
+            if (i == _sidebar.Selected)
+                _screen.Text(0, row, cell, _theme.ButtonSelFg, _theme.ButtonSelBg);
+            else
+                _screen.Text(0, row, cell, _theme.EditorFg, _theme.EditorBg);
+        }
+        for (int row = 2 + vis; row < 1 + textHeight; row++)
+            _screen.Text(0, row, new string(' ', inner) + "│", _theme.EditorFg, _theme.EditorBg);
     }
 
     /// <summary>Границы выделения в символах для строки (a==b — нет выделения).</summary>

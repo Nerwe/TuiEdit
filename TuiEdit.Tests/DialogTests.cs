@@ -170,7 +170,7 @@ public sealed class DialogTests : IDisposable
     public void HelpDialogStructureAndScroll()
     {
         var hd = new HelpDialog(_loc);
-        Assert.Equal(19, hd.TotalRows); // 7 заголовков + 12 строк, без футера
+        Assert.Equal(20, hd.TotalRows); // 7 заголовков + 13 строк, без футера
         Assert.Equal(0, hd.Scroll);
         hd.HandleKey(K('\0', ConsoleKey.DownArrow));
         Assert.Equal(1, hd.Scroll);
@@ -180,7 +180,7 @@ public sealed class DialogTests : IDisposable
         small.Resize(96, 12);
         hd.HandleKey(K('\0', ConsoleKey.End));
         hd.Draw(small, _theme, _loc);
-        Assert.Equal(19 - hd.VisibleRows(12), hd.Scroll); // кламп к низу
+        Assert.Equal(20 - hd.VisibleRows(12), hd.Scroll); // кламп к низу
         hd.HandleKey(K('\0', ConsoleKey.Home));
         hd.Draw(small, _theme, _loc);
         Assert.Equal(0, hd.Scroll);

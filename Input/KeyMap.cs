@@ -66,6 +66,7 @@ public static class KeyMap
                 ConsoleKey.Z => EditorCommand.Undo,
                 ConsoleKey.Y => EditorCommand.Redo,
                 ConsoleKey.A => EditorCommand.SelectAll, // как в MS Edit (Home — клавишей Home)
+                ConsoleKey.B => EditorCommand.ToggleSidebar, // панель файлов, как в VS Code
                 ConsoleKey.E => EditorCommand.GoEnd,
                 ConsoleKey.Home => EditorCommand.GoDocStart,
                 ConsoleKey.End => EditorCommand.GoDocEnd,

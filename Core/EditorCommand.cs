@@ -73,4 +73,6 @@ public enum EditorCommand
     ToggleLineNumbers,
     /// <summary>Вкл/выкл мягкий перенос строк (Alt+Z, как в VS Code).</summary>
     ToggleWrap,
+    /// <summary>Показать/скрыть панель файлов (Ctrl+B, как в VS Code).</summary>
+    ToggleSidebar,
 }

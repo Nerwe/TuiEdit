@@ -6,10 +6,11 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 ## Features
 
 - Editing: undo/redo (per keystroke and per block), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), move lines (`Alt+↑/↓`), word-wise delete/move.
-- Find (`^F`, `F3`/`Shift+F3`): wrap-around, `k/N` counter, «match case» and «whole word» options. Instant whole-document replace (`^H`) in a single undo step.
+- Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, «match case» and «whole word» options. Instant whole-document replace (`^H`) in a single undo step.
 - File manager for Open/Save as: drives, `..`, file highlight, overwrite confirmation in a separate window. Name field: selection (`Shift`), word-wise motion (`Ctrl+arrows`), `Alt+←/→` navigation.
 - Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save.
 - `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), help screen (`F1`).
+- File panel (`Ctrl+B`): fixed-width sidebar with the current folder, arrows to select, `Enter` to open, `Esc` back to text.
 - System clipboard via OSC52 (Windows Terminal): `^C` copies, paste with `Ctrl+V`.
 
 ## Hotkeys
@@ -23,7 +24,7 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Alt+up/down — move line
 Enter — new line, Tab — indent, Shift+Tab — unindent
 F10 or Alt+F/E/H — menu (arrows/Enter/Esc, letter hotkey)
-F1 — help   Alt+N — line numbers   Alt+Z — word wrap
+F1 — help   Alt+N — line numbers   Alt+Z — word wrap   Ctrl+B — file panel
 ```
 
 Full list: `tui-edit --help` or `F1` in the editor.
@@ -40,9 +41,9 @@ Full list: `tui-edit --help` or `F1` in the editor.
 |---|---|---|
 | ![Modal](docs/shots/unsaved.png) | ![Manager](docs/shots/picker.png) | ![Settings](docs/shots/settings.png) |
 
-| Recovery |
-|---|
-| ![Recovery](docs/shots/restore.png) |
+| Recovery | Panel |
+|---|---|
+| ![Recovery](docs/shots/restore.png) | ![Panel](docs/shots/sidebar.png) |
 
 ![Help](docs/shots/help.png)
 
@@ -95,6 +96,7 @@ Ui/Screen.cs          frame diff-buffer (no flicker)
 Ui/FilePicker.cs      file manager (pure model)
 Ui/Modal.cs           modal popups (pure model)
 Ui/SettingsDialogState.cs settings dialog state (pure model)
+Ui/SidebarState.cs    file panel model: listing, highlight, scroll (pure model)
 Config/               AppSettings + SettingsStore (JSON)
 Resources/            strings.ru/en.json (key parity required)
 TuiEdit.Tests/        xUnit tests (dotnet test): buffer, find, dialogs, resources

@@ -34,12 +34,13 @@ foreach (string a in args)
             Console.WriteLine(loc["help.k10"]);
             Console.WriteLine(loc["help.k11"]);
             Console.WriteLine(loc["help.k12"]);
+            Console.WriteLine(loc["help.k13"]);
             Console.WriteLine();
             Console.WriteLine(loc["help.status"]);
             Console.WriteLine(loc.Format("help.config", ShortenHome(store.Path)));
             return 0;
         case "-v" or "--version":
-            Console.WriteLine("TuiEdit 0.1.0 (net10.0, System.Console)");
+            Console.WriteLine($"TuiEdit {TuiEditor.AppVersion} (net10.0, System.Console)");
             return 0;
         case ['-', ..]:
             break; // неизвестный флаг — игнорируем
