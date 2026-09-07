@@ -8,8 +8,8 @@ public sealed class AppSettings
     /// <summary>Тема: dark | light.</summary>
     public string Theme { get; set; } = "dark";
 
-    /// <summary>Язык: ru | en.</summary>
-    public string Language { get; set; } = "ru";
+    /// <summary>Язык: en | ru.</summary>
+    public string Language { get; set; } = "en";
 
     /// <summary>Поиск/замена: учитывать регистр.</summary>
     public bool SearchMatchCase { get; set; } = true;

@@ -36,7 +36,7 @@ foreach (string a in args)
             Console.WriteLine(loc["help.k12"]);
             Console.WriteLine();
             Console.WriteLine(loc["help.status"]);
-            Console.WriteLine(loc.Format("help.config", store.Path));
+            Console.WriteLine(loc.Format("help.config", ShortenHome(store.Path)));
             return 0;
         case "-v" or "--version":
             Console.WriteLine("TuiEdit 0.1.0 (net10.0, System.Console)");
@@ -61,3 +61,14 @@ var buffer = new TextBuffer(file);
 var editor = new TuiEditor(buffer, settings, store);
 editor.Run();
 return 0;
+
+// Полный путь под домашней папкой — коротко через %USERPROFILE%.
+static string ShortenHome(string path)
+{
+    string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    if (!string.IsNullOrEmpty(home) &&
+        (path.Equals(home, StringComparison.OrdinalIgnoreCase) ||
+         path.StartsWith(home + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
+        return "%USERPROFILE%" + path[home.Length..];
+    return path;
+}

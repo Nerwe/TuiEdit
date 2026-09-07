@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>TuiEdit.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TuiEdit.csproj" />
+  </ItemGroup>
+
+  <!-- Ресурсы тестового раннера: Loc грузит JSON из своей сборки,
+       поэтому кладём копии с тем же логическим именем. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\Resources\strings.ru.json" LogicalName="TuiEdit.Resources.strings.ru.json" />
+    <EmbeddedResource Include="..\Resources\strings.en.json" LogicalName="TuiEdit.Resources.strings.en.json" />
+    <Content Include="..\Resources\*.json" Link="Resources\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

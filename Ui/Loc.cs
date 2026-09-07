@@ -10,7 +10,7 @@ namespace TuiEdit;
 public sealed class Loc
 {
     /// <summary>Поддерживаемые языки.</summary>
-    public static readonly string[] Supported = ["ru", "en"];
+    public static readonly string[] Supported = ["en", "ru"];
 
     /// <summary>Текущий язык.</summary>
     public string Language { get; }
@@ -26,9 +26,9 @@ public sealed class Loc
     /// <summary>Нормализация кода языка (неизвестный — ru).</summary>
     public static string Normalize(string? language) => language switch
     {
-        "en" => "en",
         "ru" => "ru",
-        _ => "ru",
+        "en" => "en",
+        _ => "en",
     };
 
     /// <summary>Загрузить строки языка (fallback — сам ключ).</summary>

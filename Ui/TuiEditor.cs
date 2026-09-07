@@ -24,7 +24,7 @@ internal sealed class TuiEditor
     private bool _quitRequested;
     private readonly TextSelection _sel = new();
     private MenuState? _menu;   // null — меню-бар закрыт
-    private Dialog? _dialog;    // null — диалогового окна нет (модалка/менеджер/настройки)
+    private Dialog? _dialog;    // null — диалогового окна нет (модалка/менеджер/настройки/справка)
     private PendingOp _pending = PendingOp.None;
     private string _pendingPath = string.Empty;
     private string _overwritePath = string.Empty; // путь из модалки перезаписи
@@ -39,8 +39,6 @@ internal sealed class TuiEditor
     private readonly SettingsStore _store;
     private Loc _loc;
     private Theme _theme;
-    private bool _helpOpen;   // экран справки открыт (ловушка ввода)
-    private int _helpScroll;  // прокрутка справки
 
     private const string AppVersion = "0.1.0";
 
@@ -212,12 +210,6 @@ internal sealed class TuiEditor
 
     private void HandleKey(ConsoleKeyInfo k)
     {
-        // Экран справки глотает весь ввод (как модалка).
-        if (_helpOpen)
-        {
-            HandleHelpKey(k);
-            return;
-        }
         // Открытый диалог глотает весь ввод (как modal_end в MS Edit).
         if (_dialog is not null)
         {
@@ -303,7 +295,7 @@ internal sealed class TuiEditor
             case EditorCommand.OpenFile: DoOpen(); return;
             case EditorCommand.OpenRecent: DoRecent(); return;
             case EditorCommand.About: _dialog = new ModalDialog(ModalState.About(_loc, AppVersion), ApplyModalOutcome); return;
-            case EditorCommand.Help: _helpOpen = true; _helpScroll = 0; return;
+            case EditorCommand.Help: RunDialog(new HelpDialog(_loc)); return;
             case EditorCommand.ToggleLineNumbers:
                 _settings.ShowLineNumbers = !_settings.ShowLineNumbers;
                 _store.Save(_settings);
@@ -1389,10 +1381,7 @@ internal sealed class TuiEditor
         // Меню-бар (строка 0): File / Edit / Help + имя файла справа.
         DrawMenuBar(w);
 
-        if (_helpOpen)
-            DrawHelp(w, textHeight);
-        else
-            DrawText(w, textHeight, contentWidth, gutterWidth, numWidth, wrap);
+        DrawText(w, textHeight, contentWidth, gutterWidth, numWidth, wrap);
 
         // Статусбар: слева позиция/сообщение, справа кодировка | EOL | отступ | файл.
         string msg = CurrentMessage;
@@ -1416,8 +1405,8 @@ internal sealed class TuiEditor
 
         // Аппаратный курсор ставим один раз за кадр:
         // диалог с курсором (поле имени менеджера) — туда, иначе текст
-        // (прячем под меню, диалогом и справкой).
-        bool uiOpen = _menu is not null || _dialog is not null || _helpOpen;
+        // (прячем под меню и диалогом).
+        bool uiOpen = _menu is not null || _dialog is not null;
         string curLine = _buf.GetLine(_row);
         int vcolCur = TabStops.VisualWidth(curLine, _col);
         int curBase = wrap
@@ -1685,68 +1674,4 @@ internal sealed class TuiEditor
     }
 
     private string OnOff(bool v) => v ? _loc["settings.on"] : _loc["settings.off"];
-
-    /// <summary>Клавиша на экране справки: Esc/F1/Enter — закрыть, остальное — скролл/игнор.</summary>
-    private void HandleHelpKey(ConsoleKeyInfo k)
-    {
-        if ((k.Modifiers & (ConsoleModifiers.Alt | ConsoleModifiers.Control)) != 0)
-            return; // системные комбинации в справке не работают
-        switch (k.Key)
-        {
-            case ConsoleKey.Escape:
-            case ConsoleKey.F1:
-            case ConsoleKey.Enter:
-                _helpOpen = false;
-                break;
-            case ConsoleKey.UpArrow: _helpScroll--; break;
-            case ConsoleKey.DownArrow: _helpScroll++; break;
-            case ConsoleKey.Home: _helpScroll = 0; break;
-            case ConsoleKey.End: _helpScroll = int.MaxValue; break;
-            case ConsoleKey.PageUp: _helpScroll -= Math.Max(1, TextHeight()); break;
-            case ConsoleKey.PageDown: _helpScroll += Math.Max(1, TextHeight()); break;
-        }
-    }
-
-    /// <summary>Строки справки (те же ключи, что в --help).</summary>
-    private List<string> HelpLines() => new()
-    {
-        _loc["help.title"],
-        string.Empty,
-        _loc["help.usage"],
-        _loc["help.usage.line"],
-        string.Empty,
-        _loc["help.keys"],
-        _loc["help.k1"],
-        _loc["help.k2"],
-        _loc["help.k3"],
-        _loc["help.k4"],
-        _loc["help.k5"],
-        _loc["help.k6"],
-        _loc["help.k7"],
-        _loc["help.k8"],
-        _loc["help.k9"],
-        _loc["help.k10"],
-        _loc["help.k11"],
-        _loc["help.k12"],
-        string.Empty,
-        _loc["help.status"],
-        _loc.Format("help.config", _store.Path),
-    };
-
-    /// <summary>Справка поверх текстовой области (меню-бар и статусбар свои).</summary>
-    private void DrawHelp(int w, int textHeight)
-    {
-        List<string> lines = HelpLines();
-        _helpScroll = Math.Clamp(_helpScroll, 0, Math.Max(0, lines.Count - textHeight));
-        for (int i = 0; i < textHeight; i++)
-        {
-            int y = 1 + i;
-            string s = _helpScroll + i < lines.Count ? lines[_helpScroll + i] : string.Empty;
-            if (s.Length > w) s = s[..w];
-            bool title = _helpScroll + i == 0;
-            _screen.Text(0, y, s.PadRight(w)[..w],
-                title ? _theme.MenuOpenFg : _theme.EditorFg,
-                title ? _theme.MenuOpenBg : _theme.EditorBg);
-        }
-    }
 }

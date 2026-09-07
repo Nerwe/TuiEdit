@@ -105,7 +105,10 @@ public sealed class ModalState
         selected: 0,
         hint: string.Empty);
 
-    /// <summary>Попап «о программе».</summary>
+    /// <summary>
+    /// Попап «о программе»: только информация — название, версия, дата,
+    /// автор, лицензия. Подсказок клавиш и хоткеев здесь нет.
+    /// </summary>
     public static ModalState About(Loc loc, string version) => new(
         ModalKind.About,
         loc["modal.about.title"],
@@ -113,11 +116,13 @@ public sealed class ModalState
         {
             loc.Format("modal.about.l1", version),
             loc["modal.about.l2"],
-            loc["modal.about.l3"],
+            loc["modal.about.date"],
+            loc["modal.about.author"],
+            loc["modal.about.license"],
         },
         new List<ModalButton> { new(loc["modal.about.ok"], '\0') },
         selected: 0,
-        loc["modal.close.hint"]);
+        hint: string.Empty);
 
     /// <summary>Попап ошибки (заголовок и текст уже локализованы вызывающим).</summary>
     public static ModalState Error(Loc loc, string title, string message) => new(
