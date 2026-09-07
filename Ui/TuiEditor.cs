@@ -13,10 +13,12 @@ internal sealed class TuiEditor
     private int _desiredCol; // память колонки для Up/Down
     private int _top;        // первая видимая строка
     private int _left;       // первая видимая колонка
+    private int _topSeg;     // сегмент первой строки при wrap (иначе 0)
     private string _message = string.Empty;
     private DateTime _messageUntil = DateTime.MinValue;
     private readonly List<string> _clipboard = new();
     private string _lastSearch = string.Empty;
+    private string _lastReplace = string.Empty;
     private bool _quitRequested;
     private readonly TextSelection _sel = new();
     private MenuState? _menu;   // null — меню-бар закрыт
@@ -35,6 +37,9 @@ internal sealed class TuiEditor
     private Loc _loc;
     private Theme _theme;
     private bool _settingsOpen; // диалог настроек открыт
+    private SettingsDialogState? _settingsDlg; // состояние диалога (рисуется внутри Render)
+    private bool _helpOpen;   // экран справки открыт (ловушка ввода)
+    private int _helpScroll;  // прокрутка справки
 
     private const string AppVersion = "0.1.0";
 
@@ -122,6 +127,12 @@ internal sealed class TuiEditor
 
     private void HandleKey(ConsoleKeyInfo k)
     {
+        // Экран справки глотает весь ввод (как модалка).
+        if (_helpOpen)
+        {
+            HandleHelpKey(k);
+            return;
+        }
         // Модалка глотает весь ввод (как modal_end в MS Edit).
         if (_modal is not null)
         {
@@ -203,13 +214,29 @@ internal sealed class TuiEditor
             case EditorCommand.NewFile: DoNew(); return;
             case EditorCommand.OpenFile: DoOpen(); return;
             case EditorCommand.About: _modal = ModalState.About(_loc, AppVersion); return;
+            case EditorCommand.Help: _helpOpen = true; _helpScroll = 0; return;
+            case EditorCommand.ToggleLineNumbers:
+                _settings.ShowLineNumbers = !_settings.ShowLineNumbers;
+                _store.Save(_settings);
+                SetMessage($"{_loc["settings.shownumbers"]}: {OnOff(_settings.ShowLineNumbers)}");
+                return;
+            case EditorCommand.ToggleWrap:
+                _settings.WordWrap = !_settings.WordWrap;
+                _store.Save(_settings);
+                SetMessage($"{_loc["settings.wordwrap"]}: {OnOff(_settings.WordWrap)}");
+                return;
             case EditorCommand.Settings: RunSettings(); return;
             case EditorCommand.Find: Find(); return;
             case EditorCommand.FindNext: FindNext(); return;
+            case EditorCommand.FindPrev: FindPrev(); return;
+            case EditorCommand.Replace: Replace(); return;
             case EditorCommand.GoToLine: GoToLine(); return;
             case EditorCommand.CutLine: CutLine(); return;
             case EditorCommand.CopyLine: CopyLine(); return;
             case EditorCommand.Paste: Paste(); return;
+            case EditorCommand.DuplicateLine: DuplicateBlock(); return;
+            case EditorCommand.MoveLineUp: MoveLineBlock(-1); return;
+            case EditorCommand.MoveLineDown: MoveLineBlock(1); return;
             case EditorCommand.SaveAs: SaveAs(); return;
             case EditorCommand.Undo: _buf.Undo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.undo"]); return;
             case EditorCommand.Redo: _buf.Redo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.redo"]); return;
@@ -539,7 +566,7 @@ internal sealed class TuiEditor
 
     private void ResetCursor()
     {
-        _row = _col = _desiredCol = _top = _left = 0;
+        _row = _col = _desiredCol = _top = _left = _topSeg = 0;
     }
 
     private void LoadFile(string path)
@@ -638,12 +665,15 @@ internal sealed class TuiEditor
             new(loc["menu.cut"], 'T', "^K", EditorCommand.CutLine),
             new(loc["menu.copy"], 'C', "^C", EditorCommand.CopyLine),
             new(loc["menu.paste"], 'P', "^U", EditorCommand.Paste),
+            new(loc["menu.duplicate"], 'D', "^D", EditorCommand.DuplicateLine),
             new(loc["menu.find"], 'F', "^F", EditorCommand.Find),
+            new(loc["menu.replace"], 'H', "^H", EditorCommand.Replace),
             new(loc["menu.goto"], 'G', "^G", EditorCommand.GoToLine),
             new(loc["menu.selectall"], 'A', "^A", EditorCommand.SelectAll),
         }),
         new TopMenu(loc["menu.help"], 'H', new List<MenuItem>
         {
+            new(loc["menu.helpitem"], 'H', "F1", EditorCommand.Help),
             new(loc["menu.about"], 'A', null, EditorCommand.About),
         }),
     };
@@ -827,8 +857,33 @@ internal sealed class TuiEditor
                     continue;
                 }
                 var k = ((KeyInput)ev).Key;
+                bool shift = (k.Modifiers & ConsoleModifiers.Shift) != 0;
+                bool alt = (k.Modifiers & ConsoleModifiers.Alt) != 0;
+                if (alt && (k.Modifiers & ConsoleModifiers.Control) == 0)
+                {
+                    // Навигация по каталогам (Backspace текст не трогает).
+                    switch (k.Key)
+                    {
+                        case ConsoleKey.LeftArrow: _picker.UpDir(); break;
+                        case ConsoleKey.RightArrow: _picker.EnterDir(); break;
+                    }
+                    continue;
+                }
+                if ((k.Modifiers & ConsoleModifiers.Control) != 0
+                    && (k.Modifiers & ConsoleModifiers.Alt) == 0)
+                {
+                    // Ctrl в поле имени: по словам и удаление слов.
+                    switch (k.Key)
+                    {
+                        case ConsoleKey.LeftArrow: _picker.MoveNameWord(-1, shift); break;
+                        case ConsoleKey.RightArrow: _picker.MoveNameWord(1, shift); break;
+                        case ConsoleKey.Backspace: _picker.DeleteNameWord(-1); break;
+                        case ConsoleKey.Delete: _picker.DeleteNameWord(1); break;
+                    }
+                    continue; // прочий Ctrl в менеджере не используется
+                }
                 if ((k.Modifiers & ConsoleModifiers.Control) != 0)
-                    continue; // Ctrl в менеджере не используется
+                    continue; // Ctrl+Alt (AltGr) в менеджере не используется
                 switch (k.Key)
                 {
                     case ConsoleKey.Escape: return null;
@@ -836,8 +891,14 @@ internal sealed class TuiEditor
                     case ConsoleKey.DownArrow: _picker.MoveHighlight(1); break;
                     case ConsoleKey.PageUp: _picker.MoveHighlight(-10); break;
                     case ConsoleKey.PageDown: _picker.MoveHighlight(10); break;
-                    case ConsoleKey.Home: _picker.GotoFirst(); break;
-                    case ConsoleKey.End: _picker.GotoLast(); break;
+                    case ConsoleKey.Home:
+                        if (shift) _picker.HomeName(true);
+                        else _picker.GotoFirst();
+                        break;
+                    case ConsoleKey.End:
+                        if (shift) _picker.EndName(true);
+                        else _picker.GotoLast();
+                        break;
                     case ConsoleKey.Enter:
                         var (res, path) = _picker.Enter();
                         if (res == PickerEnterResult.Accepted && path is not null)
@@ -845,8 +906,8 @@ internal sealed class TuiEditor
                         break;
                     case ConsoleKey.Backspace: _picker.Backspace(); break;
                     case ConsoleKey.Delete: _picker.DeleteChar(); break;
-                    case ConsoleKey.LeftArrow: _picker.MoveNameCursor(-1); break;
-                    case ConsoleKey.RightArrow: _picker.MoveNameCursor(1); break;
+                    case ConsoleKey.LeftArrow: _picker.MoveNameCursor(-1, shift); break;
+                    case ConsoleKey.RightArrow: _picker.MoveNameCursor(1, shift); break;
                     default:
                         if (!char.IsControl(k.KeyChar))
                             _picker.InsertName(k.KeyChar.ToString());
@@ -873,18 +934,46 @@ internal sealed class TuiEditor
         FindNext();
     }
 
-    private void FindNext()
+    private void FindNext() => JumpSearch(wrap: true, backward: false);
+
+    private void FindPrev() => JumpSearch(wrap: true, backward: true);
+
+    /// <summary>Прыжок к следующему/предыдущему вхождению со счётчиком «k/N».</summary>
+    private void JumpSearch(bool wrap, bool backward)
     {
         if (string.IsNullOrEmpty(_lastSearch)) { Find(); return; }
-        var hit = _buf.FindNext(_lastSearch, _row, _col + 1);
-        if (hit is null) SetMessage(_loc.Format("msg.search.miss", _lastSearch));
-        else
-        {
-            (_row, _col) = hit.Value;
-            _sel.Clear(); // прыжок снимает выделение
-            TrackCol();
-            SetMessage(_loc.Format("msg.search.hit", _lastSearch));
-        }
+        bool mc = _settings.SearchMatchCase, ww = _settings.SearchWholeWord;
+        var hit = backward
+            ? _buf.FindPrev(_lastSearch, _row, _col, mc, ww, wrap)
+            : _buf.FindNext(_lastSearch, _row, _col + 1, mc, ww, wrap);
+        if (hit is null) { SetMessage(_loc.Format("msg.search.miss", _lastSearch)); return; }
+        (_row, _col) = (hit.Value.row, hit.Value.col);
+        _sel.Clear(); // прыжок снимает выделение
+        TrackCol();
+        int total = _buf.CountMatches(_lastSearch, mc, ww);
+        int idx = _buf.MatchOrdinal(_lastSearch, _row, _col, mc, ww);
+        string key = hit.Value.wrapped ? "msg.search.wrap" : "msg.search.hit";
+        SetMessage(_loc.Format(key, _lastSearch, idx, total));
+    }
+
+    /// <summary>
+    /// Мгновенная замена по всему документу (как Replace All в MS Edit:
+    /// одна undo-группа, курсор на месте). Два промпта — что и на что.
+    /// </summary>
+    private void Replace()
+    {
+        string? term = Prompt(_loc["prompt.replace.find"], _lastSearch);
+        if (term is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
+        if (term.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
+        string? rep = Prompt(_loc["prompt.replace.with"], _lastReplace);
+        if (rep is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
+        _lastSearch = term;
+        _lastReplace = rep;
+        int n = _buf.ReplaceAll(term, rep, 0, 0, _settings.SearchMatchCase, _settings.SearchWholeWord);
+        ClampCursor();
+        SetMessage(n > 0
+            ? _loc.Format("msg.replace.done", n)
+            : _loc.Format("msg.search.miss", term));
     }
 
     private void GoToLine()
@@ -899,6 +988,40 @@ internal sealed class TuiEditor
             TrackCol();
         }
         else SetMessage(_loc["msg.notnumber"]);
+    }
+
+    /// <summary>Строки для построчных операций: охват выделения или текущая строка.</summary>
+    private (int start, int end) LineBlock()
+    {
+        if (_sel.HasSelection(_row, _col))
+        {
+            var (sr, _, er, _) = _sel.Normalize(_row, _col);
+            return (sr, er);
+        }
+        return (_row, _row);
+    }
+
+    /// <summary>Дублирует строку/блок ниже, курсор — в копию на ту же относительную строку.</summary>
+    private void DuplicateBlock()
+    {
+        var (s, e) = LineBlock();
+        int copy = _buf.DuplicateLines(s, e);
+        _row = copy + (_row - s);
+        _sel.Clear();
+        ClampCursor();
+        TrackCol();
+    }
+
+    /// <summary>Двигает строку/блок на одну вверх (dir=-1) или вниз; на краю — тихо.</summary>
+    private void MoveLineBlock(int dir)
+    {
+        var (s, e) = LineBlock();
+        bool ok = dir < 0 ? _buf.MoveLinesUp(s, e) : _buf.MoveLinesDown(s, e);
+        if (!ok) return;
+        _row += dir; // блок сдвинулся целиком — курсор едет с ним
+        _sel.Clear();
+        ClampCursor();
+        TrackCol();
     }
 
     private void CutLine()
@@ -1052,13 +1175,67 @@ internal sealed class TuiEditor
     private void EnsureVisible(int textHeight, int contentWidth)
     {
         ClampCursor();
-        if (_row < _top) _top = _row;
-        if (_row >= _top + textHeight) _top = _row - textHeight + 1;
-        int vcol = TabStops.VisualWidth(_buf.GetLine(_row), _col);
-        if (vcol < _left) _left = vcol;
-        if (vcol >= _left + contentWidth) _left = vcol - contentWidth + 1;
-        if (_top < 0) _top = 0;
-        if (_left < 0) _left = 0;
+        bool wrap = _settings.WordWrap;
+        if (!wrap)
+        {
+            _topSeg = 0;
+            if (_row < _top) _top = _row;
+            if (_row >= _top + textHeight) _top = _row - textHeight + 1;
+            int vcol = TabStops.VisualWidth(_buf.GetLine(_row), _col);
+            if (vcol < _left) _left = vcol;
+            if (vcol >= _left + contentWidth) _left = vcol - contentWidth + 1;
+            if (_top < 0) _top = 0;
+            if (_left < 0) _left = 0;
+            return;
+        }
+        _left = 0; // переносы вместо горизонтального скролла
+        if (_row != _top) _topSeg = 0;
+        if (_row < _top) { _top = _row; _topSeg = 0; }
+        int rows = CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, true, textHeight);
+        if (rows < 0) // курсор выше видимого (сдвиг внутри длинной строки)
+        {
+            _top = _row; _topSeg = 0;
+            rows = CursorVisualRow(_buf.Lines, _top, 0, _row, _col, contentWidth, true, textHeight);
+        }
+        while (rows >= textHeight)
+        {
+            if (_top < _row)
+            {
+                _top++;
+                _topSeg = 0;
+            }
+            else
+            {
+                // Курсор на дальнем сегменте длинной строки — показываем её хвост.
+                _topSeg = Math.Max(0, CursorSeg(_buf.GetLine(_row), _col, contentWidth) - textHeight + 1);
+                break;
+            }
+            rows = CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, true, textHeight);
+        }
+        if (_top < 0) { _top = 0; _topSeg = 0; }
+    }
+
+    /// <summary>Индекс визуального сегмента для символьной колонки.</summary>
+    internal static int CursorSeg(string line, int col, int contentWidth)
+    {
+        int vcol = TabStops.VisualWidth(line, col);
+        return WordWrap.SegmentAt(WordWrap.SegmentStarts(line, contentWidth), vcol);
+    }
+
+    /// <summary>
+    /// Визуальная строка курсора относительно (top, topSeg): сегменты строк
+    /// [top, row) минус прокрученные плюс сегмент курсора. Чистая функция.
+    /// Точность выше cap не гарантируется (для экрана достаточно cap=textHeight).
+    /// </summary>
+    internal static int CursorVisualRow(IReadOnlyList<string> lines, int top, int topSeg,
+        int row, int col, int contentWidth, bool wrap, int cap = int.MaxValue)
+    {
+        if (!wrap) return row - top;
+        int rows = -topSeg;
+        for (int r = top; r < row && rows < cap; r++)
+            rows += WordWrap.SegmentCount(lines[r], contentWidth);
+        if (rows >= cap) return rows;
+        return rows + CursorSeg(lines[row], col, contentWidth);
     }
 
     private void Render()
@@ -1083,8 +1260,9 @@ internal sealed class TuiEditor
         }
 
         int textHeight = h - 2; // меню сверху, статус снизу
+        bool wrap = _settings.WordWrap;
         int numWidth = Math.Max(4, _buf.Count.ToString().Length);
-        int gutterWidth = numWidth + 3; // "1234 │ "
+        int gutterWidth = _settings.ShowLineNumbers ? numWidth + 3 : 0; // "1234 │ " или нет
         int contentWidth = Math.Max(1, w - gutterWidth);
 
         EnsureVisible(textHeight, contentWidth);
@@ -1094,59 +1272,10 @@ internal sealed class TuiEditor
         // Меню-бар (строка 0): File / Edit / Help + имя файла справа.
         DrawMenuBar(w);
 
-        // Текст: посимвольно в Screen — цвет ячейки зависит от
-        // выделения / совпадения поиска / текущей строки.
-        for (int i = 0; i < textHeight; i++)
-        {
-            int fileLine = _top + i;
-            int y = 1 + i;
-            if (fileLine >= _buf.Count)
-            {
-                _screen.Text(0, y, ("~".PadRight(w))[..w], _theme.FillerFg, _theme.EditorBg);
-                continue;
-            }
-            _screen.Text(0, y, $"{(fileLine + 1).ToString().PadLeft(numWidth)} │ ", _theme.GutterFg, _theme.EditorBg);
-
-            string line = _buf.GetLine(fileLine);
-            bool isCur = fileLine == _row;
-            bool[] isMatch = FindMatches(TabStops.Slice(line, _left, contentWidth), _lastSearch);
-            GetRowSelection(fileLine, line.Length, out int selA, out int selB);
-
-            int vpos = 0; // визуальная позиция в строке
-            int ci = 0;   // индекс символа
-            foreach (char c in line)
-            {
-                int cw = c == '\t' ? TabStops.Width - vpos % TabStops.Width : 1;
-                for (int k = 0; k < cw; k++)
-                {
-                    int vc = vpos + k - _left; // колонка вьюпорта
-                    if (vc < 0)
-                        continue;
-                    if (vc >= contentWidth)
-                        break;
-                    bool sel = ci >= selA && ci < selB;
-                    bool match = vc < isMatch.Length && isMatch[vc];
-                    (Rgb fg, Rgb bg) = (sel, match, isCur) switch
-                    {
-                        (true, _, _) => (_theme.SelFg, _theme.SelBg),
-                        (_, true, _) => (_theme.MatchFg, _theme.MatchBg),
-                        (_, _, true) => (_theme.CurLineFg, _theme.CurLineBg),
-                        _ => (_theme.EditorFg, _theme.EditorBg),
-                    };
-                    _screen.Set(gutterWidth + vc, y, c == '\t' ? ' ' : c, fg, bg);
-                }
-                vpos += cw;
-                if (vpos - _left >= contentWidth)
-                    break;
-                ci++;
-            }
-            // Хвост строки — пробелы обычным цветом.
-            int filled = Math.Clamp(vpos - _left, 0, contentWidth);
-            (Rgb tailFg, Rgb tailBg) = isCur
-                ? (_theme.CurLineFg, _theme.CurLineBg)
-                : (_theme.EditorFg, _theme.EditorBg);
-            _screen.Fill(gutterWidth + filled, y, contentWidth - filled, ' ', tailFg, tailBg);
-        }
+        if (_helpOpen)
+            DrawHelp(w, textHeight);
+        else
+            DrawText(w, textHeight, contentWidth, gutterWidth, numWidth, wrap);
 
         // Статусбар: слева позиция/сообщение, справа кодировка | EOL | отступ | файл.
         string msg = CurrentMessage;
@@ -1161,19 +1290,26 @@ internal sealed class TuiEditor
         string right = $" {_buf.EncodingLabel} | {_buf.EndingLabel} | {_buf.IndentLabel} | {file} ";
         _screen.Text(0, h - 1, StatusBar.Build(left, right, w), _theme.StatusFg, _theme.StatusBg);
 
-        // Поверх текста: раскрытое меню, менеджер и модальный попап.
+        // Поверх текста: раскрытое меню, менеджер, модальный попап и настройки.
         DrawDropdown(w, h);
         DrawPicker(w, h);
         DrawModal(w, h);
+        if (_settingsOpen && _settingsDlg is not null)
+            DrawSettings(_settingsDlg);
 
         // Один diff-вывод за кадр — без мигания.
         _screen.Flush();
 
         // Аппаратный курсор ставим один раз за кадр:
-        // менеджер — в поле имени, иначе текст (прячем под меню, попапом, настройками).
-        bool uiOpen = _menu is not null || _modal is not null || _settingsOpen;
-        int cx = gutterWidth + (TabStops.VisualWidth(_buf.GetLine(_row), _col) - _left);
-        int cy = 1 + (_row - _top);
+        // менеджер — в поле имени, иначе текст (прячем под меню, попапом, настройками, справкой).
+        bool uiOpen = _menu is not null || _modal is not null || _settingsOpen || _helpOpen;
+        string curLine = _buf.GetLine(_row);
+        int vcolCur = TabStops.VisualWidth(curLine, _col);
+        int curBase = wrap
+            ? WordWrap.SegmentStarts(curLine, contentWidth)[CursorSeg(curLine, _col, contentWidth)]
+            : _left;
+        int cx = gutterWidth + (vcolCur - curBase);
+        int cy = 1 + CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, wrap, textHeight);
         bool pickerCursor = _picker is not null && _modal is null && !_settingsOpen && _pickerCursorX >= 0;
         bool placed = pickerCursor
             || (!uiOpen && _picker is null && cy >= 1 && cy < 1 + textHeight && cx >= gutterWidth && cx < w);
@@ -1184,6 +1320,82 @@ internal sealed class TuiEditor
             Console.CursorVisible = placed;
         }
         catch { }
+    }
+
+    /// <summary>
+    /// Текст посимвольно в Screen — цвет ячейки зависит от
+    /// выделения / совпадения поиска / текущей строки.
+    /// Без wrap — один экранный ряд на строку; с wrap — по сегменту
+    /// (номер только на первом, дальше пустой гуттер).
+    /// </summary>
+    private void DrawText(int w, int textHeight, int contentWidth, int gutterWidth, int numWidth, bool wrap)
+    {
+        int y = 1;
+        int fileLine = _top;
+        int firstSeg = _topSeg;
+        while (y < 1 + textHeight && fileLine < _buf.Count)
+        {
+            string line = _buf.GetLine(fileLine);
+            bool isCur = fileLine == _row;
+            GetRowSelection(fileLine, line.Length, out int selA, out int selB);
+            List<int> starts = wrap ? WordWrap.SegmentStarts(line, contentWidth) : new List<int> { 0 };
+            for (int s = firstSeg; s < starts.Count && y < 1 + textHeight; s++)
+            {
+                int segStart = starts[s];
+                int segEnd = s + 1 < starts.Count ? starts[s + 1] : int.MaxValue;
+                int @base = wrap ? segStart : _left;
+                if (gutterWidth > 0)
+                    _screen.Text(0, y, s == 0
+                        ? $"{(fileLine + 1).ToString().PadLeft(numWidth)} │ "
+                        : $"{new string(' ', numWidth)} │ ", _theme.GutterFg, _theme.EditorBg);
+                bool[] isMatch = FindMatches(TabStops.Slice(line, @base, contentWidth),
+                    _lastSearch, _settings.SearchMatchCase, _settings.SearchWholeWord);
+                int vpos = 0; // визуальная позиция в строке
+                int ci = 0;   // индекс символа
+                foreach (char c in line)
+                {
+                    int cw = c == '\t' ? TabStops.Width - vpos % TabStops.Width : 1;
+                    if (vpos + cw <= segStart) { vpos += cw; ci++; continue; }
+                    if (vpos >= segEnd) break;
+                    for (int k = 0; k < cw; k++)
+                    {
+                        int vc = vpos + k - @base; // колонка вьюпорта/сегмента
+                        if (vc < 0)
+                            continue;
+                        if (vc >= contentWidth)
+                            break;
+                        bool sel = ci >= selA && ci < selB;
+                        bool match = vc < isMatch.Length && isMatch[vc];
+                        (Rgb fg, Rgb bg) = (sel, match, isCur) switch
+                        {
+                            (true, _, _) => (_theme.SelFg, _theme.SelBg),
+                            (_, true, _) => (_theme.MatchFg, _theme.MatchBg),
+                            (_, _, true) => (_theme.CurLineFg, _theme.CurLineBg),
+                            _ => (_theme.EditorFg, _theme.EditorBg),
+                        };
+                        _screen.Set(gutterWidth + vc, y, c == '\t' ? ' ' : c, fg, bg);
+                    }
+                    vpos += cw;
+                    if (vpos - @base >= contentWidth)
+                        break;
+                    ci++;
+                }
+                // Хвост строки — пробелы обычным цветом.
+                int filled = Math.Clamp(vpos - @base, 0, contentWidth);
+                (Rgb tailFg, Rgb tailBg) = isCur
+                    ? (_theme.CurLineFg, _theme.CurLineBg)
+                    : (_theme.EditorFg, _theme.EditorBg);
+                _screen.Fill(gutterWidth + filled, y, contentWidth - filled, ' ', tailFg, tailBg);
+                y++;
+            }
+            fileLine++;
+            firstSeg = 0;
+        }
+        while (y < 1 + textHeight)
+        {
+            _screen.Text(0, y, ("~".PadRight(w))[..w], _theme.FillerFg, _theme.EditorBg);
+            y++;
+        }
     }
 
     /// <summary>Границы выделения в символах для строки (a==b — нет выделения).</summary>
@@ -1200,21 +1412,29 @@ internal sealed class TuiEditor
         b = Math.Min(fileLine == er ? ec : lineLen, lineLen);
     }
 
-    /// <summary>Маска совпадений поиска по раскрытой строке.</summary>
-    private static bool[] FindMatches(string expanded, string term)
+    /// <summary>Маска совпадений поиска по раскрытой строке (с учётом опций).</summary>
+    private static bool[] FindMatches(string expanded, string term, bool matchCase, bool wholeWord)
     {
         var m = new bool[expanded.Length];
         if (string.IsNullOrEmpty(term))
             return m;
+        var cmp = matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
         int p = 0;
-        while ((p = expanded.IndexOf(term, p, StringComparison.Ordinal)) >= 0)
+        while (p <= expanded.Length - term.Length &&
+            (p = expanded.IndexOf(term, p, expanded.Length - p, cmp)) >= 0)
         {
-            for (int j = p; j < p + term.Length && j < m.Length; j++)
-                m[j] = true;
+            if (!wholeWord || IsWhole(expanded, p, term.Length))
+                for (int j = p; j < p + term.Length && j < m.Length; j++)
+                    m[j] = true;
             p++;
         }
         return m;
     }
+
+    /// <summary>Границы слова в раскрытой строке (для подсветки).</summary>
+    private static bool IsWhole(string s, int idx, int len) =>
+        (idx == 0 || !(char.IsLetterOrDigit(s[idx - 1]) || s[idx - 1] == '_')) &&
+        (idx + len >= s.Length || !(char.IsLetterOrDigit(s[idx + len]) || s[idx + len] == '_'));
 
     /// <summary>
     /// Меню-бар в строке 0 (как menubar в MS Edit): меню слева, имя файла справа.
@@ -1325,18 +1545,17 @@ internal sealed class TuiEditor
         _screen.Text(x, y + 1 + rows, "└" + new string('─', boxW - 2) + "┘", borderFg, borderBg);
     }
 
-    /// <summary>Диалог настроек своим циклом ввода (как менеджер).</summary>
+    /// <summary>Диалог настроек своим циклом ввода (как менеджер; рисуется внутри Render).</summary>
     private void RunSettings()
     {
         var dlg = new SettingsDialogState();
         _settingsOpen = true;
+        _settingsDlg = dlg;
         try
         {
             while (true)
             {
-                Render();
-                DrawSettings(dlg);
-                _screen.Flush();
+                Render(); // один flush за кадр вместе с диалогом — без мигания
                 InputEvent ev;
                 try
                 {
@@ -1368,10 +1587,11 @@ internal sealed class TuiEditor
         finally
         {
             _settingsOpen = false;
+            _settingsDlg = null;
         }
     }
 
-    /// <summary>Листание значения настройки с применением и сохранением.</summary>
+    /// <summary>Листание значения настройки с применением и сохранением (тогглы — переворот).</summary>
     private void CycleSetting(SettingsDialogState dlg, int dir)
     {
         switch (dlg.Row)
@@ -1381,10 +1601,22 @@ internal sealed class TuiEditor
                     Array.IndexOf(Themes.Names, _settings.Theme), Themes.Names.Length, dir);
                 _settings.Theme = Themes.Names[ti];
                 break;
-            default:
+            case 1:
                 int li = SettingsDialogState.Cycle(
                     Array.IndexOf(Loc.Supported, _settings.Language), Loc.Supported.Length, dir);
                 _settings.Language = Loc.Supported[li];
+                break;
+            case 2:
+                _settings.SearchMatchCase = !_settings.SearchMatchCase;
+                break;
+            case 3:
+                _settings.SearchWholeWord = !_settings.SearchWholeWord;
+                break;
+            case 4:
+                _settings.ShowLineNumbers = !_settings.ShowLineNumbers;
+                break;
+            default:
+                _settings.WordWrap = !_settings.WordWrap;
                 break;
         }
         _store.Save(_settings);
@@ -1393,24 +1625,30 @@ internal sealed class TuiEditor
 
     private string SettingsThemeName() => _settings.Theme == "light" ? _loc["settings.light"] : _loc["settings.dark"];
 
+    private string OnOff(bool v) => v ? _loc["settings.on"] : _loc["settings.off"];
+
     private static string SettingsLangName(string lang) => lang == "en" ? "English" : "Русский";
 
-    /// <summary>Отрисовка диалога настроек поверх всего.</summary>
+    /// <summary>Отрисовка диалога настроек поверх всего (без хинта).</summary>
     private void DrawSettings(SettingsDialogState dlg)
     {
         int w = _screen.Width, h = _screen.Height;
         if (w < 20 || h < 5)
             return;
         string title = _loc["settings.title"];
-        string[] labels = [_loc["settings.theme"], _loc["settings.lang"]];
+        string[] labels = [_loc["settings.theme"], _loc["settings.lang"],
+            _loc["settings.matchcase"], _loc["settings.wholeword"],
+            _loc["settings.shownumbers"], _loc["settings.wordwrap"]];
         string langName = SettingsLangName(_loc.Language);
-        string[] values = [SettingsThemeName(), langName];
-        int inner = _loc["settings.hint"].Length;
+        string[] values = [SettingsThemeName(), langName,
+            OnOff(_settings.SearchMatchCase), OnOff(_settings.SearchWholeWord),
+            OnOff(_settings.ShowLineNumbers), OnOff(_settings.WordWrap)];
+        int inner = 0;
         for (int i = 0; i < SettingsDialogState.RowCount; i++)
             inner = Math.Max(inner, labels[i].Length + values[i].Length + 8);
         int boxW = Math.Min(Math.Max(inner + 2, title.Length + 6), w);
         inner = boxW - 2;
-        int boxH = SettingsDialogState.RowCount + 4;
+        int boxH = SettingsDialogState.RowCount + 2; // заголовок + строки + низ
         int x0 = Math.Max(0, (w - boxW) / 2);
         int y0 = Math.Max(0, (h - boxH) / 2);
         if (y0 + boxH > h)
@@ -1428,9 +1666,74 @@ internal sealed class TuiEditor
                 _screen.Text(x0, y0 + 1 + i, "│" + cell.PadRight(inner) + "│", t.ModalFg, t.ModalBg);
         }
         _screen.Text(x0, y0 + 1 + SettingsDialogState.RowCount,
-            "│" + CenterPad(_loc["settings.hint"], inner)[..inner] + "│", t.ModalHintFg, t.ModalBg);
-        _screen.Text(x0, y0 + 2 + SettingsDialogState.RowCount,
             "└" + new string('─', inner) + "┘", t.ModalFg, t.ModalBg);
+    }
+
+    /// <summary>Клавиша на экране справки: Esc/F1/Enter — закрыть, остальное — скролл/игнор.</summary>
+    private void HandleHelpKey(ConsoleKeyInfo k)
+    {
+        if ((k.Modifiers & (ConsoleModifiers.Alt | ConsoleModifiers.Control)) != 0)
+            return; // системные комбинации в справке не работают
+        switch (k.Key)
+        {
+            case ConsoleKey.Escape:
+            case ConsoleKey.F1:
+            case ConsoleKey.Enter:
+                _helpOpen = false;
+                break;
+            case ConsoleKey.UpArrow: _helpScroll--; break;
+            case ConsoleKey.DownArrow: _helpScroll++; break;
+            case ConsoleKey.Home: _helpScroll = 0; break;
+            case ConsoleKey.End: _helpScroll = int.MaxValue; break;
+            case ConsoleKey.PageUp: _helpScroll -= Math.Max(1, TextHeight()); break;
+            case ConsoleKey.PageDown: _helpScroll += Math.Max(1, TextHeight()); break;
+        }
+    }
+
+    /// <summary>Строки справки (те же ключи, что в --help).</summary>
+    private List<string> HelpLines() => new()
+    {
+        _loc["help.title"],
+        string.Empty,
+        _loc["help.usage"],
+        _loc["help.usage.line"],
+        string.Empty,
+        _loc["help.keys"],
+        _loc["help.k1"],
+        _loc["help.k2"],
+        _loc["help.k3"],
+        _loc["help.k4"],
+        _loc["help.k5"],
+        _loc["help.k6"],
+        _loc["help.k7"],
+        _loc["help.k8"],
+        _loc["help.k9"],
+        _loc["help.k10"],
+        _loc["help.k11"],
+        _loc["help.k12"],
+        string.Empty,
+        _loc["help.status"],
+        _loc.Format("help.config", _store.Path),
+        string.Empty,
+        _loc["help.note1"],
+        _loc["help.note2"],
+    };
+
+    /// <summary>Справка поверх текстовой области (меню-бар и статусбар свои).</summary>
+    private void DrawHelp(int w, int textHeight)
+    {
+        List<string> lines = HelpLines();
+        _helpScroll = Math.Clamp(_helpScroll, 0, Math.Max(0, lines.Count - textHeight));
+        for (int i = 0; i < textHeight; i++)
+        {
+            int y = 1 + i;
+            string s = _helpScroll + i < lines.Count ? lines[_helpScroll + i] : string.Empty;
+            if (s.Length > w) s = s[..w];
+            bool title = _helpScroll + i == 0;
+            _screen.Text(0, y, s.PadRight(w)[..w],
+                title ? _theme.MenuOpenFg : _theme.EditorFg,
+                title ? _theme.MenuOpenBg : _theme.EditorBg);
+        }
     }
 
     /// <summary>
@@ -1460,12 +1763,25 @@ internal sealed class TuiEditor
         string dirRow = _loc["picker.dir"] + MiddleTruncate(dirLabel, Math.Max(0, inner - _loc["picker.dir"].Length));
         _screen.Text(x0, y0 + 1, "│" + dirRow.PadRight(inner)[..inner] + "│", fg, bg);
 
-        // Поле имени (хвост + курсор, как в промпте).
+        // Поле имени (хвост + курсор, как в промпте; выделение — инверсией).
         string nameTag = _loc["picker.name"];
         string full = nameTag + p.Name;
-        string vis = full.Length > inner ? full[^inner..] : full;
-        _screen.Text(x0, y0 + 2, "│" + vis.PadRight(inner)[..inner] + "│", fg, bg);
         int shift = Math.Max(0, full.Length - inner);
+        p.GetNameSelection(out int selA, out int selB);
+        for (int i = 0; i < inner; i++)
+        {
+            int fi = shift + i; // индекс в full
+            char ch = fi < full.Length ? full[fi] : ' ';
+            bool sel = false;
+            if (fi >= nameTag.Length)
+            {
+                int ni = fi - nameTag.Length; // индекс в Name
+                sel = ni >= selA && ni < selB;
+            }
+            _screen.Set(x0 + 1 + i, y0 + 2, ch, sel ? _theme.SelFg : fg, sel ? _theme.SelBg : bg);
+        }
+        _screen.Text(x0, y0 + 2, "│", fg, bg);
+        _screen.Text(x0 + bw - 1, y0 + 2, "│", fg, bg);
         int ncx = x0 + 1 + nameTag.Length + p.NamePos - shift;
         _pickerCursorX = ncx >= x0 + 1 && ncx < x0 + bw - 1 ? ncx : -1;
         _pickerCursorY = y0 + 2;

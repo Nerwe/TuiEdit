@@ -445,25 +445,228 @@ internal sealed class TextBuffer
         Lines.Insert(row + clipboard.Count - 1, clipboard[^1] + after);
     }
 
-    /// <summary>Поиск вперёд от (startRow, startCol). Возвращает null если не найдено.</summary>
-    public (int row, int col)? FindNext(string term, int startRow, int startCol)
+    /// <summary>
+    /// Дублирует строки [startRow, endRow] ниже блока. Один шаг undo.
+    /// </summary>
+    /// <returns>Первая строка копии.</returns>
+    public int DuplicateLines(int startRow, int endRow)
+    {
+        startRow = Math.Clamp(startRow, 0, Lines.Count - 1);
+        endRow = Math.Clamp(endRow, startRow, Lines.Count - 1);
+        PushUndo();
+        Lines.InsertRange(endRow + 1, Lines.GetRange(startRow, endRow - startRow + 1));
+        return endRow + 1;
+    }
+
+    /// <summary>Двигает блок строк на одну вверх. Один шаг undo. false — блок уже вверху.</summary>
+    public bool MoveLinesUp(int startRow, int endRow)
+    {
+        startRow = Math.Clamp(startRow, 0, Lines.Count - 1);
+        endRow = Math.Clamp(endRow, startRow, Lines.Count - 1);
+        if (startRow <= 0) return false;
+        PushUndo();
+        string above = Lines[startRow - 1];
+        Lines.RemoveAt(startRow - 1);
+        Lines.Insert(endRow, above);
+        return true;
+    }
+
+    /// <summary>Двигает блок строк на одну вниз. Один шаг undo. false — блок уже внизу.</summary>
+    public bool MoveLinesDown(int startRow, int endRow)
+    {
+        startRow = Math.Clamp(startRow, 0, Lines.Count - 1);
+        endRow = Math.Clamp(endRow, startRow, Lines.Count - 1);
+        if (endRow >= Lines.Count - 1) return false;
+        PushUndo();
+        string below = Lines[endRow + 1];
+        Lines.RemoveAt(endRow + 1);
+        Lines.Insert(startRow, below);
+        return true;
+    }
+
+    /// <summary>
+    /// Поиск вперёд от (startRow, startCol): вхождения, начинающиеся на позиции
+    /// с индексом &gt;= startCol в стартовой строке. При wrap=true зацикливает
+    /// с начала файла (как в nano), флаг wrapped отличает оборот.
+    /// </summary>
+    public (int row, int col)? FindNext(string term, int startRow, int startCol) =>
+        FindNext(term, startRow, startCol, matchCase: true, wholeWord: false) is { } h
+            ? (h.row, h.col)
+            : null;
+
+    /// <inheritdoc cref="FindNext(string, int, int)"/>
+    public (int row, int col, bool wrapped)? FindNext(
+        string term, int startRow, int startCol, bool matchCase, bool wholeWord, bool wrap = true)
     {
         if (string.IsNullOrEmpty(term)) return null;
+        startRow = Math.Clamp(startRow, 0, Lines.Count - 1);
         for (int r = startRow; r < Lines.Count; r++)
         {
-            int from = (r == startRow) ? Math.Min(startCol, Lines[r].Length) : 0;
-            int idx = Lines[r].IndexOf(term, from, StringComparison.Ordinal);
-            if (idx >= 0) return (r, idx);
+            int from = (r == startRow) ? Math.Min(Math.Max(startCol, 0), Lines[r].Length) : 0;
+            int idx = IndexOfOpt(Lines[r], term, from, Lines[r].Length, matchCase, wholeWord);
+            if (idx >= 0) return (r, idx, false);
         }
-        // Зацикливаем поиск с начала файла (как в nano).
+        if (!wrap) return null;
         for (int r = 0; r <= startRow && r < Lines.Count; r++)
         {
-            int to = (r == startRow) ? Math.Min(startCol, Lines[r].Length) : Lines[r].Length;
-            int idx = Lines[r].IndexOf(term, 0, to, StringComparison.Ordinal);
-            if (idx >= 0) return (r, idx);
+            int to = (r == startRow) ? Math.Min(Math.Max(startCol, 0), Lines[r].Length) : Lines[r].Length;
+            int idx = IndexOfOpt(Lines[r], term, 0, to, matchCase, wholeWord);
+            if (idx >= 0) return (r, idx, true);
         }
         return null;
     }
+
+    /// <summary>
+    /// Поиск назад от (startRow, startCol): вхождения, начинающиеся строго левее
+    /// startCol в стартовой строке. При wrap=true зацикливает с конца файла.
+    /// </summary>
+    public (int row, int col, bool wrapped)? FindPrev(
+        string term, int startRow, int startCol, bool matchCase, bool wholeWord, bool wrap = true)
+    {
+        if (string.IsNullOrEmpty(term)) return null;
+        startRow = Math.Clamp(startRow, 0, Lines.Count - 1);
+        for (int r = startRow; r >= 0; r--)
+        {
+            int to = (r == startRow) ? Math.Min(Math.Max(startCol, 0), Lines[r].Length) : Lines[r].Length;
+            int idx = LastIndexOfOpt(Lines[r], term, 0, to, matchCase, wholeWord);
+            if (idx >= 0) return (r, idx, false);
+        }
+        if (!wrap) return null;
+        for (int r = Lines.Count - 1; r >= startRow; r--)
+        {
+            int from = (r == startRow) ? Math.Min(Math.Max(startCol, 0), Lines[r].Length) : 0;
+            int idx = LastIndexOfOpt(Lines[r], term, from, Lines[r].Length, matchCase, wholeWord);
+            if (idx >= 0) return (r, idx, true);
+        }
+        return null;
+    }
+
+    /// <summary>Число вхождений term в документе (без пересечений, слева направо).</summary>
+    public int CountMatches(string term, bool matchCase, bool wholeWord)
+    {
+        if (string.IsNullOrEmpty(term)) return 0;
+        int n = 0;
+        foreach (string line in Lines)
+        {
+            int p = 0;
+            while (p <= line.Length - term.Length)
+            {
+                int idx = IndexOfOpt(line, term, p, line.Length, matchCase, wholeWord);
+                if (idx < 0) break;
+                n++;
+                p = idx + term.Length;
+            }
+        }
+        return n;
+    }
+
+    /// <summary>
+    /// Порядковый номер (1-based) вхождения, начинающегося в (row, col):
+    /// число вхождений строго левее позиции + 1. Для сообщения «k/N».
+    /// </summary>
+    public int MatchOrdinal(string term, int row, int col, bool matchCase, bool wholeWord)
+    {
+        if (string.IsNullOrEmpty(term)) return 0;
+        int n = 0;
+        for (int r = 0; r < Lines.Count; r++)
+        {
+            int end = (r == row) ? Math.Min(Math.Max(col, 0), Lines[r].Length)
+                : (r < row ? Lines[r].Length : -1);
+            if (end < 0) break;
+            int p = 0;
+            while (p <= end - term.Length)
+            {
+                int idx = IndexOfOpt(Lines[r], term, p, end, matchCase, wholeWord);
+                if (idx < 0) break;
+                n++;
+                p = idx + term.Length;
+            }
+        }
+        return n + 1;
+    }
+
+    /// <summary>
+    /// Заменяет все вхождения от позиции (fromRow, fromCol) до конца документа.
+    /// Один шаг undo на всё (или ни одного при отсутствии вхождений).
+    /// </summary>
+    /// <returns>Число замен.</returns>
+    public int ReplaceAll(string term, string replacement,
+        int fromRow, int fromCol, bool matchCase, bool wholeWord)
+    {
+        if (string.IsNullOrEmpty(term)) return 0;
+        fromRow = Math.Clamp(fromRow, 0, Lines.Count - 1);
+        int total = 0;
+        bool pushed = false;
+        for (int r = fromRow; r < Lines.Count; r++)
+        {
+            string line = Lines[r];
+            int p = (r == fromRow) ? Math.Min(Math.Max(fromCol, 0), line.Length) : 0;
+            var sb = new StringBuilder(line.Length);
+            sb.Append(line, 0, p); // голова до старта — как есть
+            int cur = p;
+            int n = 0;
+            while (true)
+            {
+                int idx = IndexOfOpt(line, term, cur, line.Length, matchCase, wholeWord);
+                if (idx < 0) break;
+                sb.Append(line, cur, idx - cur);
+                sb.Append(replacement);
+                cur = idx + term.Length;
+                n++;
+            }
+            if (n > 0)
+            {
+                sb.Append(line, cur, line.Length - cur);
+                if (!pushed) { PushUndo(); pushed = true; }
+                Lines[r] = sb.ToString();
+                total += n;
+            }
+        }
+        return total;
+    }
+
+    private static StringComparison Cmp(bool matchCase) =>
+        matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+    /// <summary>
+    /// Первое вхождение, <b>начинающееся</b> в [start, end): -1 если нет.
+    /// Важно: границе принадлежит старт, а не конец — вхождение вправе
+    /// выступать за end (иначе оборот поиска теряет совпадение под курсором).
+    /// </summary>
+    private static int IndexOfOpt(string line, string term, int start, int end, bool matchCase, bool wholeWord)
+    {
+        int p = Math.Clamp(start, 0, line.Length);
+        int lim = Math.Clamp(end, 0, line.Length);
+        while (p < lim)
+        {
+            // Каунт с запасом на длину term: ищем старты < lim, хвост вправе выйти за lim.
+            int idx = line.IndexOf(term, p, Math.Min(line.Length, lim + term.Length - 1) - p, Cmp(matchCase));
+            if (idx < 0 || idx >= lim) return -1;
+            if (!wholeWord || IsWholeOk(line, idx, term.Length)) return idx;
+            p = idx + 1; // отклонено границей слова — шаг с перекрытием
+        }
+        return -1;
+    }
+
+    /// <summary>Последнее вхождение, начинающееся в [start, end): -1 если нет.</summary>
+    private static int LastIndexOfOpt(string line, string term, int start, int end, bool matchCase, bool wholeWord)
+    {
+        int p = Math.Clamp(start, 0, line.Length);
+        int lim = Math.Clamp(end, 0, line.Length);
+        int last = -1;
+        while (p < lim)
+        {
+            int idx = line.IndexOf(term, p, Math.Min(line.Length, lim + term.Length - 1) - p, Cmp(matchCase));
+            if (idx < 0 || idx >= lim) break;
+            if (!wholeWord || IsWholeOk(line, idx, term.Length)) last = idx;
+            p = idx + 1;
+        }
+        return last;
+    }
+
+    private static bool IsWholeOk(string line, int idx, int len) =>
+        (idx == 0 || !IsWordChar(line[idx - 1])) &&
+        (idx + len >= line.Length || !IsWordChar(line[idx + len]));
 
     public static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_';
 }

@@ -35,6 +35,8 @@ public enum EditorCommand
     OpenFile,
     /// <summary>О программе (только из меню).</summary>
     About,
+    /// <summary>Справка по клавишам (F1).</summary>
+    Help,
     /// <summary>Настройки (только из меню).</summary>
     Settings,
     /// <summary>Показать/скрыть меню-бар (F10).</summary>
@@ -45,10 +47,18 @@ public enum EditorCommand
     Find,
     /// <summary>Следующее вхождение поиска (F3).</summary>
     FindNext,
+    /// <summary>Предыдущее вхождение поиска (Shift+F3).</summary>
+    FindPrev,
+    /// <summary>Замена (^H).</summary>
+    Replace,
     /// <summary>Переход к строке.</summary>
     GoToLine,
     /// <summary>Вырезать/копировать/вставить строку.</summary>
     CutLine, CopyLine, Paste,
+    /// <summary>Дублировать строку/блок ниже (^D).</summary>
+    DuplicateLine,
+    /// <summary>Переместить строку/блок вверх/вниз (Alt+↑/↓).</summary>
+    MoveLineUp, MoveLineDown,
     /// <summary>Отмена/возврат правки.</summary>
     Undo, Redo,
     /// <summary>Вставка: Enter, Backspace, Delete, Tab, печатный символ.</summary>
@@ -57,4 +67,8 @@ public enum EditorCommand
     Unindent,
     /// <summary>Выделить всё (Ctrl+A).</summary>
     SelectAll,
+    /// <summary>Показать/скрыть номера строк (Alt+N).</summary>
+    ToggleLineNumbers,
+    /// <summary>Вкл/выкл мягкий перенос строк (Alt+Z, как в VS Code).</summary>
+    ToggleWrap,
 }

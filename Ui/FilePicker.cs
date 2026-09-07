@@ -58,6 +58,23 @@ public sealed class FilePickerState
     /// <summary>Курсор в поле имени.</summary>
     public int NamePos { get; private set; }
 
+    /// <summary>Якорь выделения в поле имени (null — нет выделения).</summary>
+    public int? NameAnchor { get; private set; }
+
+    /// <summary>Есть ли невырожденное выделение.</summary>
+    public bool HasNameSelection => NameAnchor is int a && a != NamePos;
+
+    /// <summary>Границы выделения (a==b — нет).</summary>
+    public void GetNameSelection(out int a, out int b)
+    {
+        int anchor = NameAnchor ?? NamePos;
+        a = Math.Min(anchor, NamePos);
+        b = Math.Max(anchor, NamePos);
+    }
+
+    /// <summary>Снять выделение.</summary>
+    public void ClearNameSelection() => NameAnchor = null;
+
     /// <summary>Имя как его оставил последний синк (для отличия ручного ввода).</summary>
     private string _syncedName = string.Empty;
 
@@ -167,39 +184,95 @@ public sealed class FilePickerState
     {
         Name = name;
         NamePos = Math.Clamp(NamePos, 0, Name.Length);
+        NameAnchor = null;
         _syncedName = name;
     }
 
-    /// <summary>Ввод в поле имени.</summary>
+    /// <summary>Стереть выделение (true если было).</summary>
+    private bool DeleteNameSelection()
+    {
+        if (!HasNameSelection)
+            return false;
+        GetNameSelection(out int a, out int b);
+        Name = Name.Remove(a, b - a);
+        NamePos = a;
+        NameAnchor = null;
+        return true;
+    }
+
+    /// <summary>Ввод в поле имени (поверх выделения).</summary>
     public void InsertName(string text)
     {
         if (string.IsNullOrEmpty(text))
             return;
+        DeleteNameSelection();
         Name = Name.Insert(NamePos, text);
         NamePos += text.Length;
     }
 
-    /// <summary>Backspace: стирает символ; в начале поля (или пустом) — вверх.</summary>
+    /// <summary>Backspace только по тексту; в начале поля — ничего (вверх — Alt+←).</summary>
     public void Backspace()
     {
+        if (DeleteNameSelection())
+            return;
         if (NamePos > 0)
         {
             Name = Name.Remove(NamePos - 1, 1);
             NamePos--;
-            return;
         }
-        UpDir();
     }
 
-    /// <summary>Delete в поле имени.</summary>
+    /// <summary>Delete в поле имени (сначала выделение).</summary>
     public void DeleteChar()
     {
+        if (DeleteNameSelection())
+            return;
         if (NamePos < Name.Length)
             Name = Name.Remove(NamePos, 1);
     }
 
-    /// <summary>Стрелки в поле имени.</summary>
-    public void MoveNameCursor(int delta) => NamePos = Math.Clamp(NamePos + delta, 0, Name.Length);
+    /// <summary>Удаление слова до/после курсора (как Ctrl+BS/Del в редакторе).</summary>
+    public void DeleteNameWord(int dir)
+    {
+        if (DeleteNameSelection())
+            return;
+        if (dir < 0)
+        {
+            int to = WordMotion.Backward(Name, NamePos);
+            Name = Name.Remove(to, NamePos - to);
+            NamePos = to;
+        }
+        else
+        {
+            int to = WordMotion.Forward(Name, NamePos);
+            Name = Name.Remove(NamePos, to - NamePos);
+        }
+    }
+
+    /// <summary>Стрелки в поле имени (select — с выделением).</summary>
+    public void MoveNameCursor(int delta, bool select) => MoveNamePos(NamePos + delta, select);
+
+    /// <summary>В начало/конец поля (select — с выделением).</summary>
+    public void HomeName(bool select) => MoveNamePos(0, select);
+
+    /// <summary>В начало/конец поля (select — с выделением).</summary>
+    public void EndName(bool select) => MoveNamePos(Name.Length, select);
+
+    /// <summary>По словам как Ctrl+стрелки в редакторе (select — с выделением).</summary>
+    public void MoveNameWord(int dir, bool select) =>
+        MoveNamePos(dir < 0 ? WordMotion.Backward(Name, NamePos) : WordMotion.Forward(Name, NamePos), select);
+
+    private void MoveNamePos(int pos, bool select)
+    {
+        pos = Math.Clamp(pos, 0, Name.Length);
+        if (select)
+            NameAnchor ??= NamePos; // якорь в точке старта
+        else
+            NameAnchor = null;
+        NamePos = pos;
+        if (NameAnchor == NamePos)
+            NameAnchor = null; // схлопнулось
+    }
 
     /// <summary>Вверх: родитель или диски (Windows).</summary>
     public void UpDir()
@@ -233,6 +306,7 @@ public sealed class FilePickerState
         }
         Selected = 0;
         Top = 0;
+        NameAnchor = null; // контекст сменился
         Refresh();
     }
 
@@ -254,6 +328,23 @@ public sealed class FilePickerState
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Вход в подсвеченный каталог (для Alt+→): .. — вверх, папка — внутрь,
+    /// файл — ничего (в отличие от Enter, не принимает путь).
+    /// </summary>
+    /// <returns>true если перешли.</returns>
+    public bool EnterDir()
+    {
+        PickerEntry? h = Highlighted();
+        if (h is null || !h.IsDir)
+            return false;
+        if (h.Name == "..")
+            UpDir();
+        else
+            NavigateDirEntry(h);
+        return true;
     }
 
     /// <summary>
@@ -288,6 +379,7 @@ public sealed class FilePickerState
             NavigateTo(full);
             Name = string.Empty;
             NamePos = 0;
+            NameAnchor = null;
             return (PickerEnterResult.Navigated, null);
         }
         return (PickerEnterResult.Accepted, full);

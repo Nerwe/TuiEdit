@@ -65,3 +65,44 @@ public static class TabStops
         return sb.ToString();
     }
 }
+
+/// <summary>
+/// Мягкий перенос строк (soft wrap): разбивка на визуальные сегменты.
+/// Таб, не влезающий в остаток сегмента, целиком едет на следующий —
+/// границы сегментов всегда совпадают с началами символов.
+/// Чистые функции без консоли — покрываются unit-тестами.
+/// </summary>
+public static class WordWrap
+{
+    /// <summary>
+    /// Старты сегментов сырой строки в визуальных колонках (первый всегда 0).
+    /// </summary>
+    public static List<int> SegmentStarts(string line, int width)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+        if (width < 1) width = 1;
+        var starts = new List<int> { 0 };
+        int vpos = 0;
+        foreach (char c in line)
+        {
+            int cw = c == '\t' ? TabStops.Width - vpos % TabStops.Width : 1;
+            if (vpos > starts[^1] && vpos + cw - starts[^1] > width)
+                starts.Add(vpos);
+            vpos += cw;
+        }
+        return starts;
+    }
+
+    /// <summary>Число визуальных сегментов строки.</summary>
+    public static int SegmentCount(string line, int width) => SegmentStarts(line, width).Count;
+
+    /// <summary>Индекс сегмента для визуальной колонки.</summary>
+    public static int SegmentAt(List<int> starts, int vcol)
+    {
+        ArgumentNullException.ThrowIfNull(starts);
+        int seg = 0;
+        while (seg + 1 < starts.Count && starts[seg + 1] <= vcol)
+            seg++;
+        return seg;
+    }
+}
