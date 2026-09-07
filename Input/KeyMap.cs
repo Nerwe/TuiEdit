@@ -38,6 +38,16 @@ public static class KeyMap
                 ConsoleKey.Z => EditorCommand.ToggleWrap,
                 ConsoleKey.UpArrow => EditorCommand.MoveLineUp,
                 ConsoleKey.DownArrow => EditorCommand.MoveLineDown,
+                ConsoleKey.D1 => EditorCommand.GoTabNumber,
+                ConsoleKey.D2 => EditorCommand.GoTabNumber,
+                ConsoleKey.D3 => EditorCommand.GoTabNumber,
+                ConsoleKey.D4 => EditorCommand.GoTabNumber,
+                ConsoleKey.D5 => EditorCommand.GoTabNumber,
+                ConsoleKey.D6 => EditorCommand.GoTabNumber,
+                ConsoleKey.D7 => EditorCommand.GoTabNumber,
+                ConsoleKey.D8 => EditorCommand.GoTabNumber,
+                ConsoleKey.D9 => EditorCommand.GoTabNumber,
+                ConsoleKey.D0 => EditorCommand.GoTabNumber, // десятая вкладка
                 _ => EditorCommand.None,
             };
         }
@@ -49,6 +59,12 @@ public static class KeyMap
             // Ctrl+Shift+S — сохранить как (как в MS Edit); остальным Shift не важен.
             if (key.Key == ConsoleKey.S && (key.Modifiers & ConsoleModifiers.Shift) != 0)
                 return EditorCommand.SaveAs;
+            // Ctrl+Tab / Ctrl+Shift+Tab — вкладки (Shift проверяем явно).
+            // NB: Windows Terminal перехватывает Ctrl+Tab для своих вкладок,
+            // поэтому основной путь — Ctrl+PgDn/PgUp (как в браузерах).
+            if (key.Key == ConsoleKey.Tab)
+                return (key.Modifiers & ConsoleModifiers.Shift) != 0
+                    ? EditorCommand.PrevTab : EditorCommand.NextTab;
             return key.Key switch
             {
                 ConsoleKey.S => EditorCommand.Save,
@@ -67,11 +83,16 @@ public static class KeyMap
                 ConsoleKey.Y => EditorCommand.Redo,
                 ConsoleKey.A => EditorCommand.SelectAll, // как в MS Edit (Home — клавишей Home)
                 ConsoleKey.B => EditorCommand.ToggleSidebar, // панель файлов, как в VS Code
+                ConsoleKey.T => EditorCommand.NewTab, // новая вкладка
+                ConsoleKey.W => EditorCommand.CloseTab, // закрыть вкладку
+                ConsoleKey.P => EditorCommand.ListTabs, // список вкладок
                 ConsoleKey.E => EditorCommand.GoEnd,
                 ConsoleKey.Home => EditorCommand.GoDocStart,
                 ConsoleKey.End => EditorCommand.GoDocEnd,
                 ConsoleKey.LeftArrow => EditorCommand.WordLeft,
                 ConsoleKey.RightArrow => EditorCommand.WordRight,
+                ConsoleKey.PageDown => EditorCommand.NextTab, // вкладки (WT-friendly)
+                ConsoleKey.PageUp => EditorCommand.PrevTab,
                 ConsoleKey.Backspace => EditorCommand.DelWordBefore,
                 ConsoleKey.Delete => EditorCommand.DelWordAfter,
                 _ => EditorCommand.None,

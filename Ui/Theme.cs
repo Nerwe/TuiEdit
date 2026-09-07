@@ -27,6 +27,7 @@ public sealed record Theme(
     Rgb ButtonSelBg, Rgb ButtonSelFg,
     // Менеджер файлов
     Rgb PickerDirFg, Rgb PickerUpFg, Rgb PickerFileFg,
+    Rgb PickerHiddenFg, Rgb PickerExeFg,
     Rgb PickerEmptyFg, Rgb PickerErrorFg, Rgb PickerHintFg
 );
 
@@ -55,6 +56,7 @@ public static class Themes
         ModalHintFg: new Rgb(0x7F, 0x84, 0x9C), ModalHintDangerFg: new Rgb(0x11, 0x11, 0x1B),
         ButtonSelBg: new Rgb(0xA6, 0xE3, 0xA1), ButtonSelFg: new Rgb(0x11, 0x11, 0x1B),
         PickerDirFg: new Rgb(0x89, 0xB4, 0xFA), PickerUpFg: new Rgb(0x6C, 0x70, 0x86), PickerFileFg: new Rgb(0xCD, 0xD6, 0xF4),
+        PickerHiddenFg: new Rgb(0x6C, 0x70, 0x86), PickerExeFg: new Rgb(0xA6, 0xE3, 0xA1),
         PickerEmptyFg: new Rgb(0x6C, 0x70, 0x86), PickerErrorFg: new Rgb(0xF3, 0x8B, 0xA8), PickerHintFg: new Rgb(0x7F, 0x84, 0x9C));
 
     /// <summary>Светлая мягкая тема.</summary>
@@ -76,6 +78,7 @@ public static class Themes
         ModalHintFg: new Rgb(0x8C, 0x8F, 0xA1), ModalHintDangerFg: new Rgb(0xEF, 0xF1, 0xF5),
         ButtonSelBg: new Rgb(0x40, 0xA0, 0x2B), ButtonSelFg: new Rgb(0xEF, 0xF1, 0xF5),
         PickerDirFg: new Rgb(0x1E, 0x66, 0xF5), PickerUpFg: new Rgb(0x8C, 0x8F, 0xA1), PickerFileFg: new Rgb(0x4C, 0x4F, 0x69),
+        PickerHiddenFg: new Rgb(0x8C, 0x8F, 0xA1), PickerExeFg: new Rgb(0x40, 0xA0, 0x2B),
         PickerEmptyFg: new Rgb(0x8C, 0x8F, 0xA1), PickerErrorFg: new Rgb(0xD2, 0x0F, 0x39), PickerHintFg: new Rgb(0x8C, 0x8F, 0xA1));
 
     /// <summary>Тема по имени (неизвестная — тёмная).</summary>

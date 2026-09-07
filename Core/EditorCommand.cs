@@ -75,4 +75,14 @@ public enum EditorCommand
     ToggleWrap,
     /// <summary>Показать/скрыть панель файлов (Ctrl+B, как в VS Code).</summary>
     ToggleSidebar,
+    /// <summary>Новая вкладка (Ctrl+T).</summary>
+    NewTab,
+    /// <summary>Закрыть вкладку (Ctrl+W, грязную — через диалог).</summary>
+    CloseTab,
+    /// <summary>Следующая/предыдущая вкладка (Ctrl+PgDn/PgUp; Ctrl+Tab там, где терминал пропускает).</summary>
+    NextTab, PrevTab,
+    /// <summary>Перейти на вкладку 1..9,0 (Alt+цифра, 0 — десятая).</summary>
+    GoTabNumber,
+    /// <summary>Список вкладок попапом (Ctrl+P).</summary>
+    ListTabs,
 }

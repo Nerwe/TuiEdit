@@ -35,6 +35,8 @@ foreach (string a in args)
             Console.WriteLine(loc["help.k11"]);
             Console.WriteLine(loc["help.k12"]);
             Console.WriteLine(loc["help.k13"]);
+            Console.WriteLine(loc["help.k14"]);
+            Console.WriteLine(loc["help.k15"]);
             Console.WriteLine();
             Console.WriteLine(loc["help.status"]);
             Console.WriteLine(loc.Format("help.config", ShortenHome(store.Path)));

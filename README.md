@@ -10,7 +10,8 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 - File manager for Open/Save as: drives, `..`, file highlight, overwrite confirmation in a separate window. Name field: selection (`Shift`), word-wise motion (`Ctrl+arrows`), `Alt+←/→` navigation.
 - Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save.
 - `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), help screen (`F1`).
-- File panel (`Ctrl+B`): fixed-width sidebar with the current folder, arrows to select, `Enter` to open, `Esc` back to text.
+- File panel (`Ctrl+B`): fixed-width sidebar with the current folder, arrows to select, `Enter` to open, `Esc` back to text. Entries are color-coded: dirs, `..`, hidden and executables.
+- Tabs: open tab bar (`Ctrl+T` new, `Ctrl+W` close, `Ctrl+Tab` switch, `Alt+1..9,0` jump, `Ctrl+P` list); long rows scroll with the active tab always visible; dirty tabs ask on close, quitting walks through them one by one.
 - System clipboard via OSC52 (Windows Terminal): `^C` copies, paste with `Ctrl+V`.
 
 ## Hotkeys
@@ -25,6 +26,9 @@ arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Alt+up/down — move line
 Enter — new line, Tab — indent, Shift+Tab — unindent
 F10 or Alt+F/E/H — menu (arrows/Enter/Esc, letter hotkey)
 F1 — help   Alt+N — line numbers   Alt+Z — word wrap   Ctrl+B — file panel
+Ctrl+PgDn — next tab   Ctrl+PgUp — prev (Ctrl+Tab where the terminal passes it)
+Ctrl+T — new tab   Ctrl+W — close tab
+Alt+1..9,0 — jump to tab   Ctrl+P — tab list
 ```
 
 Full list: `tui-edit --help` or `F1` in the editor.
@@ -44,6 +48,10 @@ Full list: `tui-edit --help` or `F1` in the editor.
 | Recovery | Panel |
 |---|---|
 | ![Recovery](docs/shots/restore.png) | ![Panel](docs/shots/sidebar.png) |
+
+| Tabs |
+|---|
+| ![Tabs](docs/shots/tabs.png) |
 
 ![Help](docs/shots/help.png)
 
@@ -81,6 +89,7 @@ Editable from the settings dialog in the File menu, applied and saved immediatel
 ```text
 Program.cs            entry, --help/--version, editor startup
 Core/TextBuffer.cs    buffer: lines, undo/redo, find/replace, encodings
+Core/DocTab.cs        tab: buffer + view state (cursor, scroll, selection)
 Core/WordMotion.cs    word-wise motion (VS Code style)
 Core/TabStops.cs      tabs + WordWrap (soft-wrap segments)
 Core/EditorCommand.cs editor commands

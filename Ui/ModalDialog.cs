@@ -23,7 +23,7 @@ internal sealed class ModalDialog : Dialog
 
     protected override DialogBox? Measure(int screenW, int screenH, Loc loc)
     {
-        bool vertical = _state.Kind is ModalKind.Recent or ModalKind.Restore;
+        bool vertical = _state.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs;
         int btnWidth = _state.Buttons.Count == 0 ? 0 : vertical
             ? _state.Buttons.Max(b => b.Label.Length)
             : _state.Buttons.Sum(b => b.Label.Length + 4) + (_state.Buttons.Count - 1) * 2;
@@ -52,7 +52,7 @@ internal sealed class ModalDialog : Dialog
             screen.Text(x0, y0 + 1 + i, "│" + CenterPad(m.Lines[i], boxW - 2) + "│", fg, bg);
         int bottomY;
         int btnY = 0;
-        if (m.Kind is ModalKind.Recent or ModalKind.Restore)
+        if (m.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs)
         {
             // Кнопки списком слева, выбранная подсвечена целиком;
             // длинный список — срез со стрелками скролла.

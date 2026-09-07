@@ -13,6 +13,8 @@ public enum ModalKind
     Overwrite,
     /// <summary>Недавние файлы (синий, кнопки списком).</summary>
     Recent,
+    /// <summary>Список вкладок (синий, кнопки списком).</summary>
+    Tabs,
     /// <summary>Восстановление черновиков (синий, кнопки списком).</summary>
     Restore,
 }
@@ -175,6 +177,25 @@ public sealed class ModalState
     {
         char hot = NumberHotkey(i);
         return hot == '\0' ? $"     {text}" : $"[{hot}] {text}";
+    }
+
+    /// <summary>
+    /// Попап списка вкладок: каждая — кнопка-строка с хоткеем 1..9,0.
+    /// Видно разом 5, остальные — скроллом. Рисуется вертикально (см. ModalDialog).
+    /// Пустой список запрещён.
+    /// </summary>
+    public static ModalState Tabs(Loc loc, List<string> titles)
+    {
+        if (titles.Count == 0)
+            throw new ArgumentException("Нет вкладок.", nameof(titles));
+        return new(
+            ModalKind.Tabs,
+            loc["modal.tabs.title"],
+            new List<string>(),
+            titles.Select((t, i) => new ModalButton(NumberedLabel(i, t), NumberHotkey(i))).ToList(),
+            selected: 0,
+            hint: string.Empty,
+            maxVisibleButtons: 5);
     }
 
     /// <summary>

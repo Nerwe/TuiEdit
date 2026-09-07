@@ -32,6 +32,50 @@ public sealed class SidebarTests : IDisposable
     }
 
     [Fact]
+    public void ClassifyKinds()
+    {
+        string f = Path.Combine(_root, "a.txt");
+        var file = SidebarState.Classify(f, isDir: false);
+        Assert.False(file.IsDir);
+        Assert.False(file.IsHidden);
+        Assert.False(file.IsExe);
+
+        string dot = Path.Combine(_root, ".env");
+        File.WriteAllText(dot, "x");
+        var hidden = SidebarState.Classify(dot, isDir: false);
+        Assert.True(hidden.IsHidden);
+        Assert.False(hidden.IsExe);
+
+        string bat = Path.Combine(_root, "run.BAT");
+        File.WriteAllText(bat, "x");
+        var exe = SidebarState.Classify(bat, isDir: false);
+        Assert.True(exe.IsExe);
+        Assert.False(exe.IsHidden);
+
+        var dir = SidebarState.Classify(Path.Combine(_root, "sub"), isDir: true);
+        Assert.True(dir.IsDir);
+        Assert.False(dir.IsExe);
+    }
+
+    [Fact]
+    public void EntryColors()
+    {
+        foreach (Theme theme in new[] { Themes.Get("dark"), Themes.Get("light") })
+        {
+            Assert.Equal(theme.PickerUpFg, TuiEditor.EntryFg(theme, new SidebarEntry("..", true)));
+            Assert.Equal(theme.PickerHiddenFg, TuiEditor.EntryFg(theme, new SidebarEntry(".env", false, IsHidden: true)));
+            Assert.Equal(theme.PickerExeFg, TuiEditor.EntryFg(theme, new SidebarEntry("run.bat", false, IsExe: true)));
+            Assert.Equal(theme.PickerDirFg, TuiEditor.EntryFg(theme, new SidebarEntry("sub", true)));
+            Assert.Equal(theme.EditorFg, TuiEditor.EntryFg(theme, new SidebarEntry("a.txt", false)));
+            // Скрытость важнее типа.
+            Assert.Equal(theme.PickerHiddenFg, TuiEditor.EntryFg(theme, new SidebarEntry(".h", true, IsHidden: true)));
+            // Цвета типов различимы между собой.
+            Assert.NotEqual(theme.PickerDirFg, theme.PickerExeFg);
+            Assert.NotEqual(theme.PickerDirFg, theme.EditorFg);
+        }
+    }
+
+    [Fact]
     public void ModelListsDirsFirst()
     {
         var sb = new SidebarState(_root);
@@ -130,8 +174,9 @@ public sealed class SidebarTests : IDisposable
         while (!sb.Entries[sb.Selected].Name.Equals("b.txt"))
             sb.MoveHighlight(1, 10);
         HandleKey(ed, K('\0', ConsoleKey.Enter));
+        // _buf — свойство активной вкладки (не поле).
         var buf = (TextBuffer)typeof(TuiEditor)
-            .GetField("_buf", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
+            .GetProperty("_buf", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
         Assert.Equal(Path.Combine(_root, "b.txt"), buf.FilePath);
         Assert.False((bool)Field(ed, "_sidebarFocus")!);
         Assert.NotNull(Field(ed, "_sidebar")); // панель осталась открытой
@@ -143,7 +188,7 @@ public sealed class SidebarTests : IDisposable
         var ed = NewEditor();
         HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true));
         var buf = (TextBuffer)typeof(TuiEditor)
-            .GetField("_buf", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
+            .GetProperty("_buf", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
         int before = buf.Count;
         HandleKey(ed, K('x', ConsoleKey.X));
         Assert.Equal(before, buf.Count); // печать в фокусе панели глотается

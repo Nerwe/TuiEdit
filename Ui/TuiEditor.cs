@@ -10,7 +10,11 @@ namespace TuiEdit;
 
 internal sealed class TuiEditor
 {
-    private readonly TextBuffer _buf;
+    private readonly List<DocTab> _docs = new(); // вкладки, _docs[_active] — текущая
+    private int _active;
+    private int _tabLeft; // первая видимая вкладка в строке (скролл)
+    /// <summary>Буфер активной вкладки.</summary>
+    private TextBuffer _buf => _docs[_active].Buf;
     private int _row;
     private int _col;
     private int _desiredCol; // память колонки для Up/Down
@@ -50,15 +54,112 @@ internal sealed class TuiEditor
         Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.2.0";
 
     /// <summary>Отложенное действие после диалога «несохранённые изменения».</summary>
-    private enum PendingOp { None, Quit, New, Open }
+    private enum PendingOp { None, Quit, Open, CloseTab }
 
     public TuiEditor(TextBuffer buf, AppSettings settings, SettingsStore store)
     {
-        _buf = buf;
+        _docs.Add(new DocTab(buf));
         _settings = settings;
         _store = store;
         _loc = Loc.Load(settings.Language);
         _theme = Themes.Get(settings.Theme);
+    }
+
+    /// <summary>Число вкладок (для тестов и статусбара).</summary>
+    internal int TabCount => _docs.Count;
+
+    /// <summary>Индекс активной вкладки (для тестов).</summary>
+    internal int ActiveTab => _active;
+
+    /// <summary>Сохранить вид активной вкладки в модель.</summary>
+    internal void SaveTabState()
+    {
+        DocTab t = _docs[_active];
+        t.Row = _row; t.Col = _col; t.DesiredCol = _desiredCol;
+        t.Top = _top; t.Left = _left; t.TopSeg = _topSeg;
+        t.SelActive = _sel.HasSelection(_row, _col);
+        if (t.SelActive) { t.AnchorRow = _sel.AnchorRow; t.AnchorCol = _sel.AnchorCol; }
+    }
+
+    /// <summary>Считать вид активной вкладки из модели.</summary>
+    internal void LoadTabState()
+    {
+        DocTab t = _docs[_active];
+        _row = t.Row; _col = t.Col; _desiredCol = t.DesiredCol;
+        _top = t.Top; _left = t.Left; _topSeg = t.TopSeg;
+        _sel.Clear();
+        if (t.SelActive)
+            _sel.Start(t.AnchorRow, t.AnchorCol);
+    }
+
+    /// <summary>Новая пустая вкладка (чистую безымянную не дублируем).</summary>
+    internal void NewTab()
+    {
+        if (_buf.FilePath is null && !_buf.IsModified)
+            return; // уже стоим на пустой — не плодим
+        SaveTabState();
+        _docs.Add(new DocTab(new TextBuffer(null)));
+        _active = _docs.Count - 1;
+        LoadTabState();
+    }
+
+    /// <summary>Переключиться на вкладку (по кругу).</summary>
+    internal void SwitchTab(int index)
+    {
+        if (_docs.Count == 0)
+            return;
+        SaveTabState();
+        _active = ((index % _docs.Count) + _docs.Count) % _docs.Count;
+        LoadTabState();
+    }
+
+    /// <summary>Закрыть активную вкладку (грязную — через диалог).</summary>
+    internal void CloseTab()
+    {
+        if (_buf.IsModified)
+        {
+            _pending = PendingOp.CloseTab;
+            _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc), ApplyModalOutcome);
+            return;
+        }
+        CloseTabNow();
+    }
+
+    /// <summary>Закрыть активную вкладку безусловно (последняя — очищается).</summary>
+    internal void CloseTabNow()
+    {
+        if (_docs.Count <= 1)
+        {
+            ClearDoc();
+            return;
+        }
+        _docs.RemoveAt(_active);
+        _active = Math.Min(_active, _docs.Count - 1);
+        LoadTabState();
+    }
+
+    /// <summary>Список вкладок попапом (выбор — переход).</summary>
+    private void ListTabs()
+    {
+        _dialog = new ModalDialog(
+            ModalState.Tabs(_loc, _docs.Select(d => d.TabTitle(_loc)).ToList()),
+            ApplyModalOutcome);
+    }
+
+    /// <summary>Есть ли несохранённые вкладки.</summary>
+    private bool AnyModified() => _docs.Any(d => d.Buf.IsModified);
+
+    /// <summary>Первая грязная вкладка — активной (для цикла выхода).</summary>
+    private void ActivateFirstModified()
+    {
+        for (int i = 0; i < _docs.Count; i++)
+            if (_docs[i].Buf.IsModified)
+            {
+                SaveTabState();
+                _active = i;
+                LoadTabState();
+                return;
+            }
     }
 
     /// <summary>Перечитать тему и язык из настроек (после диалога настроек).</summary>
@@ -305,7 +406,7 @@ internal sealed class TuiEditor
             case EditorCommand.DelWordAfter: DeleteWordAfter(); return;
             case EditorCommand.Save: Save(); return;
             case EditorCommand.Quit: TryQuit(); return;
-            case EditorCommand.NewFile: DoNew(); return;
+            case EditorCommand.NewFile: NewTab(); return;
             case EditorCommand.OpenFile: DoOpen(); return;
             case EditorCommand.OpenRecent: DoRecent(); return;
             case EditorCommand.About: _dialog = new ModalDialog(ModalState.About(_loc, AppVersion), ApplyModalOutcome); return;
@@ -321,6 +422,21 @@ internal sealed class TuiEditor
                 SetMessage($"{_loc["settings.wordwrap"]}: {OnOff(_settings.WordWrap)}");
                 return;
             case EditorCommand.ToggleSidebar: ToggleSidebar(); return;
+            case EditorCommand.NewTab: NewTab(); return;
+            case EditorCommand.CloseTab: CloseTab(); return;
+            case EditorCommand.NextTab: SwitchTab(_active + 1); return;
+            case EditorCommand.PrevTab: SwitchTab(_active - 1); return;
+            case EditorCommand.GoTabNumber:
+                int tabN = k.Key switch
+                {
+                    >= ConsoleKey.D1 and <= ConsoleKey.D9 => (int)k.Key - (int)ConsoleKey.D0,
+                    ConsoleKey.D0 => 10,
+                    _ => -1,
+                };
+                if (tabN >= 1 && tabN <= _docs.Count)
+                    SwitchTab(tabN - 1);
+                return;
+            case EditorCommand.ListTabs: ListTabs(); return;
             case EditorCommand.Settings: RunSettings(); return;
             case EditorCommand.Find: Find(); return;
             case EditorCommand.FindNext: FindNext(); return;
@@ -625,25 +741,13 @@ internal sealed class TuiEditor
 
     private void TryQuit()
     {
-        if (!_buf.IsModified)
+        if (!AnyModified())
         {
             _quitRequested = true;
             return;
         }
         // Красный попап Save / Don't save / Cancel, как unsaved-changes в MS Edit.
         _pending = PendingOp.Quit;
-        _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc), ApplyModalOutcome);
-    }
-
-    /// <summary>Новый документ (с диалогом при несохранённых изменениях).</summary>
-    private void DoNew()
-    {
-        if (!_buf.IsModified)
-        {
-            ClearDoc();
-            return;
-        }
-        _pending = PendingOp.New;
         _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc), ApplyModalOutcome);
     }
 
@@ -850,11 +954,12 @@ internal sealed class TuiEditor
     {
         new TopMenu(loc["menu.file"], 'F', new List<MenuItem>
         {
-            new(loc["menu.new"], 'N', null, EditorCommand.NewFile),
+            new(loc["menu.newtab"], 'T', "Ctrl+T", EditorCommand.NewTab),
             new(loc["menu.open"], 'O', null, EditorCommand.OpenFile),
             new(loc["menu.recent"], 'R', null, EditorCommand.OpenRecent),
             new(loc["menu.save"], 'S', "^S", EditorCommand.Save),
             new(loc["menu.saveas"], 'A', "Ctrl+Shift+S", EditorCommand.SaveAs),
+            new(loc["menu.closetab"], 'W', "Ctrl+W", EditorCommand.CloseTab),
             new(loc["menu.settings"], 'P', null, EditorCommand.Settings),
             new(loc["menu.exit"], 'X', "^Q", EditorCommand.Quit),
         }),
@@ -932,6 +1037,9 @@ internal sealed class TuiEditor
             case (ModalKind.Recent, var b):
                 OpenRecentPick(b);
                 return;
+            case (ModalKind.Tabs, var b):
+                SwitchTab(b);
+                return;
             case (ModalKind.Restore, var b):
                 ApplyRestore(b);
                 return;
@@ -1004,9 +1112,21 @@ internal sealed class TuiEditor
         _pending = PendingOp.None;
         switch (p)
         {
-            case PendingOp.Quit: _quitRequested = true; break;
-            case PendingOp.New: ClearDoc(); break;
+            case PendingOp.Quit:
+                // Грязные вкладки закрываем по одной тем же попапом.
+                if (AnyModified())
+                {
+                    ActivateFirstModified();
+                    _pending = PendingOp.Quit;
+                    _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc), ApplyModalOutcome);
+                }
+                else
+                {
+                    _quitRequested = true;
+                }
+                break;
             case PendingOp.Open: LoadFile(path); break;
+            case PendingOp.CloseTab: CloseTabNow(); break;
             default: break;
         }
     }
@@ -1457,7 +1577,9 @@ internal sealed class TuiEditor
             return;
         }
 
-        int textHeight = h - 2; // меню сверху, статус снизу
+        int tabH = _docs.Count > 1 ? 1 : 0; // строка вкладок (только при нескольких)
+        int textHeight = h - 2 - tabH; // меню сверху, вкладки, статус снизу
+        int y0 = 1 + tabH; // первая строка текста
         bool wrap = _settings.WordWrap;
         int numWidth = Math.Max(4, _buf.Count.ToString().Length);
         int gutterWidth = _settings.ShowLineNumbers ? numWidth + 3 : 0; // "1234 │ " или нет
@@ -1470,9 +1592,10 @@ internal sealed class TuiEditor
 
         // Меню-бар (строка 0): File / Edit / Help + имя файла справа.
         DrawMenuBar(w);
+        DrawTabs(w);
 
-        DrawText(sideW, w, textHeight, contentWidth, gutterWidth, numWidth, wrap);
-        DrawSidebar(textHeight);
+        DrawText(sideW, y0, w, textHeight, contentWidth, gutterWidth, numWidth, wrap);
+        DrawSidebar(y0, textHeight);
 
         // Статусбар: слева позиция/сообщение, справа кодировка | EOL | отступ | файл.
         string msg = CurrentMessage;
@@ -1484,7 +1607,8 @@ internal sealed class TuiEditor
         }
         string left = string.IsNullOrEmpty(msg) ? $" {pos}" : $" {msg}";
         string file = _buf.FilePath is null ? _loc["status.noname"] : Path.GetFileName(_buf.FilePath);
-        string right = $" {_buf.EncodingLabel} | {_buf.EndingLabel} | {_buf.IndentLabel} | {file} ";
+        string right = $" {_buf.EncodingLabel} | {_buf.EndingLabel} | {_buf.IndentLabel} | {file} "
+            + (_docs.Count > 1 ? $"| {_active + 1}/{_docs.Count} " : string.Empty);
         _screen.Text(0, h - 1, StatusBar.Build(left, right, w), _theme.StatusFg, _theme.StatusBg);
 
         // Поверх текста: раскрытое меню и активное диалоговое окно.
@@ -1504,11 +1628,11 @@ internal sealed class TuiEditor
             ? WordWrap.SegmentStarts(curLine, contentWidth)[CursorSeg(curLine, _col, contentWidth)]
             : _left;
         int cx = sideW + gutterWidth + (vcolCur - curBase);
-        int cy = 1 + CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, wrap, textHeight);
+        int cy = y0 + CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, wrap, textHeight);
         (int x, int y)? dlgCursor = _dialog?.Cursor;
         bool pickerCursor = dlgCursor is not null;
         bool placed = pickerCursor
-            || (!uiOpen && cy >= 1 && cy < 1 + textHeight && cx >= sideW + gutterWidth && cx < w);
+            || (!uiOpen && cy >= y0 && cy < y0 + textHeight && cx >= sideW + gutterWidth && cx < w);
         try
         {
             if (placed)
@@ -1524,19 +1648,20 @@ internal sealed class TuiEditor
     /// Без wrap — один экранный ряд на строку; с wrap — по сегменту
     /// (номер только на первом, дальше пустой гуттер).
     /// x0 — сдвиг вправо на ширину панели файлов (0 — нет панели).
+    /// y0 — первая строка текста (1, ниже вкладок — 2).
     /// </summary>
-    private void DrawText(int x0, int w, int textHeight, int contentWidth, int gutterWidth, int numWidth, bool wrap)
+    private void DrawText(int x0, int y0, int w, int textHeight, int contentWidth, int gutterWidth, int numWidth, bool wrap)
     {
-        int y = 1;
+        int y = y0;
         int fileLine = _top;
         int firstSeg = _topSeg;
-        while (y < 1 + textHeight && fileLine < _buf.Count)
+        while (y < y0 + textHeight && fileLine < _buf.Count)
         {
             string line = _buf.GetLine(fileLine);
             bool isCur = fileLine == _row;
             GetRowSelection(fileLine, line.Length, out int selA, out int selB);
             List<int> starts = wrap ? WordWrap.SegmentStarts(line, contentWidth) : new List<int> { 0 };
-            for (int s = firstSeg; s < starts.Count && y < 1 + textHeight; s++)
+            for (int s = firstSeg; s < starts.Count && y < y0 + textHeight; s++)
             {
                 int segStart = starts[s];
                 int segEnd = s + 1 < starts.Count ? starts[s + 1] : int.MaxValue;
@@ -1588,7 +1713,7 @@ internal sealed class TuiEditor
             fileLine++;
             firstSeg = 0;
         }
-        while (y < 1 + textHeight)
+        while (y < y0 + textHeight)
         {
             _screen.Text(x0, y, ("~".PadRight(w - x0))[..(w - x0)], _theme.FillerFg, _theme.EditorBg);
             y++;
@@ -1598,9 +1723,10 @@ internal sealed class TuiEditor
     /// <summary>
     /// Панель файлов слева (ширина <see cref="SidebarState.Width"/>):
     /// имя папки + список со скроллом, выбранная строка подсвечена.
+    /// Типы различаются цветом: папки, «..», скрытые, исполняемые, файлы.
     /// Закрыта — ничего не рисует (текст уже занимает всю ширину).
     /// </summary>
-    private void DrawSidebar(int textHeight)
+    private void DrawSidebar(int y0, int textHeight)
     {
         if (_sidebar is null)
             return;
@@ -1610,7 +1736,7 @@ internal sealed class TuiEditor
             _sidebar.CurrentDir.TrimEnd(Path.DirectorySeparatorChar));
         if (title.Length > inner)
             title = "…" + title[^(inner - 1)..];
-        _screen.Text(0, 1, title.PadRight(inner)[..inner] + "│", _theme.MenuOpenFg, _theme.MenuOpenBg);
+        _screen.Text(0, y0, title.PadRight(inner)[..inner] + "│", _theme.MenuOpenFg, _theme.MenuOpenBg);
         int visCount = Math.Max(1, textHeight - 1);
         int vis = Math.Min(visCount, _sidebar.Entries.Count - _sidebar.Top);
         for (int vi = 0; vi < vis; vi++)
@@ -1625,14 +1751,99 @@ internal sealed class TuiEditor
             if (vi == vis - 1 && _sidebar.Top + vis < _sidebar.Entries.Count)
                 label = label[..^1] + "↓";
             string cell = label.PadRight(inner)[..inner] + "│";
-            int row = 2 + vi;
+            int row = y0 + 1 + vi;
             if (i == _sidebar.Selected)
                 _screen.Text(0, row, cell, _theme.ButtonSelFg, _theme.ButtonSelBg);
             else
-                _screen.Text(0, row, cell, _theme.EditorFg, _theme.EditorBg);
+                _screen.Text(0, row, cell, EntryFg(_theme, e), _theme.EditorBg);
         }
-        for (int row = 2 + vis; row < 1 + textHeight; row++)
+        for (int row = y0 + 1 + vis; row < y0 + textHeight; row++)
             _screen.Text(0, row, new string(' ', inner) + "│", _theme.EditorFg, _theme.EditorBg);
+    }
+
+    /// <summary>
+    /// Цвет записи сайдбара: «..» — тусклый, скрытые — тусклые,
+    /// исполняемые — зелёные, папки — синие, файлы — обычные.
+    /// Чистая функция — покрывается unit-тестами.
+    /// </summary>
+    internal static Rgb EntryFg(Theme theme, SidebarEntry e)
+    {
+        if (e.Name == "..")
+            return theme.PickerUpFg;
+        if (e.IsHidden)
+            return theme.PickerHiddenFg;
+        if (e.IsExe)
+            return theme.PickerExeFg;
+        if (e.IsDir)
+            return theme.PickerDirFg;
+        return theme.EditorFg;
+    }
+
+    /// <summary>
+    /// Строка вкладок под меню-баром (только при нескольких):
+    /// активная подсвечена, у грязных — «*». Длинный ряд — окном
+    /// со скроллом (активная всегда видна, края — «‹»/«›»).
+    /// </summary>
+    private void DrawTabs(int w)
+    {
+        if (_docs.Count <= 1)
+            return;
+        var cells = new List<string>();
+        var widths = new List<int>();
+        for (int i = 0; i < _docs.Count; i++)
+        {
+            string seg = (i > 0 ? "│" : string.Empty) + $" {_docs[i].TabTitle(_loc)} ";
+            cells.Add(seg);
+            widths.Add(seg.Length);
+        }
+        _tabLeft = Math.Clamp(TabWindowStart(widths, _active, _tabLeft, w), 0, _docs.Count - 1);
+        var row = new System.Text.StringBuilder();
+        var spans = new List<(int x, int len, bool active)>();
+        int shownLast = _tabLeft - 1;
+        for (int i = _tabLeft; i < _docs.Count && row.Length < w; i++)
+        {
+            string seg = cells[i];
+            if (row.Length + seg.Length > w)
+                break;
+            spans.Add((row.Length, seg.Length, i == _active));
+            row.Append(seg);
+            shownLast = i;
+        }
+        string text = row.ToString();
+        if (_tabLeft > 0 && text.Length > 0)
+            text = "‹" + text[1..]; // слева есть ещё
+        if (shownLast < _docs.Count - 1 && text.Length > 0)
+            text = text[..^1] + "›"; // справа есть ещё
+        _screen.Text(0, 1, text.PadRight(w)[..w], _theme.EditorFg, _theme.EditorBg);
+        foreach (var (x, len, active) in spans)
+        {
+            if (!active || x >= w)
+                continue;
+            int show = Math.Min(len, w - x);
+            _screen.Text(x, 1, text.Substring(x, show), _theme.ButtonSelFg, _theme.ButtonSelBg);
+        }
+    }
+
+    /// <summary>
+    /// Начало видимого окна вкладок: сдвигаем, пока активная не влезет.
+    /// Чистая функция — покрывается unit-тестами.
+    /// </summary>
+    internal static int TabWindowStart(IReadOnlyList<int> widths, int active, int start, int w)
+    {
+        if (widths.Count == 0)
+            return 0;
+        active = Math.Clamp(active, 0, widths.Count - 1);
+        start = Math.Clamp(start, 0, active);
+        while (start <= active)
+        {
+            int used = 0;
+            for (int i = start; i <= active; i++)
+                used += widths[i];
+            if (used <= w)
+                return start;
+            start++;
+        }
+        return active;
     }
 
     /// <summary>Границы выделения в символах для строки (a==b — нет выделения).</summary>

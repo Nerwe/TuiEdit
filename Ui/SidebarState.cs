@@ -1,7 +1,7 @@
 namespace TuiEdit;
 
-/// <summary>Строка сайдбара: имя и признак папки.</summary>
-public sealed record SidebarEntry(string Name, bool IsDir);
+/// <summary>Строка сайдбара: имя, признаки папки/скрытости/исполняемости.</summary>
+public sealed record SidebarEntry(string Name, bool IsDir, bool IsHidden = false, bool IsExe = false);
 
 /// <summary>
 /// Сайдбар файлов (фиксированная ширина <see cref="Width"/>):
@@ -60,12 +60,35 @@ public sealed class SidebarState
             }
             dirs.Sort(StringComparer.OrdinalIgnoreCase);
             files.Sort(StringComparer.OrdinalIgnoreCase);
-            foreach (string d in dirs) Entries.Add(new SidebarEntry(Path.GetFileName(d), true));
-            foreach (string f in files) Entries.Add(new SidebarEntry(Path.GetFileName(f), false));
+            foreach (string d in dirs) Entries.Add(Classify(d, isDir: true));
+            foreach (string f in files) Entries.Add(Classify(f, isDir: false));
         }
         catch
         {
         }
+    }
+
+    /// <summary>Исполняемые расширения (для подсветки).</summary>
+    private static readonly HashSet<string> ExeExtensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".exe", ".bat", ".cmd", ".com", ".ps1", ".sh" };
+
+    /// <summary>
+    /// Классификация записи: скрытая — точка в начале или атрибут Hidden,
+    /// исполняемая — файл с известным расширением. Чистая функция для тестов.
+    /// </summary>
+    internal static SidebarEntry Classify(string fullPath, bool isDir)
+    {
+        string name = Path.GetFileName(fullPath);
+        bool hidden = name.StartsWith('.');
+        try
+        {
+            hidden |= (File.GetAttributes(fullPath) & FileAttributes.Hidden) != 0;
+        }
+        catch
+        {
+        }
+        bool exe = !isDir && ExeExtensions.Contains(Path.GetExtension(name));
+        return new SidebarEntry(name, isDir, hidden, exe);
     }
 
     /// <summary>Двинуть подсветку (видимое окно держим через visCount).</summary>
