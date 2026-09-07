@@ -32,6 +32,32 @@ public sealed class SidebarTests : IDisposable
     }
 
     [Fact]
+    public void SidebarClearsTabRow()
+    {
+        // Строка вкладок над панелью не должна светить старым текстом.
+        var ed = NewEditor();
+        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // открыть панель
+        var scr = (Screen)typeof(TuiEditor)
+            .GetField("_screen", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
+        scr.Resize(96, 28);
+        var theme = Themes.Get("dark");
+        scr.Text(0, 1, new string('X', 96), theme.EditorFg, theme.EditorBg);
+        typeof(TuiEditor).GetMethod("DrawSidebar", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(ed, [2, 26]);
+        for (int x = 0; x < 23; x++)
+            Assert.Equal(' ', CellAt(scr, x, 1));
+        Assert.Equal('│', CellAt(scr, 23, 1));
+    }
+
+    private static char CellAt(Screen scr, int x, int y)
+    {
+        var cur = (Array)typeof(Screen).GetField("_cur", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(scr)!;
+        object? cell = cur.GetValue(x, y);
+        return (char)cell!.GetType().GetProperty("Ch")!.GetValue(cell)!;
+    }
+
+    [Fact]
     public void ClassifyKinds()
     {
         string f = Path.Combine(_root, "a.txt");

@@ -93,11 +93,14 @@ public sealed class ModalState
             ButtonTop = Selected - MaxVisibleButtons + 1;
     }
 
-    /// <summary>Попап «несохранённые изменения»: кнопки с хоткеями в скобках, без хинтов.</summary>
-    public static ModalState UnsavedQuit(Loc loc) => new(
+    /// <summary>
+    /// Попап «несохранённые изменения»: кнопки с хоткеями в скобках, без хинтов.
+    /// file — имя файла в вопросе (null — общее «перед выходом»).
+    /// </summary>
+    public static ModalState UnsavedQuit(Loc loc, string? file) => new(
         ModalKind.UnsavedQuit,
         loc["modal.unsaved.title"],
-        new List<string> { loc["modal.unsaved.desc"] },
+        new List<string> { file is null ? loc["modal.unsaved.desc"] : loc.Format("modal.unsaved.descfile", file) },
         new List<ModalButton>
         {
             new(loc["modal.unsaved.save"], 'Y'),

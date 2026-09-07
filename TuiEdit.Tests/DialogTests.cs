@@ -73,7 +73,7 @@ public sealed class DialogTests : IDisposable
     {
         bool fired = false;
         ModalKeyOutcome seen = default;
-        var md = new ModalDialog(ModalState.UnsavedQuit(_loc), (_, o) => { fired = true; seen = o; });
+        var md = new ModalDialog(ModalState.UnsavedQuit(_loc, null), (_, o) => { fired = true; seen = o; });
         md.HandleKey(K('\0', ConsoleKey.RightArrow));
         Assert.False(md.Closed);
         Assert.False(fired);
@@ -89,14 +89,14 @@ public sealed class DialogTests : IDisposable
     {
         bool fired = false;
         ModalKeyOutcome seen = default;
-        var md2 = new ModalDialog(ModalState.UnsavedQuit(_loc), (_, o) => { fired = true; seen = o; });
+        var md2 = new ModalDialog(ModalState.UnsavedQuit(_loc, null), (_, o) => { fired = true; seen = o; });
         md2.HandleKey(K('\x1B', ConsoleKey.Escape));
         Assert.True(md2.Closed);
         Assert.True(fired);
         Assert.True(seen.Cancelled);
 
         fired = false;
-        var md3 = new ModalDialog(ModalState.UnsavedQuit(_loc), (_, o) => { fired = true; seen = o; });
+        var md3 = new ModalDialog(ModalState.UnsavedQuit(_loc, null), (_, o) => { fired = true; seen = o; });
         md3.HandleKey(K('y', ConsoleKey.Y));
         Assert.True(fired);
         Assert.Equal(0, seen.Button);
@@ -170,7 +170,7 @@ public sealed class DialogTests : IDisposable
     public void HelpDialogStructureAndScroll()
     {
         var hd = new HelpDialog(_loc);
-        Assert.Equal(22, hd.TotalRows); // 7 заголовков + 15 строк, без футера
+        Assert.Equal(23, hd.TotalRows); // 7 заголовков + 16 строк, без футера
         Assert.Equal(0, hd.Scroll);
         hd.HandleKey(K('\0', ConsoleKey.DownArrow));
         Assert.Equal(1, hd.Scroll);
@@ -180,7 +180,7 @@ public sealed class DialogTests : IDisposable
         small.Resize(96, 12);
         hd.HandleKey(K('\0', ConsoleKey.End));
         hd.Draw(small, _theme, _loc);
-        Assert.Equal(22 - hd.VisibleRows(12), hd.Scroll); // кламп к низу
+        Assert.Equal(23 - hd.VisibleRows(12), hd.Scroll); // кламп к низу
         hd.HandleKey(K('\0', ConsoleKey.Home));
         hd.Draw(small, _theme, _loc);
         Assert.Equal(0, hd.Scroll);
@@ -203,6 +203,15 @@ public sealed class DialogTests : IDisposable
                 object? bg = cell!.GetType().GetProperty("Bg")!.GetValue(cell)!;
                 Assert.False(bg.Equals(_theme.ButtonSelBg), $"highlight at {x},{y}");
             }
+    }
+
+    [Fact]
+    public void UnsavedShowsFile()
+    {
+        var m = ModalState.UnsavedQuit(_loc, "a.txt");
+        Assert.Contains("a.txt", m.Lines[0]);
+        var m2 = ModalState.UnsavedQuit(_loc, null);
+        Assert.Equal(_loc["modal.unsaved.desc"], m2.Lines[0]);
     }
 
     [Fact]

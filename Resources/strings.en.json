@@ -25,6 +25,7 @@
 
   "modal.unsaved.title": "Unsaved changes",
   "modal.unsaved.desc": "Save changes before quitting?",
+  "modal.unsaved.descfile": "Save changes to «{0}»?",
   "modal.unsaved.save": "Save [Y]",
   "modal.unsaved.discard": "Don't save [N]",
   "modal.unsaved.cancel": "Cancel",
@@ -113,6 +114,7 @@
   "help.k13": "  Ctrl+B — file panel (arrows — select • Enter — open • Esc — back to text)",
   "help.k14": "  Tabs: Ctrl+PgDn/PgUp — next/prev • Ctrl+T — new • Ctrl+W — close",
   "help.k15": "  Alt+1..9,0 — jump • Ctrl+P — tab list",
+  "help.k16": "  Split: Alt+S — split • F6 — neighbour pane • Ctrl+1..9 — pane N",
   "help.status": "Status bar: position | encoding | line endings | indent | file.",
   "help.config": "Config: {0}",
   "help.dlg.title": "Help",

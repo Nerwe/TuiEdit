@@ -48,6 +48,7 @@ public static class KeyMap
                 ConsoleKey.D8 => EditorCommand.GoTabNumber,
                 ConsoleKey.D9 => EditorCommand.GoTabNumber,
                 ConsoleKey.D0 => EditorCommand.GoTabNumber, // десятая вкладка
+                ConsoleKey.S => EditorCommand.SplitPane, // разделить вид
                 _ => EditorCommand.None,
             };
         }
@@ -86,6 +87,15 @@ public static class KeyMap
                 ConsoleKey.T => EditorCommand.NewTab, // новая вкладка
                 ConsoleKey.W => EditorCommand.CloseTab, // закрыть вкладку
                 ConsoleKey.P => EditorCommand.ListTabs, // список вкладок
+                ConsoleKey.D1 => EditorCommand.GoPaneNumber,
+                ConsoleKey.D2 => EditorCommand.GoPaneNumber,
+                ConsoleKey.D3 => EditorCommand.GoPaneNumber,
+                ConsoleKey.D4 => EditorCommand.GoPaneNumber,
+                ConsoleKey.D5 => EditorCommand.GoPaneNumber,
+                ConsoleKey.D6 => EditorCommand.GoPaneNumber,
+                ConsoleKey.D7 => EditorCommand.GoPaneNumber,
+                ConsoleKey.D8 => EditorCommand.GoPaneNumber,
+                ConsoleKey.D9 => EditorCommand.GoPaneNumber,
                 ConsoleKey.E => EditorCommand.GoEnd,
                 ConsoleKey.Home => EditorCommand.GoDocStart,
                 ConsoleKey.End => EditorCommand.GoDocEnd,
@@ -99,9 +109,11 @@ public static class KeyMap
             };
         }
 
-        // Shift+F3 — поиск назад (модификатор виден в ConsoleKeyInfo).
+        // Shift+F3 — поиск назад, Shift+F6 — предыдущая панель.
         if (key.Key == ConsoleKey.F3 && (key.Modifiers & ConsoleModifiers.Shift) != 0)
             return EditorCommand.FindPrev;
+        if (key.Key == ConsoleKey.F6 && (key.Modifiers & ConsoleModifiers.Shift) != 0)
+            return EditorCommand.PrevPane;
 
         return key.Key switch
         {
@@ -115,6 +127,7 @@ public static class KeyMap
             ConsoleKey.PageDown => EditorCommand.PageDown,
             ConsoleKey.F3 => EditorCommand.FindNext,
             ConsoleKey.F1 => EditorCommand.Help,
+            ConsoleKey.F6 => EditorCommand.NextPane, // соседняя панель
             ConsoleKey.F10 => EditorCommand.ToggleMenu, // фокус на меню-бар, как в MS Edit
             ConsoleKey.Escape => EditorCommand.None,
             ConsoleKey.Enter => EditorCommand.InsertEnter,

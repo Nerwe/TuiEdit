@@ -85,4 +85,10 @@ public enum EditorCommand
     GoTabNumber,
     /// <summary>Список вкладок попапом (Ctrl+P).</summary>
     ListTabs,
+    /// <summary>Разделить вид: новая панель справа (Alt+S).</summary>
+    SplitPane,
+    /// <summary>Фокус на соседнюю панель (F6 / Shift+F6).</summary>
+    NextPane, PrevPane,
+    /// <summary>Фокус на панель 1..9 (Ctrl+цифра).</summary>
+    GoPaneNumber,
 }

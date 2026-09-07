@@ -25,6 +25,7 @@
 
   "modal.unsaved.title": "Несохранённые изменения",
   "modal.unsaved.desc": "Сохранить изменения перед выходом?",
+  "modal.unsaved.descfile": "Сохранить изменения в «{0}»?",
   "modal.unsaved.save": "Сохранить [Y]",
   "modal.unsaved.discard": "Не сохранять [N]",
   "modal.unsaved.cancel": "Отмена",
@@ -113,6 +114,7 @@
   "help.k13": "  Ctrl+B — панель файлов (стрелки — выбор • Enter — открыть • Esc — в текст)",
   "help.k14": "  Вкладки: Ctrl+PgDn/PgUp — дальше/назад • Ctrl+T — новая • Ctrl+W — закрыть",
   "help.k15": "  Alt+1..9,0 — перейти • Ctrl+P — список вкладок",
+  "help.k16": "  Сплит: Alt+S — разделить • F6 — соседняя панель • Ctrl+1..9 — панель N",
   "help.status": "Статусбар: позиция | кодировка | переводы строк | отступ | файл.",
   "help.config": "Конфиг: {0}",
   "help.dlg.title": "Справка",

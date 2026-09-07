@@ -239,4 +239,45 @@ public sealed class TabsTests : IDisposable
         HandleKey(ed, K('\x17', ConsoleKey.W, ctrl: true)); // чистая закрылась
         Assert.Equal(1, ed.TabCount);
     }
+
+    private static string ModalLine(TuiEditor ed)
+    {
+        var dlg = Get(ed, "_dialog")!;
+        var state = dlg.GetType()
+            .GetField("_state", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(dlg)!;
+        return ((ModalState)state).Lines[0];
+    }
+
+    [Fact]
+    public void DiscardAllQuits()
+    {
+        // Две грязные вкладки: «Не сохранять» дважды — выходим, а не ходим по кругу.
+        var ed = NewEditor();
+        ActiveBuf(ed).InsertChar(0, 0, 'x');
+        ed.NewTab();
+        ActiveBuf(ed).InsertChar(0, 0, 'y');
+        HandleKey(ed, K('\x11', ConsoleKey.Q, ctrl: true)); // Ctrl+Q → модалка
+        Assert.NotNull(Get(ed, "_dialog"));
+        Assert.Contains("Untitled.txt", ModalLine(ed)); // видно, что спрашиваем
+        HandleKey(ed, K('n', ConsoleKey.N)); // «Не сохранять» по вкладке 2
+        Assert.NotNull(Get(ed, "_dialog")); // модалка по вкладке 1
+        HandleKey(ed, K('n', ConsoleKey.N)); // «Не сохранять» по вкладке 1
+        Assert.Null(Get(ed, "_dialog"));
+        Assert.True((bool)Get(ed, "_quitRequested")!);
+    }
+
+    [Fact]
+    public void DiscardClosesTab()
+    {
+        var ed = NewEditor();
+        ActiveBuf(ed).InsertChar(0, 0, 'x');
+        ed.NewTab();
+        ed.SwitchTab(0);
+        HandleKey(ed, K('\x17', ConsoleKey.W, ctrl: true)); // Ctrl+W → модалка
+        Assert.NotNull(Get(ed, "_dialog"));
+        HandleKey(ed, K('n', ConsoleKey.N)); // «Не сохранять»
+        Assert.Null(Get(ed, "_dialog"));
+        Assert.Equal(1, ed.TabCount);
+        Assert.Equal("", ActiveBuf(ed).GetLine(0));
+    }
 }

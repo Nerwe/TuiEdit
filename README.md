@@ -11,7 +11,8 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 - Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save.
 - `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), help screen (`F1`).
 - File panel (`Ctrl+B`): fixed-width sidebar with the current folder, arrows to select, `Enter` to open, `Esc` back to text. Entries are color-coded: dirs, `..`, hidden and executables.
-- Tabs: open tab bar (`Ctrl+T` new, `Ctrl+W` close, `Ctrl+Tab` switch, `Alt+1..9,0` jump, `Ctrl+P` list); long rows scroll with the active tab always visible; dirty tabs ask on close, quitting walks through them one by one.
+- Tabs: open tab bar (`Ctrl+T` new, `Ctrl+W` close, `Ctrl+PgDn/PgUp` switch, `Alt+1..9,0` jump, `Ctrl+P` list); long rows scroll with the active tab always visible; dirty tabs ask on close, quitting walks through them one by one.
+- Split view (`Alt+S`): two or more panes side by side, each with its own tabs; `F6`/`Shift+F6` or `Ctrl+1..9` move focus (tab keys act on the focused pane).
 - System clipboard via OSC52 (Windows Terminal): `^C` copies, paste with `Ctrl+V`.
 
 ## Hotkeys
@@ -49,9 +50,9 @@ Full list: `tui-edit --help` or `F1` in the editor.
 |---|---|
 | ![Recovery](docs/shots/restore.png) | ![Panel](docs/shots/sidebar.png) |
 
-| Tabs |
-|---|
-| ![Tabs](docs/shots/tabs.png) |
+| Tabs | Split |
+|---|---|
+| ![Tabs](docs/shots/tabs.png) | ![Split](docs/shots/split.png) |
 
 ![Help](docs/shots/help.png)
 
@@ -90,6 +91,7 @@ Editable from the settings dialog in the File menu, applied and saved immediatel
 Program.cs            entry, --help/--version, editor startup
 Core/TextBuffer.cs    buffer: lines, undo/redo, find/replace, encodings
 Core/DocTab.cs        tab: buffer + view state (cursor, scroll, selection)
+Core/Pane.cs          split pane: own tabs, active tab, tab scroll
 Core/WordMotion.cs    word-wise motion (VS Code style)
 Core/TabStops.cs      tabs + WordWrap (soft-wrap segments)
 Core/EditorCommand.cs editor commands
@@ -121,3 +123,4 @@ Frames for `docs/` are rendered by a separate tool next to the project:
 ```powershell
 dotnet run --project ../TuiEdit.Shots -- docs/shots_new
 ```
+
