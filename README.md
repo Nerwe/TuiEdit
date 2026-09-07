@@ -28,6 +28,20 @@ F1 — справка   Alt+N — номера строк   Alt+Z — перен
 
 Полный список: `tui-edit --help` или `F1` в редакторе.
 
+## Скриншоты
+
+![Демо](docs/demo.gif)
+
+| Редактор | Поиск | Меню |
+|---|---|---|
+| ![Редактор](docs/shots/editor.png) | ![Поиск](docs/shots/find.png) | ![Меню](docs/shots/menu.png) |
+
+| Модалка | Менеджер | Настройки |
+|---|---|---|
+| ![Модалка](docs/shots/unsaved.png) | ![Менеджер](docs/shots/picker.png) | ![Настройки](docs/shots/settings.png) |
+
+![Справка](docs/shots/help.png)
+
 ## Сборка и запуск
 
 ```powershell
