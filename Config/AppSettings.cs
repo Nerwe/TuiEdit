@@ -5,7 +5,7 @@ namespace TuiEdit;
 /// </summary>
 public sealed class AppSettings
 {
-    /// <summary>Тема: dark | light.</summary>
+    /// <summary>Тема: dark | light | своя из Themes.</summary>
     public string Theme { get; set; } = "dark";
 
     /// <summary>Язык: en | ru.</summary>
@@ -31,6 +31,9 @@ public sealed class AppSettings
 
     /// <summary>Недавние файлы (новые сверху).</summary>
     public List<string> RecentFiles { get; set; } = new();
+
+    /// <summary>Пользовательские темы (см. ThemeScheme).</summary>
+    public List<ThemeScheme> Themes { get; set; } = new();
 
     /// <summary>Максимум недавних файлов.</summary>
     public const int MaxRecentFiles = 20;
@@ -64,7 +67,11 @@ public sealed class AppSettings
     /// <summary>Привести к допустимым значениям.</summary>
     public void Normalize()
     {
-        Theme = Theme is "light" or "dark" ? Theme : "dark";
+        if (!ThemeCatalog.Contains(this, Theme))
+            Theme = "dark";
+        Themes.RemoveAll(s => string.IsNullOrWhiteSpace(s.Name));
+        foreach (ThemeScheme s in Themes)
+            s.Colors ??= new();
         Language = Loc.Normalize(Language);
     }
 }

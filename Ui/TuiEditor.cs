@@ -67,7 +67,7 @@ internal sealed class TuiEditor
         _settings = settings;
         _store = store;
         _loc = Loc.Load(settings.Language);
-        _theme = Themes.Get(settings.Theme);
+        _theme = ThemeCatalog.Resolve(settings, settings.Theme);
     }
 
     /// <summary>Число вкладок активной панели (для тестов и статусбара).</summary>
@@ -223,7 +223,7 @@ internal sealed class TuiEditor
     private void ApplySettings()
     {
         _loc = Loc.Load(_settings.Language);
-        _theme = Themes.Get(_settings.Theme);
+        _theme = ThemeCatalog.Resolve(_settings, _settings.Theme);
     }
 
     /// <summary>Текст ошибки для показа (технические коды маппим в Loc).</summary>

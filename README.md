@@ -85,6 +85,48 @@ tui-edit --help | --version
 
 Editable from the settings dialog in the File menu, applied and saved immediately.
 
+## Custom themes
+
+Like `schemes` in Windows Terminal: add a `Themes` array — each scheme has
+a `Name`, a `Base` (`dark`/`light`, defaults to `dark`) and `Colors`
+(role → `#rrggbb`). Unset roles come from the base; a name matching
+a built-in overrides it. Role names are the `Theme` record fields
+(`EditorBg`, `EditorFg`, `CurLineBg`, `SelBg`, `MatchBg`, `StatusBg`,
+`ModalBg`, `ButtonSelBg`, `PickerDirFg`, …). The file tolerates comments,
+trailing commas and any key case:
+
+```json
+{
+  "Theme": "3024 Night",
+  "Themes": [
+    {
+      // only overrides — the rest comes from "dark"
+      "Name": "3024 Night",
+      "Base": "dark",
+      "Colors": {
+        "EditorBg": "#090300",
+        "EditorFg": "#a5a2a2",
+        "CurLineBg": "#4a4543",
+        "SelBg": "#4a4543",
+        "SelFg": "#a5a2a2",
+        "MatchBg": "#cdab53",
+        "MatchFg": "#090300",
+        "StatusBg": "#a16a94",
+        "StatusFg": "#090300",
+        "ButtonSelBg": "#01a252",
+        "ButtonSelFg": "#090300",
+        "PickerDirFg": "#01a0e4",
+        "PickerExeFg": "#01a252"
+      }
+    }
+  ]
+}
+```
+
+Custom names appear in the settings dialog theme row next to the built-ins:
+`dark`, `light`, `3024 Night (dark)`, `Paper (light)`
+(the bracket says whether the theme is dark or light).
+
 ## Structure
 
 ```text
@@ -109,6 +151,7 @@ Ui/Modal.cs           modal popups (pure model)
 Ui/SettingsDialogState.cs settings dialog state (pure model)
 Ui/SidebarState.cs    file panel model: listing, highlight, scroll (pure model)
 Config/               AppSettings + SettingsStore (JSON)
+Config/ThemeScheme.cs   custom themes: schemes, hex, catalog
 Resources/            strings.ru/en.json (key parity required)
 TuiEdit.Tests/        xUnit tests (dotnet test): buffer, find, dialogs, resources
 ```

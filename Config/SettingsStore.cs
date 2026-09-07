@@ -12,6 +12,14 @@ public sealed class SettingsStore(string path)
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
+    // Чтение терпимое: конфиг правят руками (комментарии, запятые, регистр).
+    private static readonly JsonSerializerOptions ReadOptions = new()
+    {
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        PropertyNameCaseInsensitive = true,
+    };
+
     /// <summary>Путь к файлу.</summary>
     public string Path { get; } = path;
 
@@ -44,7 +52,7 @@ public sealed class SettingsStore(string path)
         {
             if (File.Exists(Path))
             {
-                var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Path));
+                var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Path), ReadOptions);
                 if (s is not null)
                 {
                     s.Normalize();

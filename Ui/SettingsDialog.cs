@@ -46,7 +46,7 @@ internal sealed class SettingsDialog : Dialog
             loc["settings.shownumbers"], loc["settings.wordwrap"],
             loc["settings.backup"], loc["settings.useregex"]];
         string langName = loc.Language == "en" ? "English" : "Русский";
-        string themeName = _settings.Theme == "light" ? loc["settings.light"] : loc["settings.dark"];
+        string themeName = ThemeCatalog.DisplayName(loc, _settings.Theme);
         string[] values = [themeName, langName,
             OnOff(loc, _settings.SearchMatchCase), OnOff(loc, _settings.SearchWholeWord),
             OnOff(loc, _settings.ShowLineNumbers), OnOff(loc, _settings.WordWrap),
@@ -101,9 +101,12 @@ internal sealed class SettingsDialog : Dialog
         switch (_state.Row)
         {
             case 0:
-                int ti = SettingsDialogState.Cycle(
-                    Array.IndexOf(Themes.Names, _settings.Theme), Themes.Names.Length, dir);
-                _settings.Theme = Themes.Names[ti];
+                List<string> names = ThemeCatalog.Names(_settings);
+                int cur = names.FindIndex(n =>
+                    string.Equals(n, _settings.Theme, StringComparison.OrdinalIgnoreCase));
+                if (cur < 0)
+                    cur = 0;
+                _settings.Theme = names[SettingsDialogState.Cycle(cur, names.Count, dir)];
                 break;
             case 1:
                 int li = SettingsDialogState.Cycle(
