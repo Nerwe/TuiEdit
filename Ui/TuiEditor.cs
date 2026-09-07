@@ -80,6 +80,7 @@ internal sealed class TuiEditor
         Console.TreatControlCAsInput = true;
         Console.CursorVisible = false;
         _screen.TrueColor = Terminal.TryEnableVirtualTerminal();
+        Terminal.TryEnableRawInput(); // Ctrl+S мимо XOFF-паузы, как в MS Edit
 
         try
         {
@@ -108,6 +109,7 @@ internal sealed class TuiEditor
         finally
         {
             try { Console.Write("\x1b[?2004l"); } catch (IOException) { }
+            Terminal.RestoreInput();
             Console.ResetColor();
             Console.Clear();
             Console.CursorVisible = true;
@@ -757,7 +759,7 @@ internal sealed class TuiEditor
                 ActivateMenuItem(item);
             return;
         }
-        // Всё остальное (Ctrl-шорткаты, F2/F3...) — глобально: закрыть меню и выполнить.
+        // Всё остальное (Ctrl-шорткаты, F3...) — глобально: закрыть меню и выполнить.
         _menu = null;
         Execute(KeyMap.Map(k), k);
     }
@@ -785,8 +787,8 @@ internal sealed class TuiEditor
             new(loc["menu.new"], 'N', null, EditorCommand.NewFile),
             new(loc["menu.open"], 'O', null, EditorCommand.OpenFile),
             new(loc["menu.recent"], 'R', null, EditorCommand.OpenRecent),
-            new(loc["menu.save"], 'S', "F2", EditorCommand.Save),
-            new(loc["menu.saveas"], 'A', "^O", EditorCommand.SaveAs),
+            new(loc["menu.save"], 'S', "^S", EditorCommand.Save),
+            new(loc["menu.saveas"], 'A', "Ctrl+Shift+S", EditorCommand.SaveAs),
             new(loc["menu.settings"], 'P', null, EditorCommand.Settings),
             new(loc["menu.exit"], 'X', "^Q", EditorCommand.Quit),
         }),
@@ -1898,9 +1900,6 @@ internal sealed class TuiEditor
         string.Empty,
         _loc["help.status"],
         _loc.Format("help.config", _store.Path),
-        string.Empty,
-        _loc["help.note1"],
-        _loc["help.note2"],
     };
 
     /// <summary>Справка поверх текстовой области (меню-бар и статусбар свои).</summary>

@@ -8,8 +8,15 @@ namespace TuiEdit;
 /// </summary>
 internal static class Terminal
 {
+    private const int STD_INPUT_HANDLE = -10;
     private const int STD_OUTPUT_HANDLE = -11;
     private const uint ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004;
+    private const uint ENABLE_PROCESSED_INPUT = 0x0001;
+    private const uint ENABLE_LINE_INPUT = 0x0002;
+    private const uint ENABLE_ECHO_INPUT = 0x0004;
+
+    private static uint _stdinOldMode;
+    private static bool _stdinModeSaved;
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern IntPtr GetStdHandle(int nStdHandle);
@@ -47,6 +54,57 @@ internal static class Terminal
         catch
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Пригасить обработку ввода (как MS Edit, но без VT_INPUT): снимаем
+    /// LINE/ECHO/PROCESSED, иначе conhost перехватывает Ctrl+S как паузу
+    /// вывода (XOFF) и клавиша не доходит до приложения.
+    /// VIRTUAL_TERMINAL_INPUT намеренно НЕ ставим: с ним стрелки/F-клавиши/
+    /// Alt-комбинации приходят ESC-последовательностями посимвольно, а не
+    /// событиями клавиш, и .NET ReadKey их не собирает (в текст лезет "[D").
+    /// WINDOW_INPUT тоже не нужен (ресайз виден по WindowWidth/Height).
+    /// На Unix conhost-паузы нет — ничего не делаем.
+    /// </summary>
+    /// <returns>true если режим применён (на Unix всегда true).</returns>
+    public static bool TryEnableRawInput()
+    {
+        if (!OperatingSystem.IsWindows())
+            return true;
+        try
+        {
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return false;
+            if (!GetConsoleMode(h, out uint mode))
+                return false;
+            _stdinOldMode = mode;
+            _stdinModeSaved = true;
+            uint raw = mode & ~(ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
+            return SetConsoleMode(h, raw);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Вернуть режим ввода консоли (вызывать при выходе).</summary>
+    public static void RestoreInput()
+    {
+        if (!_stdinModeSaved)
+            return;
+        _stdinModeSaved = false;
+        try
+        {
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return;
+            SetConsoleMode(h, _stdinOldMode);
+        }
+        catch
+        {
         }
     }
 }

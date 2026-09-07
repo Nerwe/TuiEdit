@@ -37,9 +37,6 @@ foreach (string a in args)
             Console.WriteLine();
             Console.WriteLine(loc["help.status"]);
             Console.WriteLine(loc.Format("help.config", store.Path));
-            Console.WriteLine();
-            Console.WriteLine(loc["help.note1"]);
-            Console.WriteLine(loc["help.note2"]);
             return 0;
         case "-v" or "--version":
             Console.WriteLine("TuiEdit 0.1.0 (net10.0, System.Console)");

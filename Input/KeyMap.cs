@@ -5,9 +5,10 @@ namespace TuiEdit;
 /// </summary>
 /// <remarks>
 /// <para>
-/// F2 дублирует Ctrl+S как команда сохранения: в консолях Windows Ctrl+S
-/// обрабатывается хостом как XOFF (пауза вывода, см. microsoft/terminal#809)
-/// и может не доходить до приложения, а F2 доходит всегда.
+/// Сохранение — Ctrl+S, сохранить как — Ctrl+Shift+S (как в MS Edit).
+/// Ctrl+S доходит до приложения благодаря сырому режиму ввода
+/// (<see cref="Terminal.TryEnableRawInput"/>): без него conhost перехватывает
+/// его как паузу вывода XOFF (см. microsoft/terminal#809).
 /// </para>
 /// <para>Метод чистый (без обращений к консоли) — тестируется напрямую.</para>
 /// </remarks>
@@ -45,6 +46,9 @@ public static class KeyMap
 
         if ((key.Modifiers & ConsoleModifiers.Control) != 0)
         {
+            // Ctrl+Shift+S — сохранить как (как в MS Edit); остальным Shift не важен.
+            if (key.Key == ConsoleKey.S && (key.Modifiers & ConsoleModifiers.Shift) != 0)
+                return EditorCommand.SaveAs;
             return key.Key switch
             {
                 ConsoleKey.S => EditorCommand.Save,
@@ -87,7 +91,6 @@ public static class KeyMap
             ConsoleKey.End => EditorCommand.GoEnd,
             ConsoleKey.PageUp => EditorCommand.PageUp,
             ConsoleKey.PageDown => EditorCommand.PageDown,
-            ConsoleKey.F2 => EditorCommand.Save, // дубль ^S, не перехватывается терминалом
             ConsoleKey.F3 => EditorCommand.FindNext,
             ConsoleKey.F1 => EditorCommand.Help,
             ConsoleKey.F10 => EditorCommand.ToggleMenu, // фокус на меню-бар, как в MS Edit
