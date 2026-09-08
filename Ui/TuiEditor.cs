@@ -2270,10 +2270,9 @@ internal sealed class TuiEditor
         string file = _buf.FilePath is null ? _loc["status.noname"] : Path.GetFileName(_buf.FilePath);
         if (_buf.IsReadOnly)
             file += " " + _loc["status.readonly"];
-        string right = $" {_buf.EncodingLabel} | {_buf.EndingLabel} | {_buf.IndentLabel} | {file} "
-            + (GitStatus.ForFile(_buf.FilePath) is string git ? $"| {git} " : string.Empty)
-            + (_docs.Count > 1 ? $"| {_active + 1}/{_docs.Count} " : string.Empty)
-            + (_panes.Count > 1 ? $"| P{_pane + 1}/{_panes.Count} " : string.Empty);
+        string right = StatusBar.BuildRight(
+            _buf.EncodingLabel, _buf.EndingLabel, _buf.IndentLabel, file,
+            GitStatus.ForFile(_buf.FilePath), _active, _docs.Count, _pane, _panes.Count);
         _screen.Text(0, h - 1, StatusBar.Build(left, right, w), _theme.StatusFg, _theme.StatusBg);
 
         // Поверх текста: раскрытое меню и активное диалоговое окно.
