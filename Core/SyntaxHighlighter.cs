@@ -37,10 +37,16 @@ internal sealed class SyntaxHighlighter
         }
         if (buf.Version == _version && buf.Count == _lines.Count)
             return;
-        int n = Math.Min(buf.Count, _texts.Count);
+        int oldCount = _texts.Count;
+        int delta = buf.Count - oldCount; // чистый сдвиг строк (вставка/удаление)
+        int n = Math.Min(buf.Count, oldCount);
         int dirty = 0;
         while (dirty < n && ReferenceEquals(buf.Lines[dirty], _texts[dirty]))
             dirty++;
+        // Старый хвост держим для раннего выхода, списки урезаем.
+        List<string> tailTexts = _texts.GetRange(dirty, oldCount - dirty);
+        List<string> tailStacks = _stacks.GetRange(dirty, oldCount - dirty);
+        List<List<SyntaxToken>> tailLines = _lines.GetRange(dirty, oldCount - dirty);
         if (_lines.Count > dirty)
         {
             _lines.RemoveRange(dirty, _lines.Count - dirty);
@@ -54,15 +60,45 @@ internal sealed class SyntaxHighlighter
         {
             string line = buf.Lines[i];
             List<SyntaxToken> tokens = TokenizeLine(line, stack, grammar.Rules);
+            string sig = StackSignature(stack);
             _lines.Add(tokens);
-            _stacks.Add(StackSignature(stack));
+            _stacks.Add(sig);
             _texts.Add(line);
+            // Ранний выход: текст и исходящий стек совпали со старым кэшем —
+            // состояние сошлось. Хвост переиспользуем, только если ВЕСЬ остаток
+            // совпадает построчно (защита от нескольких правок за одну версию).
+            int t = i - dirty - delta;
+            if (t < 0 || t >= tailTexts.Count)
+                continue;
+            if (!ReferenceEquals(line, tailTexts[t]) || sig != tailStacks[t])
+                continue;
+            if (!TailMatches(buf, tailTexts, i + 1, dirty, delta))
+                continue;
+            for (int k = t + 1; k < tailTexts.Count; k++)
+            {
+                _lines.Add(tailLines[k]);
+                _stacks.Add(tailStacks[k]);
+                _texts.Add(tailTexts[k]);
+            }
+            break;
         }
         _version = buf.Version;
     }
 
     private static string StackSignature(Stack<(string Scope, Regex End)> stack) =>
         string.Join("\u001F", stack.Reverse().Select(e => e.Scope));
+
+    /// <summary>Весь остаток буфера совпадает со старым хвостом (по ссылкам, со сдвигом).</summary>
+    private static bool TailMatches(TextBuffer buf, List<string> tailTexts, int fromNew, int dirty, int delta)
+    {
+        for (int j = fromNew; j < buf.Count; j++)
+        {
+            int t = j - dirty - delta;
+            if ((uint)t >= (uint)tailTexts.Count || !ReferenceEquals(buf.Lines[j], tailTexts[t]))
+                return false;
+        }
+        return true;
+    }
 
     private static void PushStack(Stack<(string Scope, Regex End)> stack, CompiledGrammar grammar, string sig)
     {

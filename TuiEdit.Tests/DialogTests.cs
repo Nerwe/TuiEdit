@@ -297,7 +297,7 @@ public sealed class DialogTests : IDisposable
         small.Resize(96, 12);
         hd.HandleKey(K('\0', ConsoleKey.End));
         hd.Draw(small, _theme, _loc);
-        Assert.Equal(24 - hd.VisibleRows(12), hd.Scroll); // кламп к низу
+        Assert.Equal(24 - HelpDialog.VisibleRows(12), hd.Scroll); // кламп к низу
         hd.HandleKey(K('\0', ConsoleKey.Home));
         hd.Draw(small, _theme, _loc);
         Assert.Equal(0, hd.Scroll);

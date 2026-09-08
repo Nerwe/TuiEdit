@@ -95,7 +95,11 @@ public sealed class DraftStore(string dir)
             return "untitled";
         try
         {
+            // CA5350: SHA1 здесь — не криптография, а короткий ключ имени файла
+            // черновика/бэкапа; смена алгоритма осиротила бы существующие файлы.
+#pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms
             byte[] hash = SHA1.HashData(Encoding.UTF8.GetBytes(System.IO.Path.GetFullPath(file)));
+#pragma warning restore CA5350
             return Convert.ToHexString(hash).ToLowerInvariant();
         }
         catch

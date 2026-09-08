@@ -9,6 +9,9 @@
     <RootNamespace>TuiEdit</RootNamespace>
     <Version>0.2.0</Version>
     <Description>Простой TUI текстовый редактор в стиле Microsoft Edit / nano на чистом System.Console.</Description>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisMode>Recommended</AnalysisMode>
   </PropertyGroup>
 
   <ItemGroup>

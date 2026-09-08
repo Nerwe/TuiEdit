@@ -14,7 +14,7 @@ internal sealed record KeyInput(ConsoleKeyInfo Key) : InputEvent;
 
 internal sealed class InputReader
 {
-    public InputEvent Read()
+    public static InputEvent Read()
     {
         ConsoleKeyInfo k = Console.ReadKey(intercept: true);
         if (k.Key != ConsoleKey.Escape || !Console.KeyAvailable)

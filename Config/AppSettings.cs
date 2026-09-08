@@ -18,10 +18,10 @@ public sealed class AppSettings
     public bool SearchMatchCase { get; set; } = true;
 
     /// <summary>Поиск/замена: только целые слова.</summary>
-    public bool SearchWholeWord { get; set; } = false;
+    public bool SearchWholeWord { get; set; }
 
     /// <summary>Поиск/замена: регулярное выражение.</summary>
-    public bool SearchUseRegex { get; set; } = false;
+    public bool SearchUseRegex { get; set; }
 
     /// <summary>Показывать номера строк (гуттер).</summary>
     public bool ShowLineNumbers { get; set; } = true;
@@ -30,19 +30,19 @@ public sealed class AppSettings
     public bool ShowIndentGuides { get; set; } = true;
 
     /// <summary>Показывать пробелы и табы точками и стрелками.</summary>
-    public bool ShowWhitespace { get; set; } = false;
+    public bool ShowWhitespace { get; set; }
 
     /// <summary>Подсвечиваемая колонка-ограничитель (0 — выкл).</summary>
-    public int RulerColumn { get; set; } = 0;
+    public int RulerColumn { get; set; }
 
     /// <summary>Мягкий перенос длинных строк.</summary>
-    public bool WordWrap { get; set; } = false;
+    public bool WordWrap { get; set; }
 
     /// <summary>Копия .bak при сохранении.</summary>
-    public bool BackupOnSave { get; set; } = false;
+    public bool BackupOnSave { get; set; }
 
     /// <summary>Открывать при старте вкладки прошлой сессии.</summary>
-    public bool RestoreSession { get; set; } = false;
+    public bool RestoreSession { get; set; }
 
     /// <summary>Вкладки прошлой сессии (путь + курсор).</summary>
     public List<SessionTab> SessionTabs { get; set; } = new();

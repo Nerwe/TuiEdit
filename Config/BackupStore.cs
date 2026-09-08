@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace TuiEdit;
 
 /// <summary>
@@ -37,7 +39,7 @@ public sealed class BackupStore(string dir)
         {
             Directory.CreateDirectory(Dir);
             string key = DraftStore.KeyFor(target);
-            string stamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+            string stamp = DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
             long n = Interlocked.Increment(ref _seq);
             string path = Path.Combine(Dir, $"{key}_{stamp}_{n:D10}.bak");
             int dup = 0;

@@ -6,6 +6,12 @@
     <Nullable>enable</Nullable>
     <RootNamespace>TuiEdit.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <!-- CA1861 в тестах: константные массивы в Assert'ах читаются лучше по месту,
+         аллоцируются один раз за прогон — вынос в static readonly поля не окупается. -->
+    <NoWarn>$(NoWarn);CA1861</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

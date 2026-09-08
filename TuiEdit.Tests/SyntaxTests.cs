@@ -266,4 +266,105 @@ public sealed class SyntaxTests
         s.Normalize();
         Assert.Equal("auto", s.Grammar);
     }
+
+    // --- Инкрементальный кэш: сверка с полным пересчётом (ранний выход Ensure). ---
+
+    private static List<List<SyntaxToken>> SnapshotAll(TextBuffer buf, CompiledGrammar g)
+    {
+        var fresh = new SyntaxHighlighter();
+        var rows = new List<List<SyntaxToken>>();
+        for (int r = 0; r < buf.Count; r++)
+            rows.Add(new List<SyntaxToken>(fresh.GetLine(buf, g, r)));
+        return rows;
+    }
+
+    private static void AssertSameAsFresh(TextBuffer buf, SyntaxHighlighter hl, CompiledGrammar g)
+    {
+        List<List<SyntaxToken>> want = SnapshotAll(buf, g);
+        Assert.Equal(buf.Count, want.Count);
+        for (int r = 0; r < buf.Count; r++)
+            Assert.Equal(want[r], hl.GetLine(buf, g, r));
+    }
+
+    private static TextBuffer BlockBuf() => Buf(
+        "int a = 1;",
+        "/* open block",
+        "int b = 2;",
+        "int c = 3;",
+        "int d = 4;");
+
+    [Fact]
+    public void IncrementalEditAboveBlockKeepsComment()
+    {
+        var b = BlockBuf();
+        var g = Cs();
+        var hl = new SyntaxHighlighter();
+        Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 2), 0)); // прогрев кэша
+        b.InsertChar(0, 0, '/'); // правка выше блока
+        AssertSameAsFresh(b, hl, g);
+        Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 2), 0)); // состояние доползло вниз
+        b.Undo();
+        AssertSameAsFresh(b, hl, g);
+    }
+
+    [Fact]
+    public void IncrementalCloseBlockReconverges()
+    {
+        var b = BlockBuf();
+        var g = Cs();
+        var hl = new SyntaxHighlighter();
+        Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 4), 0));
+        b.InsertString(1, 12, " */"); // закрыли блок на строке 1
+        AssertSameAsFresh(b, hl, g);
+        Assert.Equal("keyword", ScopeAt(hl.GetLine(b, g, 2), 0)); // код снова код
+        b.Undo();
+        AssertSameAsFresh(b, hl, g);
+        Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 2), 0));
+    }
+
+    [Fact]
+    public void IncrementalInsertDeleteLine()
+    {
+        var b = BlockBuf();
+        var g = Cs();
+        var hl = new SyntaxHighlighter();
+        hl.GetLine(b, g, 4); // прогрев
+        b.InsertString(0, 0, "int z = 0;\n"); // +строка сверху (сдвиг)
+        Assert.Equal(6, b.Count);
+        AssertSameAsFresh(b, hl, g);
+        Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 3), 0));
+        b.CutLine(0); // удаление строки (сдвиг обратно)
+        Assert.Equal(5, b.Count);
+        AssertSameAsFresh(b, hl, g);
+    }
+
+    [Fact]
+    public void IncrementalReplaceAllMultiHunk()
+    {
+        var b = Buf("int a = 1;", "int b = 1;", "/* x */", "int c = 1;");
+        var g = Cs();
+        var hl = new SyntaxHighlighter();
+        hl.GetLine(b, g, 3); // прогрев
+        // Несколько очагов за одну версию (один undo-шаг): ранний выход
+        // между очагами обязан перепроверять хвост, а не приклеивать старый.
+        Assert.Equal(3, b.ReplaceAll("1", "22", 0, 0, true, false));
+        AssertSameAsFresh(b, hl, g);
+        Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 2), 0));
+        Assert.Equal("number", ScopeAt(hl.GetLine(b, g, 3), 8));
+        Assert.Equal("int c = 22;", b.GetLine(3));
+        b.Undo();
+        AssertSameAsFresh(b, hl, g);
+    }
+
+    [Fact]
+    public void IncrementalSortKeepsHighlight()
+    {
+        var b = Buf("int z = 3;", "int a = 1;", "int m = 2;");
+        var g = Cs();
+        var hl = new SyntaxHighlighter();
+        hl.GetLine(b, g, 2); // прогрев
+        b.SortLines(0, 2);
+        AssertSameAsFresh(b, hl, g);
+        Assert.Equal("int a = 1;", b.GetLine(0));
+    }
 }

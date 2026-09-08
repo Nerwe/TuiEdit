@@ -242,8 +242,8 @@ public sealed class TabsTests : IDisposable
 
     private static string ModalLine(TuiEditor ed)
     {
-        var dlg = Get(ed, "_dialog")!;
-        var state = dlg.GetType()
+        object dlg = Get(ed, "_dialog")!;
+        object state = dlg.GetType()
             .GetField("_state", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(dlg)!;
         return ((ModalState)state).Lines[0];
     }

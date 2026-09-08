@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 
@@ -52,7 +53,7 @@ public sealed class Loc
     {
         try
         {
-            return string.Format(this[key], args);
+            return string.Format(CultureInfo.InvariantCulture, this[key], args);
         }
         catch (FormatException)
         {

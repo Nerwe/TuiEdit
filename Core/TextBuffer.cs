@@ -470,7 +470,7 @@ internal sealed class TextBuffer
     public int[] IndentLines(int startRow, int endRow, string indent)
     {
         PushUndo();
-        var added = new int[endRow - startRow + 1];
+        int[] added = new int[endRow - startRow + 1];
         for (int r = startRow; r <= endRow; r++)
         {
             Lines[r] = indent + Lines[r];
@@ -483,7 +483,7 @@ internal sealed class TextBuffer
     public int[] UnindentLines(int startRow, int endRow, string indent)
     {
         PushUndo();
-        var removed = new int[endRow - startRow + 1];
+        int[] removed = new int[endRow - startRow + 1];
         for (int r = startRow; r <= endRow; r++)
         {
             int n = UnindentWidth(Lines[r], indent);
@@ -505,7 +505,7 @@ internal sealed class TextBuffer
     public int[] ToggleLineComment(int startRow, int endRow, string lineComment)
     {
         PushUndo();
-        var delta = new int[endRow - startRow + 1];
+        int[] delta = new int[endRow - startRow + 1];
         bool all = true;
         for (int r = startRow; r <= endRow; r++)
             if (!IsCommented(Lines[r], lineComment))

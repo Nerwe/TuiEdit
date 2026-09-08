@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace TuiEdit;
 
 /// <summary>Диалог настроек: значения применяются и сохраняются сразу при листании.</summary>
@@ -35,7 +37,7 @@ internal sealed class SettingsDialog : Dialog
         string[] values = [themeName, langName,
             OnOff(loc, _settings.ShowLineNumbers), OnOff(loc, _settings.WordWrap),
             OnOff(loc, _settings.ShowWhitespace),
-            _settings.RulerColumn == 0 ? loc["settings.off"] : _settings.RulerColumn.ToString(),
+            _settings.RulerColumn == 0 ? loc["settings.off"] : _settings.RulerColumn.ToString(CultureInfo.InvariantCulture),
             OnOff(loc, _settings.BackupOnSave),
             OnOff(loc, _settings.ShowIndentGuides), OnOff(loc, _settings.RestoreSession)];
         return (labels, values, title);

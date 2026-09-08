@@ -126,7 +126,7 @@ public sealed class ResourcesTests
         // Окно «О программе» — только информация: без хоткеев и подсказок закрытия.
         var (ru, en) = Both();
         foreach (var (lang, map) in new[] { ("ru", ru), ("en", en) })
-            foreach (string key in map.Keys.Where(k => k.StartsWith("modal.about.")))
+            foreach (string key in map.Keys.Where(k => k.StartsWith("modal.about.", StringComparison.Ordinal)))
                 Assert.DoesNotContain("Esc", map[key], StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("modal.about.l3", ru.Keys);
         Assert.DoesNotContain("modal.about.l3", en.Keys);

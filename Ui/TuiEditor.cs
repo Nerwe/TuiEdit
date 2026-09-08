@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
@@ -49,7 +50,7 @@ internal sealed class TuiEditor
     private readonly List<(string key, DocDraft draft)> _restoreDrafts = new();
     private readonly List<int> _menuX = new(); // x-координаты меню в баре (из рендера)
     private readonly Screen _screen = new(); // кадр + diff-вывод (без мигания)
-    private readonly InputReader _input = new();
+    // Ввод читается через статический InputReader.Read (состояния нет).
     private readonly AppSettings _settings;
     private readonly SettingsStore _store;
     private Loc _loc;
@@ -313,7 +314,7 @@ internal sealed class TuiEditor
                 InputEvent ev;
                 try
                 {
-                    ev = _input.Read();
+                    ev = InputReader.Read();
                 }
                 catch (InvalidOperationException)
                 {
@@ -799,9 +800,8 @@ internal sealed class TuiEditor
     {
         DocTab t = _docs[_active];
         t.ClampFolds(_buf.Count);
-        if (t.Folds.Contains(_row))
+        if (t.Folds.Remove(_row))
         {
-            t.Folds.Remove(_row);
             SetMessage(_loc["msg.fold.opened"]);
             return;
         }
@@ -1608,7 +1608,7 @@ internal sealed class TuiEditor
                 InputEvent ev;
                 try
                 {
-                    ev = _input.Read();
+                    ev = InputReader.Read();
                 }
                 catch (InvalidOperationException)
                 {
@@ -1925,7 +1925,7 @@ internal sealed class TuiEditor
             InputEvent ev;
             try
             {
-                ev = _input.Read();
+                ev = InputReader.Read();
             }
             catch (InvalidOperationException)
             {
@@ -2019,7 +2019,7 @@ internal sealed class TuiEditor
     }
 
 
-    private int TextHeight()
+    private static int TextHeight()
     {
         int h;
         try { h = Console.WindowHeight; } catch { return 10; }
@@ -2171,7 +2171,7 @@ internal sealed class TuiEditor
         int textHeight = h - 2 - tabH;
         int y0 = 1 + tabH;
         bool wrap = _settings.WordWrap;
-        int aNumWidth = Math.Max(4, _buf.Count.ToString().Length);
+        int aNumWidth = Math.Max(4, _buf.Count.ToString(CultureInfo.InvariantCulture).Length);
         int aGutter = _settings.ShowLineNumbers ? aNumWidth + 4 : 0;
         int activeCw = Math.Max(1, paneWs[_pane] - aGutter);
 
@@ -2190,7 +2190,7 @@ internal sealed class TuiEditor
             _pane = i;
             LoadTabState();
             int px = paneXs[i], pw = paneWs[i];
-            int numWidth = Math.Max(4, _buf.Count.ToString().Length);
+            int numWidth = Math.Max(4, _buf.Count.ToString(CultureInfo.InvariantCulture).Length);
             int gutterWidth = _settings.ShowLineNumbers ? numWidth + 4 : 0;
             int contentWidth = Math.Max(1, pw - gutterWidth);
             DrawTabs(px, pw, i == savedPane);
@@ -2304,7 +2304,7 @@ internal sealed class TuiEditor
                     bool folded = s == 0 && !marked && _docs[_active].Folds.Contains(fileLine)
                         && Folding.CanFold(_buf.Lines, fileLine);
                     string num = s == 0
-                        ? (fileLine + 1).ToString().PadLeft(numWidth)
+                        ? (fileLine + 1).ToString(CultureInfo.InvariantCulture).PadLeft(numWidth)
                         : new string(' ', numWidth);
                     _screen.Text(x0, y, marked ? "●" : folded ? "▸" : " ",
                         marked || folded ? _theme.AccentFg : _theme.GutterFg, _theme.EditorBg);
@@ -2540,7 +2540,7 @@ internal sealed class TuiEditor
 
     private static bool[] FindMatches(string expanded, string term, bool matchCase, bool wholeWord, bool useRegex)
     {
-        var m = new bool[expanded.Length];
+        bool[] m = new bool[expanded.Length];
         if (string.IsNullOrEmpty(term))
             return m;
         if (useRegex)

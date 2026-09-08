@@ -194,7 +194,9 @@ internal static class GrammarRegistry
         if (g is null || string.IsNullOrWhiteSpace(g.Name))
             return false;
         var cg = new CompiledGrammar(g.Name.Trim(), (g.LineComment ?? string.Empty).Trim());
-        RegexOptions opts = RegexOptions.CultureInvariant;
+        // Compiled: грамматики компилируются один раз за сессию, а матчатся
+        // на каждую строку при каждой правке — интерпретатор заметно дороже.
+        RegexOptions opts = RegexOptions.CultureInvariant | RegexOptions.Compiled;
         if (g.IgnoreCase)
             opts |= RegexOptions.IgnoreCase;
         foreach (GrammarRule r in g.Rules)

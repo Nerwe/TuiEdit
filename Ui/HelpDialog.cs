@@ -57,7 +57,7 @@ internal sealed class HelpDialog : Dialog
     }
 
     /// <summary>Сколько строк контента видно (для скролла и тестов).</summary>
-    public int VisibleRows(int boxH) => Math.Max(1, boxH - 3);
+    public static int VisibleRows(int boxH) => Math.Max(1, boxH - 3);
 
     protected override void DrawContent(Screen screen, Theme theme, Loc loc, Rgb fg, Rgb bg, DialogBox box)
     {

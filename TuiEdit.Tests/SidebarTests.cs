@@ -110,7 +110,7 @@ public sealed class SidebarTests : IDisposable
         Assert.Equal("..", sb.Entries[0].Name);
         Assert.True(sb.Entries[0].IsDir);
         Assert.Equal("sub", sb.Entries[1].Name);
-        Assert.False(sb.Entries.Any(e => e.Name == "a.txt" && e.IsDir));
+        Assert.DoesNotContain(sb.Entries, e => e.Name == "a.txt" && e.IsDir);
     }
 
     [Fact]
@@ -118,14 +118,14 @@ public sealed class SidebarTests : IDisposable
     {
         var sb = new SidebarState(_root);
         // Вниз до файла: Enter по файлу — false (открывает редактор).
-        while (!sb.Entries[sb.Selected].Name.Equals("a.txt"))
+        while (!sb.Entries[sb.Selected].Name.Equals("a.txt", StringComparison.Ordinal))
             sb.MoveHighlight(1, 10);
         Assert.False(sb.EnterSelected());
         Assert.EndsWith("a.txt", sb.SelectedPath);
 
         // Enter по папке — зайти.
         var sb2 = new SidebarState(_root);
-        while (!sb2.Entries[sb2.Selected].Name.Equals("sub"))
+        while (!sb2.Entries[sb2.Selected].Name.Equals("sub", StringComparison.Ordinal))
             sb2.MoveHighlight(1, 10);
         Assert.True(sb2.EnterSelected());
         Assert.EndsWith("sub", sb2.CurrentDir);
@@ -197,7 +197,7 @@ public sealed class SidebarTests : IDisposable
         HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true));
         var sb = (SidebarState)Field(ed, "_sidebar")!;
         sb.NavigateTo(_root);
-        while (!sb.Entries[sb.Selected].Name.Equals("b.txt"))
+        while (!sb.Entries[sb.Selected].Name.Equals("b.txt", StringComparison.Ordinal))
             sb.MoveHighlight(1, 10);
         HandleKey(ed, K('\0', ConsoleKey.Enter));
         // _buf — свойство активной вкладки (не поле).

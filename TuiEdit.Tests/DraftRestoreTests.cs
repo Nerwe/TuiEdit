@@ -1,3 +1,4 @@
+using System.Globalization;
 using TuiEdit;
 using Xunit;
 
@@ -98,7 +99,7 @@ public sealed class DraftRestoreTests
         Assert.Equal(2, m.Buttons.Count);
         Assert.Equal('1', m.Buttons[0].Hotkey);
         Assert.Single(m.Lines);
-        string wantDate = when.ToLocalTime().ToString("dd.MM HH:mm");
+        string wantDate = when.ToLocalTime().ToString("dd.MM HH:mm", CultureInfo.InvariantCulture);
         Assert.Contains(wantDate, m.Buttons[0].Label);
         Assert.Throws<ArgumentException>(() => ModalState.Restore(loc, new List<(string, DateTime)>()));
     }

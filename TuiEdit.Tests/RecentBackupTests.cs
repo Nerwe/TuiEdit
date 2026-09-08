@@ -97,7 +97,7 @@ public sealed class RecentBackupTests
         var m12 = ModalState.Recent(loc, twelve);
         Assert.Equal(12, m12.Buttons.Count);
         Assert.Equal('\0', m12.Buttons[10].Hotkey);
-        Assert.False(m12.Buttons[10].Label.StartsWith("["));
+        Assert.False(m12.Buttons[10].Label.StartsWith('['));
         // Текст без номера начинается в той же колонке, что после "[N] ".
         Assert.Equal(4, m12.Buttons[10].Label.IndexOf("f11.txt", StringComparison.Ordinal));
         Assert.Equal(5, m12.MaxVisibleButtons);
