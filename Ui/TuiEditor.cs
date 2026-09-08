@@ -947,7 +947,7 @@ internal sealed class TuiEditor
         ClampCursor();
         switch (_col, _row)
         {
-            case (> 0, _): _col--; break;
+            case ( > 0, _): _col--; break;
             case (0, > 0): _row--; _col = _buf.GetLine(_row).Length; break;
             default: break;
         }
@@ -1579,7 +1579,7 @@ internal sealed class TuiEditor
                         _dialog = new ModalDialog(ModalState.Overwrite(_loc, Path.GetFileName(path)), ApplyModalOutcome);
                         return;
                     }
-            _buf.Save(path, Backups);
+                    _buf.Save(path, Backups);
                     break;
                 default:
                     _buf.Save(backup: Backups);
@@ -2664,7 +2664,7 @@ internal sealed class TuiEditor
         int rest = w - x;
         switch (rest, right.Length >= rest)
         {
-            case (<= 0, _):
+            case ( <= 0, _):
                 break;
             case (_, true):
                 _screen.Text(x, 0, right[..rest], _theme.MenuFg, _theme.MenuBarBg);

@@ -7,10 +7,10 @@ internal abstract record InputEvent;
 
 internal sealed record KeyInput(ConsoleKeyInfo Key) : InputEvent;
 
-    /// <summary>
-    /// Вставка полным текстом: терминал присылает <c>ESC [ 200 ~ текст ESC [ 201 ~</c>.
-    /// </summary>
-    internal sealed record PasteInput(string Text) : InputEvent;
+/// <summary>
+/// Вставка полным текстом: терминал присылает <c>ESC [ 200 ~ текст ESC [ 201 ~</c>.
+/// </summary>
+internal sealed record PasteInput(string Text) : InputEvent;
 
 internal sealed class InputReader
 {
