@@ -190,6 +190,43 @@ internal static class Terminal
         }
     }
 
+    /// <summary>
+    /// Впереди key-down? Мышиные записи игнорятся, key-up и прочий мусор
+    /// съедаются (релизы клавиш .NET всё равно не отдаёт). Нужно проверкам
+    /// готовности: голый KeyAvailable истинен и на мыши, а ReadKey поверх
+    /// неё блокируется/глотает ввод.
+    /// </summary>
+    internal static bool IsKeyPending()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            try
+            {
+                return Console.KeyAvailable;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        try
+        {
+            while (TryPeek(out InputRecord rec))
+            {
+                if (rec.EventType == MOUSE_EVENT)
+                    return false;
+                if (rec.EventType == KEY_EVENT && rec.KeyEvent.KeyDown != 0)
+                    return true;
+                Take(); // key-up, ресайз, фокус — съесть и смотреть дальше
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Спать до ввода (чтобы не крутить CPU в опросе очереди).</summary>
     internal static bool WaitForInput(int milliseconds)
     {

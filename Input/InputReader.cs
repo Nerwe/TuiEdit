@@ -47,7 +47,9 @@ internal sealed class InputReader
         if (k.Key != ConsoleKey.Escape || !Console.KeyAvailable)
             return new KeyInput(k);
         var burst = new StringBuilder();
-        while (Console.KeyAvailable && burst.Length < 24)
+        // Готовность — через IsKeyPending: голый KeyAvailable на Windows истинен
+        // и на мышиных записях, а ReadKey поверх них блокируется и ест клавиши.
+        while (Terminal.IsKeyPending() && burst.Length < 24)
         {
             burst.Append(Console.ReadKey(intercept: true).KeyChar);
             if (burst.Length >= 16 && (burst.Length < 2 || burst[1] != '<'))
@@ -69,7 +71,7 @@ internal sealed class InputReader
         var sw = Stopwatch.StartNew();
         while (true)
         {
-            while (!Console.KeyAvailable)
+            while (!Terminal.IsKeyPending())
             {
                 if (sw.ElapsedMilliseconds > 1500)
                     return sb.ToString();
