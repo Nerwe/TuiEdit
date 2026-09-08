@@ -116,6 +116,18 @@ internal sealed partial class TuiEditor
     {
         _loc = Loc.Load(_settings.Language);
         _theme = ThemeCatalog.Resolve(_settings, _settings.Theme);
+        ApplyMouseSetting();
+    }
+
+    /// <summary>Применить EnableMouse живьём: ввод, SGR и флаги консоли.</summary>
+    private void ApplyMouseSetting()
+    {
+        InputReader.MouseEnabled = _settings.EnableMouse;
+        if (_settings.EnableMouse)
+            Terminal.TryEnableMouse();
+        else
+            Terminal.DisableMouse();
+        Terminal.ApplyMouseInput(_settings.EnableMouse);
     }
 
     private string DisplayError(Exception ex) => ex switch
@@ -135,7 +147,7 @@ internal sealed partial class TuiEditor
         try
         {
             try { Console.Write("\x1b[?2004h"); } catch (IOException) { }
-            Terminal.TryEnableMouse();
+            ApplyMouseSetting();
             Render();
             MaybeRestore();
             if (_docs.Count == 1 && _buf.FilePath is null && !_buf.IsModified)

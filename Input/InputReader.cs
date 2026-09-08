@@ -14,9 +14,12 @@ internal sealed record PasteInput(string Text) : InputEvent;
 
 internal sealed class InputReader
 {
+    /// <summary>Мышь включена (AppSettings.EnableMouse, выкл по умолчанию).</summary>
+    public static bool MouseEnabled { get; set; }
+
     public static InputEvent Read()
     {
-        if (OperatingSystem.IsWindows())
+        if (MouseEnabled && OperatingSystem.IsWindows())
         {
             // Очередь conhost разбираем сами: .NET ReadKey события мыши глотает,
             // а в блокировке ждёт только клавиш. ReadKey зовём лишь когда спереди
@@ -56,7 +59,7 @@ internal sealed class InputReader
                 break; // длиннее 16 — только хвост SGR-мыши, остальное как раньше
         }
         string s = burst.ToString();
-        if (MouseInput.TryParse(s) is MouseInput m)
+        if (MouseEnabled && MouseInput.TryParse(s) is MouseInput m)
             return m;
         if (s.StartsWith("[200~", StringComparison.Ordinal))
             return new PasteInput(ReadBracketedPaste(s[5..]));

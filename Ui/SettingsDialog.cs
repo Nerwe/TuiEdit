@@ -31,7 +31,8 @@ internal sealed class SettingsDialog : Dialog
         string[] labels = [loc["settings.theme"], loc["settings.lang"],
             loc["settings.shownumbers"], loc["settings.wordwrap"], loc["settings.whitespace"],
             loc["settings.ruler"],
-            loc["settings.backup"], loc["settings.guides"], loc["settings.session"]];
+            loc["settings.backup"], loc["settings.guides"], loc["settings.session"],
+            loc["settings.mouse"]];
         string langName = loc.Language == "en" ? "English" : "Русский";
         string themeName = ThemeCatalog.DisplayName(loc, _settings.Theme);
         string[] values = [themeName, langName,
@@ -39,7 +40,8 @@ internal sealed class SettingsDialog : Dialog
             OnOff(loc, _settings.ShowWhitespace),
             _settings.RulerColumn == 0 ? loc["settings.off"] : _settings.RulerColumn.ToString(CultureInfo.InvariantCulture),
             OnOff(loc, _settings.BackupOnSave),
-            OnOff(loc, _settings.ShowIndentGuides), OnOff(loc, _settings.RestoreSession)];
+            OnOff(loc, _settings.ShowIndentGuides), OnOff(loc, _settings.RestoreSession),
+            OnOff(loc, _settings.EnableMouse)];
         return (labels, values, title);
     }
 
@@ -128,8 +130,11 @@ internal sealed class SettingsDialog : Dialog
             case 7:
                 _settings.ShowIndentGuides = !_settings.ShowIndentGuides;
                 break;
-            default:
+            case 8:
                 _settings.RestoreSession = !_settings.RestoreSession;
+                break;
+            default:
+                _settings.EnableMouse = !_settings.EnableMouse;
                 break;
         }
         _store.Save(_settings);

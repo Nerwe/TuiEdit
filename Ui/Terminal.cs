@@ -123,10 +123,6 @@ internal static class Terminal
             _stdinOldMode = mode;
             _stdinModeSaved = true;
             uint raw = mode & ~(ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
-            // Мышь conhost-API (.NET ReadKey её не отдаёт) + гасим QuickEdit,
-            // иначе клики уходят в выделение conhost. EXTENDED_FLAGS обязателен
-            // для смены QuickEdit. RestoreInput вернёт всё как было.
-            raw = (raw & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS | ENABLE_MOUSE_INPUT;
             return SetConsoleMode(h, raw);
         }
         catch
@@ -267,6 +263,44 @@ internal static class Terminal
                 : null; // средняя/правая
         return new MouseInput(Math.Max(0, (int)r.MousePosition.X), Math.Max(0, (int)r.MousePosition.Y),
             MouseAction.LeftPress);
+    }
+
+    /// <summary>
+    /// Вкл/выкл мышь conhost-API (.NET ReadKey её не отдаёт). Выкл возвращает
+    /// и QuickEdit как было (RestoreInput при выходе вернёт вообще всё).
+    /// </summary>
+    public static void ApplyMouseInput(bool on)
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+        if (!_stdinModeSaved)
+            return; // консоль не наша (тесты, редирект) — режимы не трогаем
+        try
+        {
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return;
+            if (!GetConsoleMode(h, out uint mode))
+                return;
+            uint next;
+            if (on)
+            {
+                // Гасим QuickEdit, иначе клики уходят в выделение conhost.
+                // EXTENDED_FLAGS обязателен для смены QuickEdit.
+                next = (mode & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS | ENABLE_MOUSE_INPUT;
+            }
+            else
+            {
+                next = mode & ~ENABLE_MOUSE_INPUT;
+                next = ((_stdinOldMode & ENABLE_QUICK_EDIT_MODE) != 0
+                    ? next | ENABLE_QUICK_EDIT_MODE
+                    : next & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS;
+            }
+            SetConsoleMode(h, next);
+        }
+        catch
+        {
+        }
     }
 
     /// <summary>Вернуть режим ввода консоли (вызывать при выходе).</summary>

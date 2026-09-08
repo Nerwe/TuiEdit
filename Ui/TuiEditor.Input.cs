@@ -43,6 +43,8 @@ internal sealed partial class TuiEditor
     /// <summary>Мышь: движение — только hover, модалки и меню — по кнопкам, текст — курсор/колесо.</summary>
     private void HandleMouse(MouseInput m)
     {
+        if (!InputReader.MouseEnabled)
+            return;
         _mouseActive = true;
         _mouseX = m.X;
         _mouseY = m.Y;
@@ -179,6 +181,8 @@ internal sealed partial class TuiEditor
     /// <summary>Колесо: курсор ±3 строки, вид дотягивается на следующем Render.</summary>
     private void ScrollWheel(int dir)
     {
+        if (_buf.Count == 0)
+            return;
         _sel.Clear();
         _row = Math.Clamp(_row + 3 * dir, 0, Math.Max(0, _buf.Count - 1));
         _col = Math.Min(_col, _buf.GetLine(_row).Length);

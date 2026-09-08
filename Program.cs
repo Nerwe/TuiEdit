@@ -108,6 +108,7 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
         return (loc, 1, null);
     }
 
+    InputReader.MouseEnabled = settings.EnableMouse; // мышь выкл по умолчанию
     var buffer = new TextBuffer(file);
     var editor = new TuiEditor(buffer, settings, store);
     if (file is null)

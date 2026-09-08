@@ -40,6 +40,8 @@ release notes from the `Unreleased` section when a `v*` tag is pushed.
 - Fixed UI freeze under mouse motion on Windows (motion-event flood
   starved keys behind full renders; motions are coalesced, clicks
   and wheel cut through); dropped ?1002 (drag stream with no consumer).
+- Mouse is now opt-in and off by default (`EnableMouse`, 10th settings
+  row): no terminal mode changes, no mouse events unless enabled.
 - Fixed input starvation with mouse on Windows: key readiness is probed
   via the queue (`PeekConsoleInput`), bare `KeyAvailable` also fires on
   mouse records and `ReadKey` would block/swallow keystrokes over them.

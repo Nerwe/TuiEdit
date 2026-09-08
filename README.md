@@ -98,6 +98,14 @@ tui-edit --help | --version
 
 Editable from the settings dialog in the File menu, applied and saved immediately.
 
+## Mouse
+
+Off by default (`EnableMouse` in settings or settings.json): terminals
+handle mouse reporting inconsistently, and a flood of motion events used
+to starve keyboard input. When on: left-click positions the cursor,
+wheel moves it a few lines, buttons/menus/dialogs/list rows highlight
+on hover and activate on click, wheel scrolls scrollable lists.
+
 ## Keybindings
 
 `keybindings.json` next to `settings.json` (a commented example is created

@@ -44,6 +44,9 @@ public sealed class AppSettings
     /// <summary>Открывать при старте вкладки прошлой сессии.</summary>
     public bool RestoreSession { get; set; }
 
+    /// <summary>Мышь: клики, колесо, hover (выкл по умолчанию — не все терминалы корректны).</summary>
+    public bool EnableMouse { get; set; }
+
     /// <summary>Вкладки прошлой сессии (путь + курсор).</summary>
     public List<SessionTab> SessionTabs { get; set; } = new();
 
