@@ -77,6 +77,27 @@ public sealed class RecentBackupTests
     }
 
     [Fact]
+    public void SaveIsAtomicNoTmpLeftovers()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "tui_atom_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            string f = Path.Combine(dir, "doc.txt");
+            File.WriteAllText(f, "old");
+            var b = new TextBuffer(null);
+            b.Open(f);
+            b.InsertChar(0, 0, 'N');
+            b.Save();
+            // Нормализуем переводы: дефолт детекта для файла без переводов — CRLF.
+            Assert.Equal("Nold\n", File.ReadAllText(f).Replace("\r\n", "\n"));
+            // Временный файл подтёрт, рядом с целью мусора нет.
+            Assert.Empty(Directory.GetFiles(dir, "*.tmp"));
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
     public void RecentPopupShape()
     {
         var loc = Loc.Load("ru");

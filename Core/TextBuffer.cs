@@ -236,8 +236,22 @@ internal sealed class TextBuffer
             LineEnding.Lf => "\n",
             _ => "\r",
         };
-        // Пишем как было: кодировка и переводы файла, завершающий перевод строки.
-        File.WriteAllText(target, string.Join(newline, Lines) + newline, _encoding);
+        // Атомарно: tmp в ТОЙ ЖЕ папке (иначе move не атомарен) + переименование.
+        // Обрыв посреди записи оставляет старый файл целым, а не обрезанным.
+        // Нюанс: у заменённого файла слетят нестандартные ACL (как у MS Edit).
+        string dir = Path.GetDirectoryName(Path.GetFullPath(target)) ?? ".";
+        string tmp = Path.Combine(dir, ".tui-edit-" + Path.GetRandomFileName() + ".tmp");
+        try
+        {
+            // Пишем как было: кодировка и переводы файла, завершающий перевод строки.
+            File.WriteAllText(tmp, string.Join(newline, Lines) + newline, _encoding);
+            File.Move(tmp, target, overwrite: true);
+        }
+        catch
+        {
+            try { File.Delete(tmp); } catch { }
+            throw;
+        }
         MarkSaved(target);
         // После сохранения историю можно не чистить — undo остаётся доступным.
     }
