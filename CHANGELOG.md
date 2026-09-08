@@ -1,8 +1,8 @@
 # Changelog
 
 Rule: every `feat`/`fix` commit extends `Unreleased`; the release commit
-renames the section to the version number (its body becomes the GitHub
-release notes).
+renames the section to the version number. `release.yml` builds the GitHub
+release notes from the `Unreleased` section when a `v*` tag is pushed.
 
 ## [Unreleased]
 
