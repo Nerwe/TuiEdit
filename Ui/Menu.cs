@@ -89,3 +89,46 @@ public sealed class MenuState
         return -1;
     }
 }
+
+/// <summary>Хит-тесты мыши по меню (чистые; зеркало DrawMenuBar/DrawDropdown).</summary>
+internal static class MenuHit
+{
+    /// <summary>Ячейка меню-бара (row 0) или null (мимо и за краем).</summary>
+    public static int? BarHit(IReadOnlyList<TopMenu> menus, int x, int screenW)
+    {
+        int cx = 0;
+        for (int i = 0; i < menus.Count; i++)
+        {
+            int cw = menus[i].Label.Length + 2; // " Label " как в DrawMenuBar
+            if (cx + cw > screenW)
+                break;
+            if (x >= cx && x < cx + cw)
+                return i;
+            cx += cw;
+        }
+        return null;
+    }
+
+    /// <summary>Индекс пункта дропдауна или null (мимо, разделитель, не влез).</summary>
+    public static int? DropdownHit(TopMenu m, int menuX, int x, int y, int w, int h)
+    {
+        int inner = 0;
+        foreach (MenuItem it in m.Items)
+        {
+            string rc = it.Shortcut ?? it.Hotkey.ToString();
+            inner = Math.Max(inner, 1 + it.Label.Length + 2 + rc.Length + 1);
+        }
+        int boxW = Math.Min(inner + 2, w - menuX);
+        if (boxW < 10 || menuX >= w)
+            return null;
+        const int dy = 1;
+        int maxRows = h - 1 - dy;
+        if (maxRows < 3)
+            return null;
+        int rows = Math.Min(m.Items.Count, maxRows - 2);
+        int row = y - (dy + 1);
+        if (row < 0 || row >= rows || x < menuX || x >= menuX + boxW)
+            return null;
+        return m.Items[row].IsSeparator ? null : row;
+    }
+}

@@ -39,11 +39,31 @@ internal sealed partial class TuiEditor
         // Будущие типы событий — игнор, а не каст (мышь уже роняла это место).
     }
 
-    /// <summary>Мышь v1: клик в текст активной панели, колесо — курсор ±3. Диалоги/меню — игнор.</summary>
+    /// <summary>Мышь: модалки и меню — по кнопкам, текст — курсор/колесо.</summary>
     private void HandleMouse(MouseInput m)
     {
-        if (_dialog is not null || _menu is not null)
+        if (_dialog is ModalDialog md)
+        {
+            if (m.Action != MouseAction.LeftPress)
+                return;
+            int dw, dh;
+            try
+            {
+                dw = Console.WindowWidth;
+                dh = Console.WindowHeight;
+            }
+            catch
+            {
+                return;
+            }
+            md.HandleClick(m.X, m.Y, dw, dh, _loc);
             return;
+        }
+        if (_dialog is not null)
+            return; // RunDialog-диалоги (настройки, менеджер): мыши пока нет
+        if (_menu is not null && HandleMenuMouse(m))
+            return;
+        // Мимо меню (закрыли) — клик доезжает до текста, как клавиша в HandleMenuKey.
         int w, h;
         try
         {
@@ -86,6 +106,53 @@ internal sealed partial class TuiEditor
         _col = col;
         ClampCursor();
         TrackCol();
+    }
+
+    /// <summary>
+    /// Мышь при открытом меню: бар — открыть/переключить, дропдаун — пункт, мимо — закрыть.
+    /// Возвращает false, если меню закрыто кликом мимо (клик доезжает до текста).
+    /// </summary>
+    private bool HandleMenuMouse(MouseInput m)
+    {
+        int w, h;
+        try
+        {
+            w = Console.WindowWidth;
+            h = Console.WindowHeight;
+        }
+        catch
+        {
+            return true;
+        }
+        if (_menu is null)
+            return true;
+        if (m.Action != MouseAction.LeftPress)
+        {
+            _menu = null; // колесо и прочие — мимо, закрываем
+            return true;
+        }
+        List<TopMenu> menus = _menu.Menus;
+        if (m.Y == 0)
+        {
+            int? hit = MenuHit.BarHit(menus, m.X, w);
+            int was = _menu.OpenIndex;
+            _menu = null;
+            if (hit is not null && hit.Value != was)
+                OpenMenu(hit.Value); // другое меню — переключить
+            // повтор по своему / мимо ячеек — закрыто
+            return true;
+        }
+        int menuX = 0;
+        for (int i = 0; i < _menu.OpenIndex && i < menus.Count; i++)
+            menuX += menus[i].Label.Length + 2;
+        int? item = MenuHit.DropdownHit(_menu.Current, menuX, m.X, m.Y, w, h);
+        if (item is null)
+        {
+            _menu = null;
+            return false; // мимо — закрыть и отдать клик тексту
+        }
+        ActivateMenuItem(_menu.Current.Items[item.Value]);
+        return true;
     }
 
     /// <summary>Колесо: курсор ±3 строки, вид дотягивается на следующем Render.</summary>

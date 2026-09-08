@@ -24,6 +24,11 @@ release notes from the `Unreleased` section when a `v*` tag is pushed.
 - Mouse on Windows via console input API (conhost/Windows Terminal):
   `ReadKey` never delivers mouse events, so the queue is polled directly
   (Unix keeps the SGR byte path).
+- Mouse clicks on modal buttons and the top menu (bar, dropdown);
+  clicks elsewhere dismiss the menu, modals swallow outside clicks.
+- Fixed input starvation with mouse on Windows: key readiness is probed
+  via the queue (`PeekConsoleInput`), bare `KeyAvailable` also fires on
+  mouse records and `ReadKey` would block/swallow keystrokes over them.
 
 ### Fixed
 - Atomic save: content is written to a temp file in the same folder,

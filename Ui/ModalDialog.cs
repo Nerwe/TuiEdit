@@ -131,4 +131,52 @@ internal sealed class ModalDialog : Dialog
         Closed = true;
         _onDone(_state, o);
     }
+
+    /// <summary>
+    /// Клик: кнопка — нажать, внутри бокса мимо кнопок — проглотить,
+    /// снаружи — false (редактор игнорит, модалка не закрывается).
+    /// Раскладка — зеркало Measure/DrawContent.
+    /// </summary>
+    public bool HandleClick(int x, int y, int screenW, int screenH, Loc loc)
+    {
+        DialogBox? box = Measure(screenW, screenH, loc);
+        if (box is null)
+            return false;
+        DialogBox db = box.Value;
+        int x0 = db.X0, y0 = db.Y0, boxW = db.W;
+        if (x < x0 || x >= x0 + boxW || y < y0 || y >= y0 + db.H)
+            return false;
+        ModalState m = _state;
+        int? hit = null;
+        if (m.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs or ModalKind.Complete or ModalKind.Grep)
+        {
+            int visCount = Math.Min(m.MaxVisibleButtons, m.Buttons.Count - m.ButtonTop);
+            int row = y - (y0 + 1 + m.Lines.Count);
+            if (row >= 0 && row < visCount)
+                hit = m.ButtonTop + row;
+        }
+        else if (y == y0 + 2 + m.Lines.Count)
+        {
+            int used = 0;
+            foreach (ModalButton b in m.Buttons)
+                used += b.Label.Length + 4;
+            used -= 4;
+            int padLeft = Math.Max(2, (boxW - 2 - used) / 2);
+            int bx = x0 + 1 + padLeft;
+            for (int i = 0; i < m.Buttons.Count; i++)
+            {
+                if (x >= bx && x < bx + m.Buttons[i].Label.Length)
+                {
+                    hit = i;
+                    break;
+                }
+                bx += m.Buttons[i].Label.Length + 4;
+            }
+        }
+        if (hit is null)
+            return true;
+        Closed = true;
+        _onDone(m, ModalKeyOutcome.Press(hit.Value));
+        return true;
+    }
 }
