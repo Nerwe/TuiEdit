@@ -112,8 +112,17 @@ public sealed class FormatTests
         dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.LeftArrow, false, false, false));
         Assert.Equal("UTF-8", b.EncodingLabel);
         dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false));
-        dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false));
-        Assert.Equal("LF", b.EndingLabel);
+        // Старт платформозависим (CRLF на Windows, LF elsewhere): крутим полный
+        // оборот CRLF → LF → CR и проверяем возврат + все три метки.
+        string startEnding = b.EndingLabel;
+        var seenEndings = new HashSet<string> { startEnding };
+        for (int i = 0; i < 3; i++)
+        {
+            dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false));
+            seenEndings.Add(b.EndingLabel);
+        }
+        Assert.Equal(new HashSet<string> { "CRLF", "LF", "CR" }, seenEndings);
+        Assert.Equal(startEnding, b.EndingLabel); // полный оборот — возврат
         dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false));
         dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false));
         Assert.Equal("  ", b.IndentString);
