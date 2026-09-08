@@ -13,6 +13,8 @@ release notes from the `Unreleased` section when a `v*` tag is pushed.
 - Confirmation dialog when opening files over 16 MB (highlighting
   a giant file can take seconds). Safe default is "No".
 - Linux job in CI (build + test on `ubuntu-latest` alongside Windows).
+- Git branch and dirty flag in the status bar (`⎇ main*`; untracked files
+  don't count, outside a repo the segment is hidden).
 
 ### Fixed
 - Atomic save: content is written to a temp file in the same folder,
