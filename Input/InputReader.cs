@@ -35,7 +35,13 @@ internal sealed class InputReader
                 if (rec.EventType == Terminal.MOUSE_EVENT)
                 {
                     if (Terminal.Take() is MouseInput mev)
-                        return mev.Action == MouseAction.Move ? CoalesceMove(mev) : mev;
+                    {
+                        // Backpressure: устаревшее движение (за ним уже что-то есть)
+                        // съедаем без рендера — иначе потоп морит клавиши голодом.
+                        if (mev.Action == MouseAction.Move && Terminal.PendingCount() > 0)
+                            continue;
+                        return mev;
+                    }
                     continue;
                 }
                 if (rec.EventType != Terminal.KEY_EVENT || rec.KeyEvent.KeyDown == 0)
@@ -65,28 +71,6 @@ internal sealed class InputReader
             return new PasteInput(ReadBracketedPaste(s[5..]));
         // Не paste — пачку отбрасываем, чтобы мусор не попал в текст.
         return new KeyInput(k);
-    }
-
-    /// <summary>
-    /// Склеить пачку движений в последнее (иначе потоп motion-событий морит
-    /// клавиши голодом: каждое движение тянуло бы полный Render).
-    /// Клик/колесо внутри пачки — сразу наружу (важнее), лимит 16.
-    /// </summary>
-    private static MouseInput CoalesceMove(MouseInput first)
-    {
-        MouseInput m = first;
-        for (int i = 0; i < 16; i++)
-        {
-            if (!Terminal.TryPeek(out Terminal.InputRecord rec) || rec.EventType != Terminal.MOUSE_EVENT)
-                break;
-            MouseInput? next = Terminal.Take();
-            if (next is null)
-                continue;
-            if (next.Action != MouseAction.Move)
-                return next;
-            m = next;
-        }
-        return m;
     }
 
     private static string ReadBracketedPaste(string head)

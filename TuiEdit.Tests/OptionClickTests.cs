@@ -94,6 +94,7 @@ public sealed class OptionClickTests
             Terminal.TryPeek(out _);
             Terminal.WaitForInput(0);
             Terminal.IsKeyPending();
+            Terminal.PendingCount();
         });
         Assert.Null(ex);
     }

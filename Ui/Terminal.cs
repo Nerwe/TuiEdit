@@ -82,6 +82,9 @@ internal static class Terminal
     [DllImport("kernel32.dll")]
     private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetNumberOfConsoleInputEvents(IntPtr hConsoleInput, out uint lpcNumberOfEvents);
+
     /// <summary>Включить обработку VT-последовательностей для вывода; на Unix VT есть изначально (кроме dumb-терминалов).</summary>
     public static bool TryEnableVirtualTerminal()
     {
@@ -220,6 +223,24 @@ internal static class Terminal
         catch
         {
             return false;
+        }
+    }
+
+    /// <summary>Сколько событий в очереди (backpressure для motion).</summary>
+    internal static uint PendingCount()
+    {
+        if (!OperatingSystem.IsWindows())
+            return 0;
+        try
+        {
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return 0;
+            return GetNumberOfConsoleInputEvents(h, out uint n) ? n : 0;
+        }
+        catch
+        {
+            return 0;
         }
     }
 

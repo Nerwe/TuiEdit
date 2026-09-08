@@ -38,8 +38,9 @@ release notes from the `Unreleased` section when a `v*` tag is pushed.
   and on find/replace toggles; release updates hover position (terminals
   often don't report bare hover motion).
 - Fixed UI freeze under mouse motion on Windows (motion-event flood
-  starved keys behind full renders; motions are coalesced, clicks
-  and wheel cut through); dropped ?1002 (drag stream with no consumer).
+  starved keys behind full renders; stale motions are now eaten without
+  rendering, only the freshest is returned); dropped ?1002 (drag stream
+  with no consumer).
 - Mouse is now opt-in and off by default (`EnableMouse`, 10th settings
   row): no terminal mode changes, no mouse events unless enabled.
 - Fixed periodic UI freezes (git status ran synchronously in every
