@@ -46,6 +46,49 @@ public sealed class LiveSearchTests : IDisposable
     }
 
     [Fact]
+    public void SearchOptionsToggle()
+    {
+        var settings = new AppSettings();
+        var ed = new TuiEditor(new TextBuffer(null), settings,
+            new SettingsStore(Path.Combine(_cfgDir, "settings.json")));
+        Assert.True(ed.ToggleSearchOption(ConsoleKey.C));
+        Assert.False(settings.SearchMatchCase);
+        Assert.True(ed.ToggleSearchOption(ConsoleKey.W));
+        Assert.True(settings.SearchWholeWord);
+        Assert.True(ed.ToggleSearchOption(ConsoleKey.R));
+        Assert.True(settings.SearchUseRegex);
+        Assert.False(ed.ToggleSearchOption(ConsoleKey.X));
+        Assert.True(File.Exists(Path.Combine(_cfgDir, "settings.json")));
+    }
+
+    [Fact]
+    public void PromptOptionsRowRenders()
+    {
+        var settings = new AppSettings();
+        var ed = new TuiEditor(new TextBuffer(null), settings,
+            new SettingsStore(Path.Combine(_cfgDir, "settings.json")));
+        var scr = (Screen)typeof(TuiEditor).GetField("_screen",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
+        scr.Resize(96, 28);
+        typeof(TuiEditor).GetMethod("DrawPrompt", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(ed, ["Find: ", "te", 2, true]);
+        var cur = (Array)typeof(Screen).GetField("_cur",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scr)!;
+        string RowText(int y)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int x = 0; x < scr.Width; x++)
+                sb.Append((char)cur.GetValue(x, y)!.GetType().GetProperty("Ch")!.GetValue(cur.GetValue(x, y))!);
+            return sb.ToString();
+        }
+        string opts = RowText(26);
+        Assert.Contains("[x] Match case (Alt+C)", opts);
+        Assert.Contains("[ ] Whole words (Alt+W)", opts);
+        Assert.Contains("[ ] Regex (Alt+R)", opts);
+        Assert.StartsWith("Find: te", RowText(27));
+    }
+
+    [Fact]
     public void PartialTermSafe()
     {
         // Недописанный regex/пустой ввод не должны ронять маску подсветки.

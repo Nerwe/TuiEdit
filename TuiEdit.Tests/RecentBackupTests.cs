@@ -49,29 +49,30 @@ public sealed class RecentBackupTests
     }
 
     [Fact]
-    public void SaveBackup()
+    public void SaveBackupGoesToCentralStore()
     {
         string dir = Path.Combine(Path.GetTempPath(), "tui_bak_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
+            string bakDir = Path.Combine(dir, "backups");
+            var store = new BackupStore(bakDir);
             string f = Path.Combine(dir, "doc.txt");
             File.WriteAllText(f, "old\n");
             var b = new TextBuffer(null);
             b.Open(f);
             b.InsertChar(0, 0, 'N');
-            b.Save(backup: true);
-            Assert.True(File.Exists(f + ".bak"));
-            Assert.Equal("old\n", File.ReadAllText(f + ".bak"));
+            b.Save(backup: store);
+            Assert.False(File.Exists(f + ".bak"));
+            string[] copies = Directory.GetFiles(bakDir, "*.bak");
+            Assert.Single(copies);
+            Assert.Equal("old\n", File.ReadAllText(copies[0]));
             Assert.StartsWith("Nold", File.ReadAllText(f));
 
-            File.WriteAllText(f, "old\n");
             var b2 = new TextBuffer(null);
             b2.Open(f);
-            b2.InsertChar(0, 0, 'N');
-            File.Delete(f + ".bak");
-            b2.Save(backup: false);
-            Assert.False(File.Exists(f + ".bak"));
+            b2.Save(backup: null);
+            Assert.Single(Directory.GetFiles(bakDir, "*.bak"));
         }
         finally { try { Directory.Delete(dir, true); } catch { } }
     }
@@ -141,7 +142,7 @@ public sealed class RecentBackupTests
     [Fact]
     public void MruDefaults()
     {
-        Assert.Equal(10, SettingsDialogState.RowCount);
+        Assert.Equal(7, SettingsDialogState.RowCount);
         var s = new AppSettings();
         Assert.False(s.BackupOnSave);
         Assert.Empty(s.RecentFiles);

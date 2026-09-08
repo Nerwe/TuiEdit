@@ -200,15 +200,15 @@ internal sealed class TextBuffer
     }
 
     /// <param name="path">Путь (null — текущий).</param>
-    /// <param name="backup">Сначала скопировать существующий файл в .bak (ошибки молча).</param>
-    public void Save(string? path = null, bool backup = false)
+    /// <param name="backup">Хранилище версионной копии (null — без копии).</param>
+    public void Save(string? path = null, BackupStore? backup = null)
     {
         string target = path ?? FilePath
             ?? throw new InvalidOperationException("NoFileName");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(target)) ?? ".");
-        if (backup && File.Exists(target))
+        if (backup is not null && File.Exists(target))
         {
-            try { File.Copy(target, target + ".bak", overwrite: true); }
+            try { backup.Write(target, File.ReadAllBytes(target)); }
             catch { }
         }
         string newline = Ending switch
@@ -395,28 +395,41 @@ internal sealed class TextBuffer
         return (startRow, startCol);
     }
 
-    /// <summary>Переключить кодировку сохранения: UTF-8 → UTF-8 BOM → UTF-16 LE.</summary>
-    public void CycleEncoding()
+    /// <summary>Переключить кодировку сохранения: UTF-8 → UTF-8 BOM → UTF-16 LE (dir — направление).</summary>
+    public void CycleEncoding(int dir = 1)
     {
-        (_encoding, EncodingLabel) = EncodingLabel switch
+        string[] order = ["UTF-8", "UTF-8 BOM", "UTF-16 LE"];
+        int i = CycleIndex(order, EncodingLabel, dir);
+        (_encoding, EncodingLabel) = i switch
         {
-            "UTF-8" => (new UTF8Encoding(true), "UTF-8 BOM"),
-            "UTF-8 BOM" => (Encoding.Unicode, "UTF-16 LE"),
-            _ => (new UTF8Encoding(false), "UTF-8"),
+            1 => (new UTF8Encoding(true), order[1]),
+            2 => (Encoding.Unicode, order[2]),
+            _ => (new UTF8Encoding(false), order[0]),
         };
         IsModified = true;
     }
 
-    /// <summary>Переключить переводы строк: CRLF → LF → CR.</summary>
-    public void CycleEnding()
+    /// <summary>Переключить переводы строк: CRLF → LF → CR (dir — направление).</summary>
+    public void CycleEnding(int dir = 1)
     {
-        Ending = Ending switch
-        {
-            LineEnding.CrLf => LineEnding.Lf,
-            LineEnding.Lf => LineEnding.Cr,
-            _ => LineEnding.CrLf,
-        };
+        LineEnding[] order = [LineEnding.CrLf, LineEnding.Lf, LineEnding.Cr];
+        Ending = order[CycleIndex(order, Ending, dir)];
         IsModified = true;
+    }
+
+    /// <summary>Переключить единицу отступа: 4 пробела → 2 → таб (на текст не влияет).</summary>
+    public void CycleIndent(int dir = 1)
+    {
+        string[] order = ["    ", "  ", "\t"];
+        IndentString = order[CycleIndex(order, IndentString, dir)];
+    }
+
+    private static int CycleIndex<T>(T[] order, T current, int dir)
+    {
+        int i = Array.IndexOf(order, current);
+        if (i < 0)
+            i = dir >= 0 ? -1 : 0;
+        return ((i + dir) % order.Length + order.Length) % order.Length;
     }
 
     /// <summary>Срезать висячие пробелы/табы в концах строк одной undo-записью.</summary>

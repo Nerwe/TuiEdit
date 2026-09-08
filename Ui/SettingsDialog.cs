@@ -38,16 +38,13 @@ internal sealed class SettingsDialog : Dialog
     {
         string title = loc["settings.title"];
         string[] labels = [loc["settings.theme"], loc["settings.lang"],
-            loc["settings.matchcase"], loc["settings.wholeword"],
             loc["settings.shownumbers"], loc["settings.wordwrap"],
-            loc["settings.backup"], loc["settings.useregex"],
-            loc["settings.guides"], loc["settings.session"]];
+            loc["settings.backup"], loc["settings.guides"], loc["settings.session"]];
         string langName = loc.Language == "en" ? "English" : "Русский";
         string themeName = ThemeCatalog.DisplayName(loc, _settings.Theme);
         string[] values = [themeName, langName,
-            OnOff(loc, _settings.SearchMatchCase), OnOff(loc, _settings.SearchWholeWord),
             OnOff(loc, _settings.ShowLineNumbers), OnOff(loc, _settings.WordWrap),
-            OnOff(loc, _settings.BackupOnSave), OnOff(loc, _settings.SearchUseRegex),
+            OnOff(loc, _settings.BackupOnSave),
             OnOff(loc, _settings.ShowIndentGuides), OnOff(loc, _settings.RestoreSession)];
         return (labels, values, title);
     }
@@ -111,24 +108,15 @@ internal sealed class SettingsDialog : Dialog
                 _settings.Language = Loc.Supported[li];
                 break;
             case 2:
-                _settings.SearchMatchCase = !_settings.SearchMatchCase;
-                break;
-            case 3:
-                _settings.SearchWholeWord = !_settings.SearchWholeWord;
-                break;
-            case 4:
                 _settings.ShowLineNumbers = !_settings.ShowLineNumbers;
                 break;
-            case 5:
+            case 3:
                 _settings.WordWrap = !_settings.WordWrap;
                 break;
-            case 6:
+            case 4:
                 _settings.BackupOnSave = !_settings.BackupOnSave;
                 break;
-            case 7:
-                _settings.SearchUseRegex = !_settings.SearchUseRegex;
-                break;
-            case 8:
+            case 5:
                 _settings.ShowIndentGuides = !_settings.ShowIndentGuides;
                 break;
             default:

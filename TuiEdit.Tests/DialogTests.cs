@@ -146,7 +146,7 @@ public sealed class DialogTests : IDisposable
         sd.HandleKey(K('\0', ConsoleKey.DownArrow));
         sd.HandleKey(K('\0', ConsoleKey.DownArrow));
         sd.HandleKey(K('\0', ConsoleKey.RightArrow));
-        Assert.False(settings.SearchMatchCase);
+        Assert.False(settings.ShowLineNumbers);
         Assert.True(applied);
         Assert.True(File.Exists(Path.Combine(_cfgDir, "settings.json")));
         sd.HandleKey(K('\0', ConsoleKey.Escape));

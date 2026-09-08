@@ -116,6 +116,7 @@ public static class KeyMap
             ConsoleKey.PageDown => EditorCommand.PageDown,
             ConsoleKey.F3 => EditorCommand.FindNext,
             ConsoleKey.F1 => EditorCommand.Help,
+            ConsoleKey.F9 => EditorCommand.FileFormat,
             ConsoleKey.F6 => EditorCommand.NextPane,
             ConsoleKey.F10 => EditorCommand.ToggleMenu,
             ConsoleKey.Escape => EditorCommand.None,

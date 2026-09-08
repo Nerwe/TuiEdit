@@ -6,10 +6,10 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 ## Features
 
 - Editing: undo/redo (per keystroke and per block), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), toggle line comment (`Ctrl+/`), matching-bracket highlight and jump (`Alt+]`), move lines (`Alt+↑/↓`), word-wise delete/move, trim trailing whitespace.
-- Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, «match case» and «whole word» options. Instant whole-document replace (`^H`) in a single undo step.
+- Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, match case / whole words / regex toggles right in the prompt (`Alt+C/W/R`). Instant whole-document replace (`^H`) in a single undo step.
 - Syntax highlighting from JSON grammars (C#, Python, JavaScript/TypeScript, JSON, Markdown, PowerShell, XML, INI built in). On first run the grammars are extracted to the `grammars` folder next to `settings.json` — edit them to customize, drop in your own.
 - File manager for Open/Save as: drives, `..`, file highlight, overwrite confirmation in a separate window. Name field: selection (`Shift`), word-wise motion (`Ctrl+arrows`), `Alt+←/→` navigation.
-- Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save; encoding and endings can be switched from the File menu (shown in the status bar).
+- Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save; all three are switched in the File format dialog (`F9`, shown in the status bar).
 - `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), indent guides, help screen (`F1`).
 - Optional session restore: reopen the previous tabs with cursor positions when started without arguments (off by default, toggle in Settings).
 - File panel (`Ctrl+B`): fixed-width sidebar with the current folder, arrows to select, `Enter` to open, `Esc` back to text. Entries are color-coded: dirs, `..`, hidden and executables.
@@ -22,6 +22,7 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 ```text
 ^S save (asks for name if new)   Ctrl+Shift+S save as   ^Q quit
 ^F find       F3 next / Shift+F3 prev   ^H replace   ^G go to line
+  (in Find: Alt+C match case, Alt+W whole words, Alt+R regex)
 ^K cut line  ^U/^V paste  ^C copy line  ^D duplicate
 Ctrl+/ toggle line comment  Alt+] matching bracket
 ^C also puts the copy into the system clipboard (Windows Terminal) — paste with Ctrl+V
@@ -30,6 +31,7 @@ arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Alt+up/down — move line
 Enter — new line, Tab — indent, Shift+Tab — unindent
 F10 or Alt+F/E/H — menu (arrows/Enter/Esc, letter hotkey)
 F1 — help   Alt+N — line numbers   Alt+Z — word wrap   Ctrl+B — file panel
+F9 — file format (encoding / line endings)
 Ctrl+PgDn — next tab   Ctrl+PgUp — prev (Ctrl+Tab where the terminal passes it)
 Ctrl+T — new tab   Ctrl+W — close tab
 Alt+1..9,0 — jump to tab   Ctrl+P — tab list
@@ -89,6 +91,13 @@ tui-edit --help | --version
 ```
 
 Editable from the settings dialog in the File menu, applied and saved immediately.
+
+## Backups
+
+With `BackupOnSave` on, every save keeps a versioned copy of the previous
+content in the `backups` folder next to `settings.json` — never next to your
+files. Up to 5 recent copies per file are kept, copies older than 7 days are
+pruned on startup.
 
 ## Custom themes
 
@@ -189,6 +198,7 @@ Ui/Dialog.cs          window base: frame, centering, loop (inheritance)
 Ui/ModalDialog.cs     popups over ModalState
 Ui/FileDialog.cs      manager over FilePickerState
 Ui/SettingsDialog.cs  settings over SettingsDialogState
+Ui/FormatDialog.cs    file format (encoding / line endings)
 Ui/HelpDialog.cs      help: titled sections, scroll
 Ui/Screen.cs          frame diff-buffer (no flicker)
 Ui/FilePicker.cs      file manager (pure model)
@@ -196,6 +206,7 @@ Ui/Modal.cs           modal popups (pure model)
 Ui/SettingsDialogState.cs settings dialog state (pure model)
 Ui/SidebarState.cs    file panel model: listing, highlight, scroll (pure model)
 Config/               AppSettings + SettingsStore (JSON)
+Config/BackupStore.cs versioned backups next to settings.json (5 per file, 7 days)
 Config/ThemeScheme.cs   custom themes: schemes, hex, catalog
 Resources/            strings.ru/en.json (key parity required)
 TuiEdit.Tests/        xUnit tests (dotnet test): buffer, find, dialogs, resources

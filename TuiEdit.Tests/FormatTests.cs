@@ -56,4 +56,49 @@ public sealed class FormatTests
         Assert.Equal(3, b.TrimTrailingWhitespace());
         Assert.Equal(0, b.TrimTrailingWhitespace());
     }
+
+    [Fact]
+    public void IndentCyclesBothWaysWithoutDirty()
+    {
+        var b = new TextBuffer(null);
+        Assert.Equal("    ", b.IndentString);
+        b.CycleIndent();
+        Assert.Equal("  ", b.IndentString);
+        Assert.Equal("2sp", b.IndentLabel);
+        b.CycleIndent();
+        Assert.Equal("\t", b.IndentString);
+        Assert.Equal("Tab", b.IndentLabel);
+        b.CycleIndent(-1);
+        Assert.Equal("  ", b.IndentString);
+        Assert.False(b.IsModified);
+    }
+
+    [Fact]
+    public void FormatDialogCyclesBuffer()
+    {
+        var b = new TextBuffer(null);
+        var dlg = new FormatDialog(b);
+        Assert.False(dlg.Closed);
+        dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false));
+        Assert.Equal("UTF-8 BOM", b.EncodingLabel);
+        dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.LeftArrow, false, false, false));
+        Assert.Equal("UTF-8", b.EncodingLabel);
+        dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false));
+        dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false));
+        Assert.Equal("LF", b.EndingLabel);
+        dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false));
+        dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false));
+        Assert.Equal("  ", b.IndentString);
+        dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.LeftArrow, false, false, false));
+        Assert.Equal("    ", b.IndentString);
+        dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.Escape, false, false, false));
+        Assert.True(dlg.Closed);
+    }
+
+    [Fact]
+    public void F9MapsToFileFormat()
+    {
+        Assert.Equal(EditorCommand.FileFormat,
+            KeyMap.Map(new ConsoleKeyInfo('\0', ConsoleKey.F9, false, false, false)));
+    }
 }

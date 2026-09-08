@@ -9,6 +9,7 @@ AppSettings settings = store.Load();
 if (!File.Exists(store.Path))
     store.Save(settings);
 Loc loc = Loc.Load(settings.Language);
+new BackupStore(BackupStore.DefaultDir(store.Path)).PruneAll();
 string? settingsDir = Path.GetDirectoryName(store.Path);
 GrammarRegistry.EnsureLoaded(settingsDir is not null
     ? Path.Combine(settingsDir, "grammars")
@@ -81,5 +82,3 @@ static string ShortenHome(string path)
         return "%USERPROFILE%" + path[home.Length..];
     return path;
 }
-
-

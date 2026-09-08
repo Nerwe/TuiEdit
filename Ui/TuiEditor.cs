@@ -39,6 +39,7 @@ internal sealed class TuiEditor
     private string _overwritePath = string.Empty; // путь из модалки перезаписи
     private readonly List<string> _recentPaths = new(); // пути из модалки недавних
     private readonly DraftStore _drafts = new(DraftStore.DefaultDir());
+    private readonly BackupStore _backups;
     private DateTime _lastDraftAt = DateTime.MinValue;
     private readonly List<(string key, DocDraft draft)> _restoreDrafts = new();
     private readonly List<int> _menuX = new(); // x-координаты меню в баре (из рендера)
@@ -61,9 +62,12 @@ internal sealed class TuiEditor
         _panes.Add(new Pane(new DocTab(buf)));
         _settings = settings;
         _store = store;
+        _backups = new BackupStore(BackupStore.DefaultDir(store.Path));
         _loc = Loc.Load(settings.Language);
         _theme = ThemeCatalog.Resolve(settings, settings.Theme);
     }
+
+    private BackupStore? Backups => _settings.BackupOnSave ? _backups : null;
 
     /// <summary>Число вкладок активной панели.</summary>
     internal int TabCount => _docs.Count;
@@ -556,8 +560,7 @@ internal sealed class TuiEditor
             case EditorCommand.MoveLineUp: MoveLineBlock(-1); return;
             case EditorCommand.MoveLineDown: MoveLineBlock(1); return;
             case EditorCommand.SaveAs: SaveAs(); return;
-            case EditorCommand.CycleEncoding: _buf.CycleEncoding(); SetMessage(_loc.Format("msg.encoding", _buf.EncodingLabel)); return;
-            case EditorCommand.CycleEnding: _buf.CycleEnding(); SetMessage(_loc.Format("msg.ending", _buf.EndingLabel)); return;
+            case EditorCommand.FileFormat: RunDialog(new FormatDialog(_buf)); return;
             case EditorCommand.TrimTrailing:
                 int trimmed = _buf.TrimTrailingWhitespace();
                 ClampCursor(); TrackCol();
@@ -858,7 +861,7 @@ internal sealed class TuiEditor
             default:
                 try
                 {
-                    _buf.Save(backup: _settings.BackupOnSave);
+                    _buf.Save(backup: Backups);
                     TouchRecent(_buf.FilePath);
                     _drafts.Delete(_buf.FilePath);
                     SetMessage(_loc.Format("msg.saved", _buf.FilePath));
@@ -881,7 +884,7 @@ internal sealed class TuiEditor
         }
         try
         {
-            _buf.Save(path, _settings.BackupOnSave);
+            _buf.Save(path, Backups);
             TouchRecent(_buf.FilePath);
             _drafts.Delete(_buf.FilePath);
             SetMessage(_loc.Format("msg.saved", _buf.FilePath));
@@ -1116,8 +1119,7 @@ internal sealed class TuiEditor
             new(loc["menu.recent"], 'R', null, EditorCommand.OpenRecent),
             new(loc["menu.save"], 'S', "^S", EditorCommand.Save),
             new(loc["menu.saveas"], 'A', "Ctrl+Shift+S", EditorCommand.SaveAs),
-            new(loc["menu.encoding"], 'E', null, EditorCommand.CycleEncoding),
-            new(loc["menu.lineending"], 'L', null, EditorCommand.CycleEnding),
+            new(loc["menu.format"], 'F', "F9", EditorCommand.FileFormat),
             new(loc["menu.closetab"], 'W', "Ctrl+W", EditorCommand.CloseTab),
             new(loc["menu.settings"], 'P', null, EditorCommand.Settings),
             new(loc["menu.exit"], 'X', "^Q", EditorCommand.Quit),
@@ -1180,7 +1182,7 @@ internal sealed class TuiEditor
             case (ModalKind.Overwrite, 0):
                 try
                 {
-                    _buf.Save(_overwritePath, _settings.BackupOnSave);
+                    _buf.Save(_overwritePath, Backups);
                     TouchRecent(_buf.FilePath);
                     _drafts.Delete(_buf.FilePath);
                     SetMessage(_loc.Format("msg.saved", _buf.FilePath));
@@ -1245,10 +1247,10 @@ internal sealed class TuiEditor
                         _dialog = new ModalDialog(ModalState.Overwrite(_loc, Path.GetFileName(path)), ApplyModalOutcome);
                         return;
                     }
-                    _buf.Save(path, _settings.BackupOnSave);
+            _buf.Save(path, Backups);
                     break;
                 default:
-                    _buf.Save(backup: _settings.BackupOnSave);
+                    _buf.Save(backup: Backups);
                     break;
             }
             TouchRecent(_buf.FilePath);
@@ -1361,7 +1363,7 @@ internal sealed class TuiEditor
 
     private void Find()
     {
-        string? term = Prompt(_loc["prompt.find"], _lastSearch, liveHighlight: true);
+        string? term = Prompt(_loc["prompt.find"], _lastSearch, liveHighlight: true, showOptions: true);
         if (term is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
         if (term.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
         if (BadPattern(term)) return;
@@ -1405,7 +1407,7 @@ internal sealed class TuiEditor
     /// <summary>Мгновенная замена по всему документу за один шаг undo.</summary>
     private void Replace()
     {
-        string? term = Prompt(_loc["prompt.replace.find"], _lastSearch, liveHighlight: true);
+        string? term = Prompt(_loc["prompt.replace.find"], _lastSearch, liveHighlight: true, showOptions: true);
         if (term is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
         if (term.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
         string? rep = Prompt(_loc["prompt.replace.with"], _lastReplace);
@@ -1525,7 +1527,21 @@ internal sealed class TuiEditor
         DateTime.Now <= _messageUntil ? _message : string.Empty;
 
 
-    private string? Prompt(string title, string initial, bool liveHighlight = false)
+    /// <summary>Переключить опцию поиска (Alt+C/W/R в промпте). True — клавиша съедена.</summary>
+    internal bool ToggleSearchOption(ConsoleKey key)
+    {
+        switch (key)
+        {
+            case ConsoleKey.C: _settings.SearchMatchCase = !_settings.SearchMatchCase; break;
+            case ConsoleKey.W: _settings.SearchWholeWord = !_settings.SearchWholeWord; break;
+            case ConsoleKey.R: _settings.SearchUseRegex = !_settings.SearchUseRegex; break;
+            default: return false;
+        }
+        _store.Save(_settings);
+        return true;
+    }
+
+    private string? Prompt(string title, string initial, bool liveHighlight = false, bool showOptions = false)
     {
         var input = initial ?? string.Empty;
         int pos = input.Length;
@@ -1540,7 +1556,7 @@ internal sealed class TuiEditor
         RefreshLive();
         while (true)
         {
-            DrawPrompt(title, input, pos);
+            DrawPrompt(title, input, pos, showOptions);
             InputEvent ev;
             try
             {
@@ -1561,6 +1577,12 @@ internal sealed class TuiEditor
             }
             var k = ((KeyInput)ev).Key;
             bool ctrl = (k.Modifiers & ConsoleModifiers.Control) != 0;
+            bool alt = (k.Modifiers & ConsoleModifiers.Alt) != 0;
+            if (showOptions && alt && !ctrl && ToggleSearchOption(k.Key))
+            {
+                RefreshLive();
+                continue;
+            }
             if (ctrl) continue;
             switch (k.Key)
             {
@@ -1592,7 +1614,9 @@ internal sealed class TuiEditor
 
     internal string EffectiveSearchTerm => _liveSearch ?? _lastSearch;
 
-    private void DrawPrompt(string title, string input, int pos)
+    private static char Check(bool v) => v ? 'x' : ' ';
+
+    private void DrawPrompt(string title, string input, int pos, bool showOptions = false)
     {
         try
         {
@@ -1603,6 +1627,15 @@ internal sealed class TuiEditor
         int w = _screen.Width, h = _screen.Height;
         if (w < 10 || h < 4)
             return;
+        if (showOptions && h >= 5)
+        {
+            string opts = "[" + Check(_settings.SearchMatchCase) + "] " + _loc["settings.matchcase"] + " (Alt+C)  "
+                + "[" + Check(_settings.SearchWholeWord) + "] " + _loc["settings.wholeword"] + " (Alt+W)  "
+                + "[" + Check(_settings.SearchUseRegex) + "] " + _loc["settings.useregex"] + " (Alt+R)";
+            if (opts.Length > w)
+                opts = opts[..w];
+            _screen.Text(0, h - 2, opts.PadRight(w)[..w], _theme.PromptFg, _theme.PromptBg);
+        }
         int row = h - 1;
         string text = title + input;
         if (text.Length > w)

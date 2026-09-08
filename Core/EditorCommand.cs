@@ -16,8 +16,7 @@ public enum EditorCommand
     /// </summary>
     Save,
     SaveAs,
-    CycleEncoding,
-    CycleEnding,
+    FileFormat,
     TrimTrailing,
     /// <summary>Выход (с подтверждением при несохранённых изменениях).</summary>
     Quit,
