@@ -50,6 +50,9 @@ internal sealed partial class TuiEditor
     private readonly List<(string key, DocDraft draft)> _restoreDrafts = new();
     private readonly List<int> _menuX = new(); // x-координаты меню в баре (из рендера)
     private readonly Screen _screen = new(); // кадр + diff-вывод (без мигания)
+    private int _mouseX; // последняя позиция мыши (для hover)
+    private int _mouseY;
+    private bool _mouseActive; // мышь была последним вводом — hover вместо selection-подсветки
     // Ввод читается через статический InputReader.Read (состояния нет).
     private readonly AppSettings _settings;
     private readonly SettingsStore _store;

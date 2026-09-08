@@ -9,7 +9,7 @@ public sealed class MouseInputTests
     [Theory]
     [InlineData("[<0;11;6M", 10, 5, 0)] // 1-based -> 0-based, LeftPress
     [InlineData("[<0;1;1M", 0, 0, 0)]
-    [InlineData("[<32;5;5M", 4, 4, 0)] // drag-флаг без ?1002 не придёт, но парсим
+    [InlineData("[<32;5;5M", 4, 4, 3)] // движение (?1002) — hover
     [InlineData("[<64;5;5M", 4, 4, 1)] // WheelUp
     [InlineData("[<65;5;5M", 4, 4, 2)] // WheelDown
     [InlineData("[<72;5;5M", 4, 4, 1)] // колесо + shift-модификатор
@@ -45,7 +45,7 @@ public sealed class MouseInputTests
     [InlineData(0x0001u, 0x0002u, 10, 5, 0)] // дабл-клик (второе нажатие) — тоже клик
     [InlineData(0x0000u, 0u, 10, 5, -1)] // отпускание — игнор
     [InlineData(0x0002u, 0u, 10, 5, -1)] // правая — игнор
-    [InlineData(0x0001u, 0x0001u, 10, 5, -1)] // движение с зажатой — игнор (drag позже)
+    [InlineData(0x0001u, 0x0001u, 10, 5, 3)] // движение — hover (по одному за Read)
     [InlineData(0x00780000u, 0x0004u, 3, 7, 1)] // колесо вверх (delta +120)
     [InlineData(0xFF880000u, 0x0004u, 3, 7, 2)] // колесо вниз (delta -120)
     [InlineData(0x00000000u, 0x0004u, 3, 7, -1)] // колесо с нулевой дельтой — игнор

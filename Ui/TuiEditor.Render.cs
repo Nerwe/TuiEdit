@@ -268,6 +268,11 @@ internal sealed partial class TuiEditor
 
         // Поверх текста: раскрытое меню и активное диалоговое окно.
         DrawDropdown(w, h);
+        if (_dialog is ModalDialog mdd)
+        {
+            mdd.HoverActive = _mouseActive;
+            mdd.HoverButton = _mouseActive ? mdd.HitButton(_mouseX, _mouseY, w, h, _loc) : null;
+        }
         _dialog?.Draw(_screen, _theme, _loc);
 
         _screen.Flush();
@@ -701,6 +706,13 @@ internal sealed partial class TuiEditor
         if (maxRows < 3)
             return;
         int rows = Math.Min(m.Items.Count, maxRows - 2);
+        int hoverRow = -1;
+        if (_mouseActive && _mouseX >= x && _mouseX < x + boxW)
+        {
+            int r = _mouseY - (y + 1);
+            if (r >= 0 && r < rows && !m.Items[r].IsSeparator)
+                hoverRow = r;
+        }
 
         Rgb borderFg = _theme.DropBorderFg;
         Rgb borderBg = _theme.DropBg;
@@ -713,7 +725,8 @@ internal sealed partial class TuiEditor
                 _screen.Text(x, y + 1 + i, "├" + new string('─', boxW - 2) + "┤", borderFg, borderBg);
                 continue;
             }
-            bool sel = i == _menu.SelectedIndex;
+            int effRow = _mouseActive && hoverRow >= 0 ? hoverRow : _menu.SelectedIndex;
+            bool sel = i == effRow;
             (Rgb fg, Rgb bg) = sel
                 ? (_theme.DropSelFg, _theme.DropSelBg)
                 : (_theme.DropFg, _theme.DropBg);

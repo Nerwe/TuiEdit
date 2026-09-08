@@ -66,7 +66,8 @@ internal sealed class ModalDialog : Dialog
                     label += " ↓";
                 int by = y0 + 1 + m.Lines.Count + vi;
                 string cell = (" " + label).PadRight(boxW - 2)[..(boxW - 2)];
-                if (i == m.Selected)
+                int eff = HoverActive ? HoverButton ?? m.Selected : m.Selected;
+                if (i == eff)
                     screen.Text(x0, by, "│" + cell + "│", theme.ButtonSelFg, theme.ButtonSelBg);
                 else
                     screen.Text(x0, by, "│" + cell + "│", fg, bg);
@@ -104,7 +105,8 @@ internal sealed class ModalDialog : Dialog
             int bx = x0 + 1 + padLeft;
             for (int i = 0; i < m.Buttons.Count; i++)
             {
-                if (i == m.Selected)
+                int eff = HoverActive ? HoverButton ?? m.Selected : m.Selected;
+                if (i == eff)
                     screen.Text(bx, btnY, cells[i], theme.ButtonSelFg, theme.ButtonSelBg);
                 bx += cells[i].Length + 4;
             }
@@ -132,6 +134,12 @@ internal sealed class ModalDialog : Dialog
         _onDone(_state, o);
     }
 
+    /// <summary>Кнопка под hover (рисуется как выбранная); null — нет.</summary>
+    public int? HoverButton { get; set; }
+
+    /// <summary>Показывать ли hover (мышь была последним вводом).</summary>
+    public bool HoverActive { get; set; }
+
     /// <summary>
     /// Клик: кнопка — нажать, внутри бокса мимо кнопок — проглотить,
     /// снаружи — false (редактор игнорит, модалка не закрывается).
@@ -139,44 +147,71 @@ internal sealed class ModalDialog : Dialog
     /// </summary>
     public bool HandleClick(int x, int y, int screenW, int screenH, Loc loc)
     {
+        int? hit = HitButton(x, y, screenW, screenH, loc);
+        if (hit is null)
+        {
+            // Внутри бокса мимо кнопок — глушим (фокус-ловушка); снаружи — false.
+            DialogBox? box = Measure(screenW, screenH, loc);
+            if (box is null)
+                return false;
+            DialogBox db = box.Value;
+            return x >= db.X0 && x < db.X0 + db.W && y >= db.Y0 && y < db.Y0 + db.H;
+        }
+        Closed = true;
+        _onDone(_state, ModalKeyOutcome.Press(hit.Value));
+        return true;
+    }
+
+    /// <summary>Индекс кнопки под координатами или null. Чистая — для hover и тестов.</summary>
+    public int? HitButton(int x, int y, int screenW, int screenH, Loc loc)
+    {
         DialogBox? box = Measure(screenW, screenH, loc);
         if (box is null)
-            return false;
+            return null;
         DialogBox db = box.Value;
         int x0 = db.X0, y0 = db.Y0, boxW = db.W;
         if (x < x0 || x >= x0 + boxW || y < y0 || y >= y0 + db.H)
-            return false;
+            return null;
         ModalState m = _state;
-        int? hit = null;
-        if (m.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs or ModalKind.Complete or ModalKind.Grep)
+        if (IsListKind(m.Kind))
         {
             int visCount = Math.Min(m.MaxVisibleButtons, m.Buttons.Count - m.ButtonTop);
             int row = y - (y0 + 1 + m.Lines.Count);
             if (row >= 0 && row < visCount)
-                hit = m.ButtonTop + row;
+                return m.ButtonTop + row;
+            return null;
         }
-        else if (y == y0 + 2 + m.Lines.Count)
+        if (y != y0 + 2 + m.Lines.Count)
+            return null;
+        int used = 0;
+        foreach (ModalButton b in m.Buttons)
+            used += b.Label.Length + 4;
+        used -= 4;
+        int padLeft = Math.Max(2, (boxW - 2 - used) / 2);
+        int bx = x0 + 1 + padLeft;
+        for (int i = 0; i < m.Buttons.Count; i++)
         {
-            int used = 0;
-            foreach (ModalButton b in m.Buttons)
-                used += b.Label.Length + 4;
-            used -= 4;
-            int padLeft = Math.Max(2, (boxW - 2 - used) / 2);
-            int bx = x0 + 1 + padLeft;
-            for (int i = 0; i < m.Buttons.Count; i++)
-            {
-                if (x >= bx && x < bx + m.Buttons[i].Label.Length)
-                {
-                    hit = i;
-                    break;
-                }
-                bx += m.Buttons[i].Label.Length + 4;
-            }
+            if (x >= bx && x < bx + m.Buttons[i].Label.Length)
+                return i;
+            bx += m.Buttons[i].Label.Length + 4;
         }
-        if (hit is null)
-            return true;
-        Closed = true;
-        _onDone(m, ModalKeyOutcome.Press(hit.Value));
-        return true;
+        return null;
     }
+
+    /// <summary>Колесо над списком — стрелки (выбор+скролл); горизонтальным — мимо.</summary>
+    public void ScrollList(int dir)
+    {
+        if (!IsListKind(_state.Kind))
+            return;
+        ConsoleKeyInfo k = new('\0', dir < 0 ? ConsoleKey.UpArrow : ConsoleKey.DownArrow, false, false, false);
+        ModalKeyOutcome o = _state.HandleKey(k);
+        if (o.Done)
+        {
+            Closed = true;
+            _onDone(_state, o);
+        }
+    }
+
+    private static bool IsListKind(ModalKind kind) =>
+        kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs or ModalKind.Complete or ModalKind.Grep;
 }

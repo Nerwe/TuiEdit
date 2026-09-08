@@ -71,6 +71,67 @@ public sealed class ModalClickTests
     }
 
     [Fact]
+    public void ScrollListMovesSelection()
+    {
+        var loc = En();
+        var files = new List<string>();
+        for (int i = 0; i < 12; i++)
+            files.Add($"f{i}.txt");
+        var st = ModalState.Recent(loc, files);
+        var dlg = new ModalDialog(st, (_, _) => { });
+        Assert.Equal(0, st.Selected);
+        dlg.ScrollList(1);
+        dlg.ScrollList(1);
+        dlg.ScrollList(1);
+        Assert.Equal(3, st.Selected);
+        dlg.ScrollList(-1);
+        Assert.Equal(2, st.Selected);
+        Assert.False(dlg.Closed); // стрелки не закрывают
+    }
+
+    [Fact]
+    public void ScrollListIgnoresHorizontal()
+    {
+        var loc = En();
+        bool fired = false;
+        var dlg = new ModalDialog(ModalState.Overwrite(loc, "a.txt"), (_, _) => { fired = true; });
+        dlg.ScrollList(1);
+        Assert.False(fired);
+        Assert.False(dlg.Closed);
+    }
+
+    [Fact]
+    public void HoverHighlightsButtonPixels()
+    {
+        var loc = En();
+        var theme = Themes.Get("dark");
+        var scr = new Screen();
+        scr.Resize(W, H);
+        var dlg = new ModalDialog(ModalState.Overwrite(loc, "a.txt"), (_, _) => { });
+        dlg.HoverActive = true;
+        dlg.HoverButton = 1;
+        dlg.Draw(scr, theme, loc);
+        Assert.Contains(scr.ComputeDiff(), o =>
+            o.Fg.Equals(theme.ButtonSelFg) && o.Bg.Equals(theme.ButtonSelBg));
+    }
+
+    [Fact]
+    public void HoverNullFallsBackToSelection()
+    {
+        var loc = En();
+        var theme = Themes.Get("dark");
+        var scr = new Screen();
+        scr.Resize(W, H);
+        var dlg = new ModalDialog(ModalState.Overwrite(loc, "a.txt"), (_, _) => { });
+        dlg.HoverActive = true;
+        dlg.HoverButton = null;
+        dlg.Draw(scr, theme, loc);
+        // Выбор (кнопка 0) виден — свежеоткрытая модалка не слепая.
+        Assert.Contains(scr.ComputeDiff(), o =>
+            o.Fg.Equals(theme.ButtonSelFg) && o.Bg.Equals(theme.ButtonSelBg));
+    }
+
+    [Fact]
     public void PressClosesDialog()
     {
         var loc = En();

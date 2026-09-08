@@ -26,6 +26,14 @@ release notes from the `Unreleased` section when a `v*` tag is pushed.
   (Unix keeps the SGR byte path).
 - Mouse clicks on modal buttons and the top menu (bar, dropdown);
   clicks elsewhere dismiss the menu, modals swallow outside clicks.
+- Mouse hover highlight on modal buttons, list rows and dropdown items
+  (keyboard selection takes over on any keypress); wheel scrolls
+  scrollable modal lists.
+- Fixed modal staying open after mouse click (closed state wasn't
+  propagated like in the keyboard path) and the top bar not opening
+  the menu on click.
+- Fixed input starvation with mouse on Windows (motion-event flood
+  starved keys; motion is now one event per read).
 - Fixed input starvation with mouse on Windows: key readiness is probed
   via the queue (`PeekConsoleInput`), bare `KeyAvailable` also fires on
   mouse records and `ReadKey` would block/swallow keystrokes over them.

@@ -34,18 +34,27 @@ internal sealed partial class TuiEditor
             HandleMouse(mouse);
             return;
         }
+        _mouseActive = false; // клавиатура/вставка — hover гаснет
         if (input is KeyInput key)
             HandleKey(key.Key);
         // Будущие типы событий — игнор, а не каст (мышь уже роняла это место).
     }
 
-    /// <summary>Мышь: модалки и меню — по кнопкам, текст — курсор/колесо.</summary>
+    /// <summary>Мышь: движение — только hover, модалки и меню — по кнопкам, текст — курсор/колесо.</summary>
     private void HandleMouse(MouseInput m)
     {
+        _mouseActive = true;
+        _mouseX = m.X;
+        _mouseY = m.Y;
+        if (m.Action == MouseAction.Move)
+            return; // hover подхватит Render
         if (_dialog is ModalDialog md)
         {
             if (m.Action != MouseAction.LeftPress)
+            {
+                md.ScrollList(m.Action == MouseAction.WheelDown ? 1 : -1);
                 return;
+            }
             int dw, dh;
             try
             {
@@ -57,6 +66,8 @@ internal sealed partial class TuiEditor
                 return;
             }
             md.HandleClick(m.X, m.Y, dw, dh, _loc);
+            if (ReferenceEquals(_dialog, md) && md.Closed)
+                _dialog = null; // как клавиатурный путь: исход без нового диалога — убрать
             return;
         }
         if (_dialog is not null)
@@ -76,6 +87,16 @@ internal sealed partial class TuiEditor
         }
         if (w < 20 || h < 5)
             return;
+        if (_menu is null && m.Y == 0 && m.Action == MouseAction.LeftPress)
+        {
+            // Закрытое меню: клик по бару открывает (в текст y=0 не попадает).
+            int? bar = MenuHit.BarHit(BuildMenus(_loc), m.X, w);
+            if (bar is not null)
+            {
+                OpenMenu(bar.Value);
+                return;
+            }
+        }
         // Зеркало раскладки из Render (держать в sync).
         int sideW = _sidebar is null ? 0 : SidebarState.Width;
         int[] paneWs = PaneWidths(w - sideW, _panes.Count);

@@ -135,16 +135,16 @@ internal static class Terminal
         }
     }
 
-    /// <summary>Включить отчёты мыши (клики+колесо) и SGR-расширение; терминалы без поддержки игнорят.</summary>
+    /// <summary>Включить отчёты мыши (клики+колесо+движение) и SGR-расширение; терминалы без поддержки игнорят.</summary>
     public static void TryEnableMouse()
     {
-        try { Console.Write("\x1b[?1000h\x1b[?1006h"); } catch { }
+        try { Console.Write("\x1b[?1000h\x1b[?1002h\x1b[?1006h"); } catch { }
     }
 
     /// <summary>Выключить отчёты мыши (вызывать при выходе и в crash handler).</summary>
     public static void DisableMouse()
     {
-        try { Console.Write("\x1b[?1006l\x1b[?1000l"); } catch { }
+        try { Console.Write("\x1b[?1006l\x1b[?1002l\x1b[?1000l"); } catch { }
     }
 
     /// <summary>
@@ -258,7 +258,8 @@ internal static class Terminal
             return new MouseInput(x, y, delta > 0 ? MouseAction.WheelUp : MouseAction.WheelDown);
         }
         if ((r.EventFlags & MOUSE_MOVED) != 0)
-            return null; // движение без ?1002 не отслеживаем (drag — позже)
+            return new MouseInput(Math.Max(0, (int)r.MousePosition.X), Math.Max(0, (int)r.MousePosition.Y),
+                MouseAction.Move); // движение: hover; по одному за Read, потопа нет
         if ((r.ButtonState & FROM_LEFT_1ST_BUTTON_PRESSED) == 0)
             return null; // отпускание, средняя/правая
         return new MouseInput(Math.Max(0, (int)r.MousePosition.X), Math.Max(0, (int)r.MousePosition.Y),
