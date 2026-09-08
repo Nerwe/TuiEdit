@@ -43,6 +43,15 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
     GrammarRegistry.EnsureLoaded(settingsDir is not null
         ? Path.Combine(settingsDir, "grammars")
         : GrammarRegistry.DefaultDir());
+    try
+    {
+        string kb = KeyBindings.DefaultPath(settingsDir);
+        KeyBindings.SeedExample(kb);
+        KeyMap.SetOverrides(KeyBindings.Load(kb));
+    }
+    catch
+    {
+    }
 
     string? file = null;
     int gotoLine = 0;

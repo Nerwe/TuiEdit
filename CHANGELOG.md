@@ -17,6 +17,8 @@ release notes from the `Unreleased` section when a `v*` tag is pushed.
   don't count, outside a repo the segment is hidden).
 - `TuiEditor` split into partials by area (Cursor/Search/Files/Render/Input/
   Modal) plus a pure `StatusBar.BuildRight`; no behavior change.
+- Customizable keybindings (`keybindings.json` next to settings):
+  per-command override, `null` unbinds, menu hints follow automatically.
 
 ### Fixed
 - Atomic save: content is written to a temp file in the same folder,

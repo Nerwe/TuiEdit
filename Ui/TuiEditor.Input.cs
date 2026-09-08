@@ -302,48 +302,52 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>Меню-бар: File / Edit / Help (состав — как draw_menubar.rs в MS Edit).</summary>
+    /// <summary>Подсказка меню: оверрайд биндинга или дефолтный литерал.</summary>
+    private static string? Hint(string? literal, EditorCommand cmd) =>
+        KeyMap.HintFor(cmd) ?? literal;
+
     private static List<TopMenu> BuildMenus(Loc loc) => new()
     {
         new TopMenu(loc["menu.file"], 'F', new List<MenuItem>
         {
-            new(loc["menu.newtab"], 'T', "Ctrl+T", EditorCommand.NewTab),
-            new(loc["menu.open"], 'O', null, EditorCommand.OpenFile),
-            new(loc["menu.recent"], 'R', null, EditorCommand.OpenRecent),
-            new(loc["menu.save"], 'S', "^S", EditorCommand.Save),
-            new(loc["menu.saveas"], 'A', "Ctrl+Shift+S", EditorCommand.SaveAs),
-            new(loc["menu.saveall"], 'L', null, EditorCommand.SaveAll),
+            new(loc["menu.newtab"], 'T', Hint("Ctrl+T", EditorCommand.NewTab), EditorCommand.NewTab),
+            new(loc["menu.open"], 'O', Hint(null, EditorCommand.OpenFile), EditorCommand.OpenFile),
+            new(loc["menu.recent"], 'R', Hint(null, EditorCommand.OpenRecent), EditorCommand.OpenRecent),
+            new(loc["menu.save"], 'S', Hint("^S", EditorCommand.Save), EditorCommand.Save),
+            new(loc["menu.saveas"], 'A', Hint("Ctrl+Shift+S", EditorCommand.SaveAs), EditorCommand.SaveAs),
+            new(loc["menu.saveall"], 'L', Hint(null, EditorCommand.SaveAll), EditorCommand.SaveAll),
             MenuItem.Separator,
-            new(loc["menu.format"], 'F', "F9", EditorCommand.FileFormat),
-            new(loc["menu.closetab"], 'W', "Ctrl+W", EditorCommand.CloseTab),
+            new(loc["menu.format"], 'F', Hint("F9", EditorCommand.FileFormat), EditorCommand.FileFormat),
+            new(loc["menu.closetab"], 'W', Hint("Ctrl+W", EditorCommand.CloseTab), EditorCommand.CloseTab),
             MenuItem.Separator,
-            new(loc["menu.settings"], 'P', null, EditorCommand.Settings),
-            new(loc["menu.exit"], 'X', "^Q", EditorCommand.Quit),
+            new(loc["menu.settings"], 'P', Hint(null, EditorCommand.Settings), EditorCommand.Settings),
+            new(loc["menu.exit"], 'X', Hint("^Q", EditorCommand.Quit), EditorCommand.Quit),
         }),
         new TopMenu(loc["menu.edit"], 'E', new List<MenuItem>
         {
-            new(loc["menu.undo"], 'U', "^Z", EditorCommand.Undo),
-            new(loc["menu.redo"], 'R', "^Y", EditorCommand.Redo),
+            new(loc["menu.undo"], 'U', Hint("^Z", EditorCommand.Undo), EditorCommand.Undo),
+            new(loc["menu.redo"], 'R', Hint("^Y", EditorCommand.Redo), EditorCommand.Redo),
             MenuItem.Separator,
-            new(loc["menu.cut"], 'T', "^K", EditorCommand.CutLine),
-            new(loc["menu.copy"], 'C', "^C", EditorCommand.CopyLine),
-            new(loc["menu.paste"], 'P', "^U", EditorCommand.Paste),
-            new(loc["menu.duplicate"], 'D', "^D", EditorCommand.DuplicateLine),
-            new(loc["menu.togglecomment"], 'O', "Ctrl+/", EditorCommand.ToggleComment),
-            new(loc["menu.sortlines"], 'S', null, EditorCommand.SortLines),
+            new(loc["menu.cut"], 'T', Hint("^K", EditorCommand.CutLine), EditorCommand.CutLine),
+            new(loc["menu.copy"], 'C', Hint("^C", EditorCommand.CopyLine), EditorCommand.CopyLine),
+            new(loc["menu.paste"], 'P', Hint("^U", EditorCommand.Paste), EditorCommand.Paste),
+            new(loc["menu.duplicate"], 'D', Hint("^D", EditorCommand.DuplicateLine), EditorCommand.DuplicateLine),
+            new(loc["menu.togglecomment"], 'O', Hint("Ctrl+/", EditorCommand.ToggleComment), EditorCommand.ToggleComment),
+            new(loc["menu.sortlines"], 'S', Hint(null, EditorCommand.SortLines), EditorCommand.SortLines),
             MenuItem.Separator,
-            new(loc["menu.gobracket"], 'J', "Alt+]", EditorCommand.GoBracketMatch),
-            new(loc["menu.find"], 'F', "^F", EditorCommand.Find),
-            new(loc["menu.replace"], 'H', "^H", EditorCommand.Replace),
-            new(loc["menu.goto"], 'G', "^G", EditorCommand.GoToLine),
-            new(loc["menu.grep"], 'E', "Ctrl+Shift+F", EditorCommand.Grep),
+            new(loc["menu.gobracket"], 'J', Hint("Alt+]", EditorCommand.GoBracketMatch), EditorCommand.GoBracketMatch),
+            new(loc["menu.find"], 'F', Hint("^F", EditorCommand.Find), EditorCommand.Find),
+            new(loc["menu.replace"], 'H', Hint("^H", EditorCommand.Replace), EditorCommand.Replace),
+            new(loc["menu.goto"], 'G', Hint("^G", EditorCommand.GoToLine), EditorCommand.GoToLine),
+            new(loc["menu.grep"], 'E', Hint("Ctrl+Shift+F", EditorCommand.Grep), EditorCommand.Grep),
             MenuItem.Separator,
-            new(loc["menu.trimtrail"], 'M', null, EditorCommand.TrimTrailing),
-            new(loc["menu.selectall"], 'A', "^A", EditorCommand.SelectAll),
+            new(loc["menu.trimtrail"], 'M', Hint(null, EditorCommand.TrimTrailing), EditorCommand.TrimTrailing),
+            new(loc["menu.selectall"], 'A', Hint("^A", EditorCommand.SelectAll), EditorCommand.SelectAll),
         }),
         new TopMenu(loc["menu.help"], 'H', new List<MenuItem>
         {
-            new(loc["menu.helpitem"], 'H', "F1", EditorCommand.Help),
-            new(loc["menu.about"], 'A', null, EditorCommand.About),
+            new(loc["menu.helpitem"], 'H', Hint("F1", EditorCommand.Help), EditorCommand.Help),
+            new(loc["menu.about"], 'A', Hint(null, EditorCommand.About), EditorCommand.About),
         }),
     };
 

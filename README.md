@@ -98,6 +98,27 @@ tui-edit --help | --version
 
 Editable from the settings dialog in the File menu, applied and saved immediately.
 
+## Keybindings
+
+`keybindings.json` next to `settings.json` (a commented example is created
+on first run): `"Command": "key"` overrides the default, `null` unbinds it.
+Notation is `Ctrl`/`Alt`/`Shift` + key, case-insensitive:
+
+```jsonc
+{
+  "Save": "Ctrl+Shift+S", // replaces Ctrl+S
+  "SaveAll": "Ctrl+T", // commands without a default key become bindable
+  "GoToLine": null // Ctrl+G will do nothing
+}
+```
+
+Key names: letters, digits, `F1`–`F24`, `Up`/`Down`/`Left`/`Right`,
+`Home`/`End`, `PageUp`/`PageDown`, `Space`, `Tab`, `Enter`, `Esc`,
+punctuation (`.`, `/`, `-`, …) or raw `ConsoleKey` names (`OemPeriod`).
+A printable key requires `Ctrl` or `Alt` (bare letters would break typing);
+unknown commands and bad entries are ignored. On conflict the later entry
+wins. Menu hints follow your bindings automatically.
+
 ## Backups
 
 With `BackupOnSave` on, every save keeps a versioned copy of the previous
