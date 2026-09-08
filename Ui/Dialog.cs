@@ -45,6 +45,9 @@ internal abstract class Dialog
     /// <summary>Обработать клавишу (фокус-ловушка: всё глотается).</summary>
     public abstract void HandleKey(ConsoleKeyInfo key);
 
+    /// <summary>Клик: true — обработан (включая глушение), false — мимо окна.</summary>
+    public virtual bool HandleClick(int x, int y, int screenW, int screenH, Loc loc) => false;
+
     /// <summary>Вставка из буфера обмена (по умолчанию игнор).</summary>
     public virtual void Paste(string text)
     {

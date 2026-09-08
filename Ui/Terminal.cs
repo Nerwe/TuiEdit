@@ -261,7 +261,10 @@ internal static class Terminal
             return new MouseInput(Math.Max(0, (int)r.MousePosition.X), Math.Max(0, (int)r.MousePosition.Y),
                 MouseAction.Move); // движение: hover; по одному за Read, потопа нет
         if ((r.ButtonState & FROM_LEFT_1ST_BUTTON_PRESSED) == 0)
-            return null; // отпускание, средняя/правая
+            return r.ButtonState == 0 && r.EventFlags == 0
+                ? new MouseInput(Math.Max(0, (int)r.MousePosition.X), Math.Max(0, (int)r.MousePosition.Y),
+                    MouseAction.Move) // отпускание: только позиция hover
+                : null; // средняя/правая
         return new MouseInput(Math.Max(0, (int)r.MousePosition.X), Math.Max(0, (int)r.MousePosition.Y),
             MouseAction.LeftPress);
     }

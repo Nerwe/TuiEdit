@@ -30,9 +30,9 @@ internal sealed record MouseInput(int X, int Y, MouseAction Action) : InputEvent
             || !int.TryParse(parts[1], out int cx)
             || !int.TryParse(parts[2], out int cy))
             return null;
-        if (kind == 'm')
-            return null; // отпускание не отслеживаем
         int x = Math.Max(0, cx - 1), y = Math.Max(0, cy - 1);
+        if (kind == 'm')
+            return new MouseInput(x, y, MouseAction.Move); // отпускание: только позиция hover
         if ((cb & 64) != 0)
             return new MouseInput(x, y, (cb & 1) != 0 ? MouseAction.WheelDown : MouseAction.WheelUp);
         if ((cb & 32) != 0)

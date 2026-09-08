@@ -13,6 +13,7 @@ public sealed class MouseInputTests
     [InlineData("[<64;5;5M", 4, 4, 1)] // WheelUp
     [InlineData("[<65;5;5M", 4, 4, 2)] // WheelDown
     [InlineData("[<72;5;5M", 4, 4, 1)] // колесо + shift-модификатор
+    [InlineData("[<0;11;6m", 10, 5, 3)] // отпускание: только позиция hover
     public void ParseValid(string burst, int x, int y, int action)
     {
         MouseInput? m = MouseInput.TryParse(burst);
@@ -25,7 +26,7 @@ public sealed class MouseInputTests
     [Theory]
     [InlineData("")]
     [InlineData("[200~")]
-    [InlineData("[<0;1;1m")] // release в v1 игнорим
+
     [InlineData("[<1;5;5M")] // средняя кнопка
     [InlineData("[<2;5;5M")] // правая кнопка
     [InlineData("[<0;5M")] // мало частей
@@ -43,7 +44,8 @@ public sealed class MouseInputTests
     [Theory]
     [InlineData(0x0001u, 0u, 10, 5, 0)] // левый клик
     [InlineData(0x0001u, 0x0002u, 10, 5, 0)] // дабл-клик (второе нажатие) — тоже клик
-    [InlineData(0x0000u, 0u, 10, 5, -1)] // отпускание — игнор
+    [InlineData(0x0000u, 0u, 10, 5, 3)] // отпускание: только позиция hover
+    [InlineData(0x0000u, 0x0002u, 10, 5, -1)] // дабл-клик флаг без кнопки — игнор
     [InlineData(0x0002u, 0u, 10, 5, -1)] // правая — игнор
     [InlineData(0x0001u, 0x0001u, 10, 5, 3)] // движение — hover (по одному за Read)
     [InlineData(0x00780000u, 0x0004u, 3, 7, 1)] // колесо вверх (delta +120)

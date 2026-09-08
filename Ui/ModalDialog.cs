@@ -145,7 +145,7 @@ internal sealed class ModalDialog : Dialog
     /// снаружи — false (редактор игнорит, модалка не закрывается).
     /// Раскладка — зеркало Measure/DrawContent.
     /// </summary>
-    public bool HandleClick(int x, int y, int screenW, int screenH, Loc loc)
+    public override bool HandleClick(int x, int y, int screenW, int screenH, Loc loc)
     {
         int? hit = HitButton(x, y, screenW, screenH, loc);
         if (hit is null)

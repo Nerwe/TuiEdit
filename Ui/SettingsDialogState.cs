@@ -9,6 +9,8 @@ public sealed class SettingsDialogState
 
     public void Move(int delta) => Row = Math.Clamp(Row + delta, 0, RowCount - 1);
 
+    public void MoveTo(int row) => Row = Math.Clamp(row, 0, RowCount - 1);
+
     /// <summary>Листание значения по кругу.</summary>
     public static int Cycle(int index, int count, int dir) =>
         count <= 0 ? 0 : ((index + dir) % count + count) % count;

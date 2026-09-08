@@ -34,6 +34,9 @@ release notes from the `Unreleased` section when a `v*` tag is pushed.
   the menu on click.
 - Fixed input starvation with mouse on Windows (motion-event flood
   starved keys; motion is now one event per read).
+- Mouse clicks in option dialogs (settings, file format: select + step)
+  and on find/replace toggles; release updates hover position (terminals
+  often don't report bare hover motion).
 - Fixed input starvation with mouse on Windows: key readiness is probed
   via the queue (`PeekConsoleInput`), bare `KeyAvailable` also fires on
   mouse records and `ReadKey` would block/swallow keystrokes over them.

@@ -51,6 +51,24 @@ internal sealed class SettingsDialog : Dialog
 
     private static string OnOff(Loc loc, bool v) => v ? loc["settings.on"] : loc["settings.off"];
 
+    /// <summary>Клик по строке: выбрать и шагнуть (+1), как стрелка вправо.</summary>
+    public override bool HandleClick(int x, int y, int screenW, int screenH, Loc loc)
+    {
+        DialogBox? box = Measure(screenW, screenH, loc);
+        if (box is null)
+            return false;
+        DialogBox b = box.Value;
+        if (x < b.X0 || x >= b.X0 + b.W || y < b.Y0 || y >= b.Y0 + b.H)
+            return false;
+        var (labels, _, _) = Rows(loc);
+        int row = y - (b.Y0 + 1); // строки опций — зеркало DrawOptionRows
+        if (row < 0 || row >= labels.Length)
+            return true;
+        _state.MoveTo(row);
+        CycleSetting(1);
+        return true;
+    }
+
     public override void HandleKey(ConsoleKeyInfo key)
     {
         var k = key;

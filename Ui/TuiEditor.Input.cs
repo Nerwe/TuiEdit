@@ -534,6 +534,20 @@ internal sealed partial class TuiEditor
                 }
                 if (ev is KeyInput key)
                     dlg.HandleKey(key.Key);
+                else if (ev is MouseInput mm && mm.Action == MouseAction.LeftPress)
+                {
+                    int mw, mh;
+                    try
+                    {
+                        mw = Console.WindowWidth;
+                        mh = Console.WindowHeight;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                    dlg.HandleClick(mm.X, mm.Y, mw, mh, _loc);
+                }
             }
         }
         finally
@@ -588,6 +602,20 @@ internal sealed partial class TuiEditor
                 RefreshLive();
                 continue;
             }
+            if (ev is MouseInput mm)
+            {
+                // Клик по тоглам [x] (строка опций — зеркало DrawPrompt).
+                if (showOptions && _screen.Height >= 5
+                    && mm.Action == MouseAction.LeftPress && mm.Y == _screen.Height - 2
+                    && PromptOptionHit(mm.X, _loc["settings.matchcase"],
+                        _loc["settings.wholeword"], _loc["settings.useregex"]) is char t)
+                {
+                    ConsoleKey key = t switch { 'C' => ConsoleKey.C, 'W' => ConsoleKey.W, _ => ConsoleKey.R };
+                    if (ToggleSearchOption(key))
+                        RefreshLive();
+                }
+                continue;
+            }
             if (ev is not KeyInput ki)
                 continue;
             ConsoleKeyInfo k = ki.Key;
@@ -632,6 +660,26 @@ internal sealed partial class TuiEditor
     }
 
     private static char Check(bool v) => v ? 'x' : ' ';
+
+    /// <summary>Тогл под координатой в строке опций промпта ('C'/'W'/'R' или null). Чистая.</summary>
+    internal static char? PromptOptionHit(int x, string matchCase, string wholeWord, string useRegex)
+    {
+        // Зеркало DrawPrompt: "[x] label (Alt+C)  [ ] label (Alt+W)  [ ] label (Alt+R".
+        string[] segs = [
+            $"[ ] {matchCase} (Alt+C)",
+            $"[ ] {wholeWord} (Alt+W)",
+            $"[ ] {useRegex} (Alt+R)",
+        ];
+        int cx = 0;
+        char[] keys = ['C', 'W', 'R'];
+        for (int i = 0; i < segs.Length; i++)
+        {
+            if (x >= cx && x < cx + segs[i].Length)
+                return keys[i];
+            cx += segs[i].Length + 2; // два пробела-разделителя
+        }
+        return null;
+    }
 
     private void DrawPrompt(string title, string input, int pos, bool showOptions = false)
     {
