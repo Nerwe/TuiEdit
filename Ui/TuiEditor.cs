@@ -1285,9 +1285,14 @@ internal sealed class TuiEditor
         _row = _col = _desiredCol = _top = _left = _topSeg = 0;
     }
 
-    private void LoadFile(string path)
+    /// <summary>Файлы больше лимита — только через подтверждение (фриз подсветки).</summary>
+    internal const long LargeFileBytes = 16 << 20;
+
+    private void LoadFile(string path, bool force = false)
     {
         bool existed = File.Exists(path);
+        if (!force && existed && GuardLargeFile(path))
+            return;
         try
         {
             _buf.Open(path);
@@ -1300,6 +1305,23 @@ internal sealed class TuiEditor
             _pending = PendingOp.None;
             _dialog = new ModalDialog(ModalState.Error(_loc, _loc["error.open"], DisplayError(ex)), ApplyModalOutcome);
         }
+    }
+
+    /// <summary>Проверка размера: большой файл — диалог, путь откладывается в pending.</summary>
+    private bool GuardLargeFile(string path)
+    {
+        long bytes;
+        try { bytes = new FileInfo(path).Length; }
+        catch { return false; } // размер не узнали — пусть открывает, ошибку покажет Open
+        if (bytes <= LargeFileBytes)
+            return false;
+        _pending = PendingOp.Open;
+        _pendingPath = path;
+        long mb = bytes >> 20;
+        _dialog = new ModalDialog(
+            ModalState.LargeFile(_loc, Path.GetFileName(path), mb, LargeFileBytes >> 20),
+            ApplyModalOutcome);
+        return true;
     }
 
     /// <summary>Маршрут клавиши при открытом меню.</summary>
@@ -1464,6 +1486,13 @@ internal sealed class TuiEditor
                 _pendingReplaceRep = string.Empty;
                 SetMessage(_loc["msg.cancelled"]);
                 return;
+            case (ModalKind.LargeFile, 0):
+                ApplyPending(); // тот же маршрут PendingOp.Open, но уже с force
+                return;
+            case (ModalKind.LargeFile, _):
+                _pending = PendingOp.None;
+                SetMessage(_loc["msg.cancelled"]);
+                return;
             case (ModalKind.Complete, var b):
                 ApplyCompletion(_pendingCompletePrefix, m.Buttons[b].Label);
                 _pendingCompletePrefix = string.Empty;
@@ -1559,7 +1588,7 @@ internal sealed class TuiEditor
                 }
                 break;
             case PendingOp.Open:
-                LoadFile(path);
+                LoadFile(path, force: true);
                 if (_pendingGrepRow > 0)
                 {
                     GoToLineNumber(_pendingGrepRow);

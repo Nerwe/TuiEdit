@@ -42,6 +42,8 @@
   "modal.restore.desc": "Найдены несохранённые изменения:",
   "modal.replace.title": "Заменить?",
   "modal.replace.desc": "Заменить {0} вхождений «{1}»?",
+  "modal.largefile.title": "Большой файл?",
+  "modal.largefile.desc": "Размер {0} МБ (лимит {1} МБ). Открытие может занять время. Открыть всё равно?",
   "modal.complete.title": "Дополнить",
   "msg.restored": "Черновик восстановлен",
   "msg.recent.empty": "Нет недавних файлов",

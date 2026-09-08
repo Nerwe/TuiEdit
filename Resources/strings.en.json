@@ -42,6 +42,8 @@
   "modal.restore.desc": "Unsaved changes found:",
   "modal.replace.title": "Replace?",
   "modal.replace.desc": "Replace {0} occurrences of «{1}»?",
+  "modal.largefile.title": "Large file?",
+  "modal.largefile.desc": "File is {0} MB (limit {1} MB). Opening may be slow. Open anyway?",
   "modal.complete.title": "Complete",
   "msg.restored": "Draft restored",
   "msg.recent.empty": "No recent files",

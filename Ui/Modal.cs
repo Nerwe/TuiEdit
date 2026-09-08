@@ -23,6 +23,8 @@ public enum ModalKind
     Complete,
     /// <summary>Результаты поиска по файлам (синий, кнопки списком).</summary>
     Grep,
+    /// <summary>Большой файл: подтверждение открытия (красный).</summary>
+    LargeFile,
 }
 
 /// <summary>Кнопка попапа: подпись и хоткей-буква (без Enter). '\0' — без хоткея.</summary>
@@ -59,7 +61,7 @@ public sealed class ModalState
     /// <summary>Сколько кнопок видно разом (скролл вертикального списка).</summary>
     public int MaxVisibleButtons { get; }
 
-    public bool Danger => Kind is ModalKind.UnsavedQuit or ModalKind.Error or ModalKind.Overwrite or ModalKind.ReplaceConfirm;
+    public bool Danger => Kind is ModalKind.UnsavedQuit or ModalKind.Error or ModalKind.Overwrite or ModalKind.ReplaceConfirm or ModalKind.LargeFile;
 
     public string Hint { get; }
 
@@ -143,6 +145,19 @@ public sealed class ModalState
             new(loc["picker.ow.no"], 'N'),
         },
         selected: 0,
+        hint: string.Empty);
+
+    /// <summary>Большой файл: открыть всё равно? Безопасный дефолт — «Нет».</summary>
+    public static ModalState LargeFile(Loc loc, string fileName, long megabytes, long limitMegabytes) => new(
+        ModalKind.LargeFile,
+        loc["modal.largefile.title"],
+        new List<string> { loc.Format("modal.largefile.desc", megabytes, limitMegabytes), fileName },
+        new List<ModalButton>
+        {
+            new(loc["picker.ow.yes"], 'Y'),
+            new(loc["picker.ow.no"], 'N'),
+        },
+        selected: 1,
         hint: string.Empty);
 
     /// <summary>Попап автодополнения: слова-кандидаты списком; пустой список запрещён.</summary>
