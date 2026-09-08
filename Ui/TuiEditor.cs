@@ -37,6 +37,8 @@ internal sealed class TuiEditor
     private PendingOp _pending = PendingOp.None;
     private string _pendingPath = string.Empty;
     private string _overwritePath = string.Empty; // путь из модалки перезаписи
+    private string _pendingReplaceTerm = string.Empty; // замена из confirm-модалки
+    private string _pendingReplaceRep = string.Empty;
     private readonly List<string> _recentPaths = new(); // пути из модалки недавних
     private readonly DraftStore _drafts = new(DraftStore.DefaultDir());
     private readonly BackupStore _backups;
@@ -284,6 +286,7 @@ internal sealed class TuiEditor
     private string DisplayError(Exception ex) => ex switch
     {
         InvalidOperationException { Message: "NoFileName" } => _loc["error.nofilename"],
+        InvalidOperationException { Message: "ReadOnly" } => _loc["error.readonly"],
         _ => ex.Message,
     };
 
@@ -299,6 +302,8 @@ internal sealed class TuiEditor
             try { Console.Write("\x1b[?2004h"); } catch (IOException) { }
             Render();
             MaybeRestore();
+            if (_docs.Count == 1 && _buf.FilePath is null && !_buf.IsModified)
+                SetMessage(_loc["msg.hint"]);
             while (!_quitRequested)
             {
                 Render();
@@ -560,6 +565,7 @@ internal sealed class TuiEditor
             case EditorCommand.MoveLineUp: MoveLineBlock(-1); return;
             case EditorCommand.MoveLineDown: MoveLineBlock(1); return;
             case EditorCommand.SaveAs: SaveAs(); return;
+            case EditorCommand.SaveAll: SaveAll(); return;
             case EditorCommand.FileFormat: RunDialog(new FormatDialog(_buf)); return;
             case EditorCommand.TrimTrailing:
                 int trimmed = _buf.TrimTrailingWhitespace();
@@ -671,6 +677,14 @@ internal sealed class TuiEditor
             _sel.AnchorCol = Math.Max(0, _sel.AnchorCol + delta[_sel.AnchorRow - sr]);
         if (_row >= sr && _row <= er)
             _col = Math.Max(0, _col + delta[_row - sr]);
+        TrackCol();
+    }
+
+    /// <summary>Прыжок на строку для CLI file:line (1-based, за концом — кламп).</summary>
+    internal void GoToLineNumber(int n)
+    {
+        _row = Math.Clamp(n - 1, 0, _buf.Count - 1);
+        _col = Math.Min(_col, _buf.GetLine(_row).Length);
         TrackCol();
     }
 
@@ -849,6 +863,52 @@ internal sealed class TuiEditor
             return;
         _settings.TouchRecent(path);
         _store.Save(_settings);
+    }
+
+    /// <summary>Сохранить все именованные грязные вкладки всех панелей.</summary>
+    internal void SaveAll()
+    {
+        SaveTabState();
+        int savedPane = _pane, savedActive = _active;
+        int saved = 0, skipped = 0;
+        string? error = null;
+        try
+        {
+            for (int i = 0; i < _panes.Count; i++)
+            {
+                _pane = i;
+                for (int d = 0; d < _panes[i].Docs.Count; d++)
+                {
+                    _active = d;
+                    LoadTabState();
+                    if (!_buf.IsModified)
+                        continue;
+                    if (_buf.FilePath is null)
+                    {
+                        skipped++;
+                        continue;
+                    }
+                    try
+                    {
+                        _buf.Save(backup: Backups);
+                        TouchRecent(_buf.FilePath);
+                        _drafts.Delete(_buf.FilePath);
+                        saved++;
+                    }
+                    catch (Exception ex)
+                    {
+                        error = $"{_loc["error.save"]}: {DisplayError(ex)}";
+                    }
+                }
+            }
+        }
+        finally
+        {
+            _pane = savedPane;
+            _active = savedActive;
+            LoadTabState();
+        }
+        SetMessage(error ?? _loc.Format("msg.savedall", saved, skipped));
     }
 
     private void Save()
@@ -1082,7 +1142,8 @@ internal sealed class TuiEditor
                 _menu!.Open(_menu.OpenIndex);
                 return;
             case ConsoleKey.Enter:
-                ActivateMenuItem(_menu!.Selected);
+                if (!_menu!.Selected.IsSeparator)
+                    ActivateMenuItem(_menu.Selected);
                 return;
         }
         if ((k.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) == 0
@@ -1119,8 +1180,11 @@ internal sealed class TuiEditor
             new(loc["menu.recent"], 'R', null, EditorCommand.OpenRecent),
             new(loc["menu.save"], 'S', "^S", EditorCommand.Save),
             new(loc["menu.saveas"], 'A', "Ctrl+Shift+S", EditorCommand.SaveAs),
+            new(loc["menu.saveall"], 'L', null, EditorCommand.SaveAll),
+            MenuItem.Separator,
             new(loc["menu.format"], 'F', "F9", EditorCommand.FileFormat),
             new(loc["menu.closetab"], 'W', "Ctrl+W", EditorCommand.CloseTab),
+            MenuItem.Separator,
             new(loc["menu.settings"], 'P', null, EditorCommand.Settings),
             new(loc["menu.exit"], 'X', "^Q", EditorCommand.Quit),
         }),
@@ -1128,15 +1192,18 @@ internal sealed class TuiEditor
         {
             new(loc["menu.undo"], 'U', "^Z", EditorCommand.Undo),
             new(loc["menu.redo"], 'R', "^Y", EditorCommand.Redo),
+            MenuItem.Separator,
             new(loc["menu.cut"], 'T', "^K", EditorCommand.CutLine),
             new(loc["menu.copy"], 'C', "^C", EditorCommand.CopyLine),
             new(loc["menu.paste"], 'P', "^U", EditorCommand.Paste),
             new(loc["menu.duplicate"], 'D', "^D", EditorCommand.DuplicateLine),
             new(loc["menu.togglecomment"], 'O', "Ctrl+/", EditorCommand.ToggleComment),
+            MenuItem.Separator,
             new(loc["menu.gobracket"], 'J', "Alt+]", EditorCommand.GoBracketMatch),
             new(loc["menu.find"], 'F', "^F", EditorCommand.Find),
             new(loc["menu.replace"], 'H', "^H", EditorCommand.Replace),
             new(loc["menu.goto"], 'G', "^G", EditorCommand.GoToLine),
+            MenuItem.Separator,
             new(loc["menu.trimtrail"], 'M', null, EditorCommand.TrimTrailing),
             new(loc["menu.selectall"], 'A', "^A", EditorCommand.SelectAll),
         }),
@@ -1196,6 +1263,16 @@ internal sealed class TuiEditor
                 }
                 _overwritePath = string.Empty;
                 ApplyPending();
+                return;
+            case (ModalKind.ReplaceConfirm, 0):
+                DoReplace(_pendingReplaceTerm, _pendingReplaceRep);
+                _pendingReplaceTerm = string.Empty;
+                _pendingReplaceRep = string.Empty;
+                return;
+            case (ModalKind.ReplaceConfirm, _):
+                _pendingReplaceTerm = string.Empty;
+                _pendingReplaceRep = string.Empty;
+                SetMessage(_loc["msg.cancelled"]);
                 return;
             case (ModalKind.Recent, var b):
                 OpenRecentPick(b);
@@ -1404,6 +1481,10 @@ internal sealed class TuiEditor
         SetMessage(_loc.Format(key, _lastSearch, idx, total));
     }
 
+    internal const int ReplaceConfirmThreshold = 50;
+
+    internal static bool ShouldConfirmReplace(int count) => count > ReplaceConfirmThreshold;
+
     /// <summary>Мгновенная замена по всему документу за один шаг undo.</summary>
     private void Replace()
     {
@@ -1415,6 +1496,20 @@ internal sealed class TuiEditor
         if (BadPattern(term)) return;
         _lastSearch = term;
         _lastReplace = rep;
+        int n = _buf.CountMatches(term,
+            _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex);
+        if (ShouldConfirmReplace(n))
+        {
+            _pendingReplaceTerm = term;
+            _pendingReplaceRep = rep;
+            _dialog = new ModalDialog(ModalState.ConfirmReplace(_loc, term, n), ApplyModalOutcome);
+            return;
+        }
+        DoReplace(term, rep);
+    }
+
+    private void DoReplace(string term, string rep)
+    {
         int n = _buf.ReplaceAll(term, rep, 0, 0,
             _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex);
         ClampCursor();
@@ -1543,20 +1638,21 @@ internal sealed class TuiEditor
 
     private string? Prompt(string title, string initial, bool liveHighlight = false, bool showOptions = false)
     {
-        var input = initial ?? string.Empty;
-        int pos = input.Length;
+        var field = new LineField();
+        field.Set(initial ?? string.Empty);
+        field.End(select: false);
         // Живая подсветка: превью-термин + ререндер на каждое нажатие (курсор не двигаем).
         void RefreshLive()
         {
             if (!liveHighlight)
                 return;
-            _liveSearch = input;
+            _liveSearch = field.Text;
             Render();
         }
         RefreshLive();
         while (true)
         {
-            DrawPrompt(title, input, pos, showOptions);
+            DrawPrompt(title, field.Text, field.Pos, showOptions);
             InputEvent ev;
             try
             {
@@ -1569,42 +1665,44 @@ internal sealed class TuiEditor
             }
             if (ev is PasteInput paste)
             {
-                string t = paste.Text.Replace("\r", "").Replace("\n", "");
-                input = input.Insert(pos, t);
-                pos += t.Length;
+                field.Insert(paste.Text.Replace("\r", "").Replace("\n", ""));
                 RefreshLive();
                 continue;
             }
             var k = ((KeyInput)ev).Key;
             bool ctrl = (k.Modifiers & ConsoleModifiers.Control) != 0;
             bool alt = (k.Modifiers & ConsoleModifiers.Alt) != 0;
+            bool shift = (k.Modifiers & ConsoleModifiers.Shift) != 0;
             if (showOptions && alt && !ctrl && ToggleSearchOption(k.Key))
             {
                 RefreshLive();
                 continue;
             }
-            if (ctrl) continue;
+            if (ctrl)
+            {
+                switch (k.Key)
+                {
+                    case ConsoleKey.LeftArrow: field.MoveWord(-1, shift); break;
+                    case ConsoleKey.RightArrow: field.MoveWord(1, shift); break;
+                    case ConsoleKey.Backspace: field.DeleteWord(-1); RefreshLive(); break;
+                    case ConsoleKey.Delete: field.DeleteWord(1); RefreshLive(); break;
+                }
+                continue;
+            }
             switch (k.Key)
             {
                 case ConsoleKey.Escape: _liveSearch = null; if (liveHighlight) Render(); return null;
-                case ConsoleKey.Enter: _liveSearch = null; return input;
-                case ConsoleKey.Backspace:
-                    if (pos > 0) { input = input.Remove(pos - 1, 1); pos--; }
-                    RefreshLive();
-                    break;
-                case ConsoleKey.Delete:
-                    if (pos < input.Length) input = input.Remove(pos, 1);
-                    RefreshLive();
-                    break;
-                case ConsoleKey.LeftArrow: if (pos > 0) pos--; break;
-                case ConsoleKey.RightArrow: if (pos < input.Length) pos++; break;
-                case ConsoleKey.Home: pos = 0; break;
-                case ConsoleKey.End: pos = input.Length; break;
+                case ConsoleKey.Enter: _liveSearch = null; return field.Text;
+                case ConsoleKey.Backspace: field.Backspace(); RefreshLive(); break;
+                case ConsoleKey.Delete: field.DeleteChar(); RefreshLive(); break;
+                case ConsoleKey.LeftArrow: field.Move(-1, shift); break;
+                case ConsoleKey.RightArrow: field.Move(1, shift); break;
+                case ConsoleKey.Home: field.Home(shift); break;
+                case ConsoleKey.End: field.End(shift); break;
                 default:
                     if (!char.IsControl(k.KeyChar))
                     {
-                        input = input.Insert(pos, k.KeyChar.ToString());
-                        pos++;
+                        field.Insert(k.KeyChar.ToString());
                         RefreshLive();
                     }
                     break;
@@ -1795,6 +1893,8 @@ internal sealed class TuiEditor
         }
         string left = string.IsNullOrEmpty(msg) ? $" {pos}" : $" {msg}";
         string file = _buf.FilePath is null ? _loc["status.noname"] : Path.GetFileName(_buf.FilePath);
+        if (_buf.IsReadOnly)
+            file += " " + _loc["status.readonly"];
         string right = $" {_buf.EncodingLabel} | {_buf.EndingLabel} | {_buf.IndentLabel} | {file} "
             + (_docs.Count > 1 ? $"| {_active + 1}/{_docs.Count} " : string.Empty)
             + (_panes.Count > 1 ? $"| P{_pane + 1}/{_panes.Count} " : string.Empty);
@@ -2211,6 +2311,11 @@ internal sealed class TuiEditor
         for (int i = 0; i < rows; i++)
         {
             MenuItem it = m.Items[i];
+            if (it.IsSeparator)
+            {
+                _screen.Text(x, y + 1 + i, "├" + new string('─', boxW - 2) + "┤", borderFg, borderBg);
+                continue;
+            }
             bool sel = i == _menu.SelectedIndex;
             (Rgb fg, Rgb bg) = sel
                 ? (_theme.DropSelFg, _theme.DropSelBg)

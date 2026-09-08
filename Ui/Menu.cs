@@ -3,7 +3,12 @@ namespace TuiEdit;
 /// <summary>Пункт выпадающего меню: подпись, хоткей (одиночная буква без Enter), текст глобального шортката справа и команда.</summary>
 /// <remarks>Устройство повторяет MS Edit: пункт срабатывает по клику, хоткею
 /// или глобальному шорткату (<c>draw_menubar.rs</c> в microsoft/edit).</remarks>
-public sealed record MenuItem(string Label, char Hotkey, string? Shortcut, EditorCommand Command);
+public sealed record MenuItem(string Label, char Hotkey, string? Shortcut, EditorCommand Command)
+{
+    public static MenuItem Separator => new(string.Empty, '\0', null, EditorCommand.None);
+
+    public bool IsSeparator => Label.Length == 0;
+}
 
 public sealed record TopMenu(string Label, char Hotkey, List<MenuItem> Items);
 
@@ -28,22 +33,38 @@ public sealed class MenuState
 
     public MenuItem Selected => Current.Items[SelectedIndex];
 
-    /// <summary>Раскрыть меню (выбор сбрасывается на первый пункт).</summary>
+    /// <summary>Раскрыть меню (выбор — на первый невырожденный пункт).</summary>
     public void Open(int index)
     {
         OpenIndex = Math.Clamp(index, 0, Menus.Count - 1);
         SelectedIndex = 0;
+        if (Current.Items[0].IsSeparator)
+            MoveDown();
     }
 
-    /// <summary>Выбор вверх с зацикливанием.</summary>
+    /// <summary>Выбор вверх с зацикливанием (разделители пропускаем).</summary>
     public void MoveUp()
     {
         int n = Current.Items.Count;
-        SelectedIndex = (SelectedIndex - 1 + n) % n;
+        for (int i = 0; i < n; i++)
+        {
+            SelectedIndex = (SelectedIndex - 1 + n) % n;
+            if (!Current.Items[SelectedIndex].IsSeparator)
+                return;
+        }
     }
 
-    /// <summary>Выбор вниз с зацикливанием.</summary>
-    public void MoveDown() => SelectedIndex = (SelectedIndex + 1) % Current.Items.Count;
+    /// <summary>Выбор вниз с зацикливанием (разделители пропускаем).</summary>
+    public void MoveDown()
+    {
+        int n = Current.Items.Count;
+        for (int i = 0; i < n; i++)
+        {
+            SelectedIndex = (SelectedIndex + 1) % n;
+            if (!Current.Items[SelectedIndex].IsSeparator)
+                return;
+        }
+    }
 
     /// <summary>Переход к соседнему меню влево (выбор сбрасывается).</summary>
     public void MoveLeft() => Open((OpenIndex - 1 + Menus.Count) % Menus.Count);
@@ -55,7 +76,7 @@ public sealed class MenuState
     public MenuItem? FindItemByHotkey(char ch)
     {
         char c = char.ToUpperInvariant(ch);
-        return Current.Items.FirstOrDefault(i => char.ToUpperInvariant(i.Hotkey) == c);
+        return Current.Items.FirstOrDefault(i => !i.IsSeparator && char.ToUpperInvariant(i.Hotkey) == c);
     }
 
     /// <summary>Индекс меню бара по хоткею (без учёта регистра) или -1.</summary>

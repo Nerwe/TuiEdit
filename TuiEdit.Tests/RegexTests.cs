@@ -93,4 +93,12 @@ public sealed class RegexTests
         Assert.Equal(7, SettingsDialogState.RowCount);
         Assert.False(new AppSettings().SearchUseRegex);
     }
+
+    [Fact]
+    public void ReplaceConfirmThreshold()
+    {
+        Assert.Equal(50, TuiEditor.ReplaceConfirmThreshold);
+        Assert.False(TuiEditor.ShouldConfirmReplace(50));
+        Assert.True(TuiEditor.ShouldConfirmReplace(51));
+    }
 }

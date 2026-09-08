@@ -6,10 +6,10 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 ## Features
 
 - Editing: undo/redo (per keystroke and per block), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), toggle line comment (`Ctrl+/`), matching-bracket highlight and jump (`Alt+]`), move lines (`Alt+↑/↓`), word-wise delete/move, trim trailing whitespace.
-- Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, match case / whole words / regex toggles right in the prompt (`Alt+C/W/R`). Instant whole-document replace (`^H`) in a single undo step.
+- Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, match case / whole words / regex toggles right in the prompt (`Alt+C/W/R`). Instant whole-document replace (`^H`) in a single undo step, with confirmation past 50 matches.
 - Syntax highlighting from JSON grammars (C#, Python, JavaScript/TypeScript, JSON, Markdown, PowerShell, XML, INI built in). On first run the grammars are extracted to the `grammars` folder next to `settings.json` — edit them to customize, drop in your own.
-- File manager for Open/Save as: drives, `..`, file highlight, overwrite confirmation in a separate window. Name field: selection (`Shift`), word-wise motion (`Ctrl+arrows`), `Alt+←/→` navigation.
-- Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save; all three are switched in the File format dialog (`F9`, shown in the status bar).
+- File manager for Open/Save as: drives, `..`, file highlight with sizes, overwrite confirmation in a separate window. `F7` new folder, `F8` delete (with confirmation, recursive), `Ctrl+H` hidden files. Name field and Find/Replace/GoTo prompts share one line editor: selection (`Shift`), word-wise motion (`Ctrl+arrows`), word delete (`Ctrl+BS/Del`), `Alt+←/→` navigation in the manager.
+- Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save; all three are switched in the File format dialog (`F9`, shown in the status bar). Read-only files are flagged `[read-only]` and refuse to save.
 - `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), indent guides, help screen (`F1`).
 - Optional session restore: reopen the previous tabs with cursor positions when started without arguments (off by default, toggle in Settings).
 - File panel (`Ctrl+B`): fixed-width sidebar with the current folder, arrows to select, `Enter` to open, `Esc` back to text. Entries are color-coded: dirs, `..`, hidden and executables.
@@ -21,6 +21,7 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 
 ```text
 ^S save (asks for name if new)   Ctrl+Shift+S save as   ^Q quit
+File menu — Save all, File format (`F9`)
 ^F find       F3 next / Shift+F3 prev   ^H replace   ^G go to line
   (in Find: Alt+C match case, Alt+W whole words, Alt+R regex)
 ^K cut line  ^U/^V paste  ^C copy line  ^D duplicate
@@ -67,7 +68,8 @@ Full list: `tui-edit --help` or `F1` in the editor.
 dotnet run                          # Debug run
 dotnet test                         # xUnit tests (TuiEdit.Tests)
 dotnet build -c Release              # build to bin/Release/net10.0/
-tui-edit [file]                     # open a file (or an empty document)
+tui-edit [file]                 # open a file (or an empty document)
+tui-edit file:120               # open at line 120 (:$ goes to the end)
 tui-edit --help | --version
 ```
 
@@ -183,6 +185,8 @@ times out safely.
 ```text
 Program.cs            entry, --help/--version, editor startup
 Core/TextBuffer.cs    buffer: lines, undo/redo, find/replace, encodings
+Core/LineField.cs     single-line field: text, cursor, selection (prompts, picker)
+Core/CliArgs.cs       CLI file:line parsing
 Core/DocTab.cs        tab: buffer + view state (cursor, scroll, selection)
 Core/Pane.cs          split pane: own tabs, active tab, tab scroll
 Core/Grammar.cs       syntax grammars: seeded folder, JSON plugins + registry

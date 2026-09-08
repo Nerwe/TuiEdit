@@ -16,6 +16,7 @@ GrammarRegistry.EnsureLoaded(settingsDir is not null
     : GrammarRegistry.DefaultDir());
 
 string? file = null;
+int gotoLine = 0;
 foreach (string a in args)
 {
     switch (a)
@@ -43,6 +44,7 @@ foreach (string a in args)
             Console.WriteLine(loc["help.k14"]);
             Console.WriteLine(loc["help.k15"]);
             Console.WriteLine(loc["help.k16"]);
+            Console.WriteLine(loc["help.k17"]);
             Console.WriteLine();
             Console.WriteLine(loc["help.status"]);
             Console.WriteLine(loc.Format("help.config", ShortenHome(store.Path)));
@@ -53,7 +55,8 @@ foreach (string a in args)
         case ['-', ..]:
             break;
         default:
-            file ??= a;
+            if (file is null)
+                (file, gotoLine) = CliArgs.SplitFileLine(a);
             break;
     }
 }
@@ -70,6 +73,8 @@ var buffer = new TextBuffer(file);
 var editor = new TuiEditor(buffer, settings, store);
 if (file is null)
     editor.RestoreSessionTabs();
+else if (gotoLine > 0)
+    editor.GoToLineNumber(gotoLine);
 editor.Run();
 return 0;
 

@@ -8,6 +8,8 @@ internal sealed class FileDialog : Dialog
     private readonly string _saveTitle;
     private int _cursorX = -1;
     private int _cursorY = -1;
+    private string? _pendingDelete;
+    private int _pendingCount;
 
     public FileDialog(FilePickerState state, string openTitle, string saveTitle)
     {
@@ -76,10 +78,15 @@ internal sealed class FileDialog : Dialog
                         ? (e.Name == ".." ? theme.PickerUpFg : theme.PickerDirFg, bg)
                         : (theme.PickerFileFg, bg);
                 string label = e.DisplayName;
-                if (label.Length > inner)
-                    label = label[..Math.Max(0, inner)];
+                string size = e.IsDir ? string.Empty : FormatSize(e.Size);
+                int room = inner - (size.Length > 0 ? size.Length + 1 : 0);
+                if (label.Length > room)
+                    label = label[..Math.Max(0, room)];
                 screen.Text(x0, yy, "│", fg, bg);
-                screen.Text(x0 + 1, yy, label.PadRight(inner)[..inner], efg, ebg);
+                screen.Text(x0 + 1, yy, label.PadRight(room)[..Math.Max(0, room)], efg, ebg);
+                if (size.Length > 0)
+                    screen.Text(x0 + 1 + room + 1, yy, size,
+                        sel ? efg : theme.PickerHintFg, ebg);
                 screen.Text(x0 + bw - 1, yy, "│", fg, bg);
             }
             else
@@ -91,11 +98,38 @@ internal sealed class FileDialog : Dialog
             }
         }
 
-        string hint = loc["picker.hint"];
-        screen.Text(x0, y0 + bh - 2, "│" + CenterPad(hint, inner)[..inner] + "│", theme.PickerHintFg, bg);
+        string hint;
+        Rgb hintFg = theme.PickerHintFg;
+        if (_pendingDelete is not null)
+        {
+            string count = _pendingCount > 1000 ? "1000+"
+                : _pendingCount == 1 ? loc["modal.delete.one"]
+                : $"{_pendingCount} {loc["modal.delete.many"]}";
+            hint = loc.Format("modal.delete.confirm", _pendingDelete, count);
+            hintFg = theme.PickerErrorFg;
+        }
+        else if (_state.NoticeKey is string nk)
+        {
+            hint = loc[nk];
+            hintFg = theme.PickerErrorFg;
+        }
+        else
+        {
+            hint = loc["picker.hint"];
+        }
+        screen.Text(x0, y0 + bh - 2, "│" + CenterPad(hint, inner)[..inner] + "│", hintFg, bg);
     }
 
     public override (int x, int y)? Cursor => _cursorX >= 0 ? (_cursorX, _cursorY) : null;
+
+    private static string FormatSize(long n) => n switch
+    {
+        < 0 => string.Empty,
+        < 1024 => $"{n}",
+        < 1024 * 1024 => $"{n / 1024}K",
+        < 1024L * 1024 * 1024 => $"{n / (1024 * 1024)}M",
+        _ => $"{n / (1024L * 1024 * 1024)}G",
+    };
 
     public override void Paste(string text) =>
         _state.InsertName(text.Replace("\r", "").Replace("\n", ""));
@@ -103,6 +137,22 @@ internal sealed class FileDialog : Dialog
     public override void HandleKey(ConsoleKeyInfo key)
     {
         var k = key;
+        if (_pendingDelete is not null)
+        {
+            // Взведённое удаление: Y/Enter — удалить, всё остальное — отмена.
+            if (k.Key == ConsoleKey.Y && (k.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) == 0
+                || k.Key == ConsoleKey.Enter)
+            {
+                string target = _pendingDelete;
+                _pendingDelete = null;
+                _state.DeletePath(target);
+            }
+            else
+            {
+                _pendingDelete = null;
+            }
+            return;
+        }
         bool shift = (k.Modifiers & ConsoleModifiers.Shift) != 0;
         bool alt = (k.Modifiers & ConsoleModifiers.Alt) != 0;
         if (alt && (k.Modifiers & ConsoleModifiers.Control) == 0)
@@ -124,6 +174,7 @@ internal sealed class FileDialog : Dialog
                 case ConsoleKey.RightArrow: _state.MoveNameWord(1, shift); break;
                 case ConsoleKey.Backspace: _state.DeleteNameWord(-1); break;
                 case ConsoleKey.Delete: _state.DeleteNameWord(1); break;
+                case ConsoleKey.H: _state.ShowHidden = !_state.ShowHidden; _state.Refresh(); break;
             }
             return;
         }
@@ -133,6 +184,22 @@ internal sealed class FileDialog : Dialog
         switch (k.Key)
         {
             case ConsoleKey.Escape: Closed = true; return;
+            case ConsoleKey.F7:
+                _state.NoticeKey = _state.MakeDir(_state.Name) switch
+                {
+                    "ok" => null,
+                    "empty" => "picker.mkdir.empty",
+                    "exists" => "picker.mkdir.exists",
+                    _ => null, // error — текст уже в Error
+                };
+                return;
+            case ConsoleKey.F8:
+                string? target = _state.DeleteTarget();
+                if (target is null)
+                    return;
+                _pendingDelete = target;
+                _pendingCount = FilePickerState.CountItems(target);
+                return;
             case ConsoleKey.UpArrow: p.MoveHighlight(-1); break;
             case ConsoleKey.DownArrow: p.MoveHighlight(1); break;
             case ConsoleKey.PageUp: p.MoveHighlight(-10); break;

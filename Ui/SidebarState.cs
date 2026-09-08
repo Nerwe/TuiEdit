@@ -67,16 +67,22 @@ public sealed class SidebarState
     internal static SidebarEntry Classify(string fullPath, bool isDir)
     {
         string name = Path.GetFileName(fullPath);
-        bool hidden = name.StartsWith('.');
+        bool exe = !isDir && ExeExtensions.Contains(Path.GetExtension(name));
+        return new SidebarEntry(name, isDir, IsHidden(fullPath), exe);
+    }
+
+    internal static bool IsHidden(string fullPath)
+    {
+        if (Path.GetFileName(fullPath).StartsWith('.'))
+            return true;
         try
         {
-            hidden |= (File.GetAttributes(fullPath) & FileAttributes.Hidden) != 0;
+            return (File.GetAttributes(fullPath) & FileAttributes.Hidden) != 0;
         }
         catch
         {
+            return false;
         }
-        bool exe = !isDir && ExeExtensions.Contains(Path.GetExtension(name));
-        return new SidebarEntry(name, isDir, hidden, exe);
     }
 
     /// <summary>Двинуть подсветку (видимое окно держим через visCount).</summary>

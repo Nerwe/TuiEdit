@@ -167,10 +167,22 @@ public sealed class DialogTests : IDisposable
     }
 
     [Fact]
+    public void ConfirmReplaceShape()
+    {
+        var m = ModalState.ConfirmReplace(_loc, "foo", 60);
+        Assert.Equal(ModalKind.ReplaceConfirm, m.Kind);
+        Assert.True(m.Danger);
+        Assert.Equal(2, m.Buttons.Count);
+        Assert.Equal('Y', m.Buttons[0].Hotkey);
+        Assert.Equal('N', m.Buttons[1].Hotkey);
+        Assert.Contains("60", m.Lines[0]);
+    }
+
+    [Fact]
     public void HelpDialogStructureAndScroll()
     {
         var hd = new HelpDialog(_loc);
-        Assert.Equal(23, hd.TotalRows); // 7 заголовков + 16 строк, без футера
+        Assert.Equal(24, hd.TotalRows); // 7 заголовков + 17 строк, без футера
         Assert.Equal(0, hd.Scroll);
         hd.HandleKey(K('\0', ConsoleKey.DownArrow));
         Assert.Equal(1, hd.Scroll);
@@ -180,7 +192,7 @@ public sealed class DialogTests : IDisposable
         small.Resize(96, 12);
         hd.HandleKey(K('\0', ConsoleKey.End));
         hd.Draw(small, _theme, _loc);
-        Assert.Equal(23 - hd.VisibleRows(12), hd.Scroll); // кламп к низу
+        Assert.Equal(24 - hd.VisibleRows(12), hd.Scroll); // кламп к низу
         hd.HandleKey(K('\0', ConsoleKey.Home));
         hd.Draw(small, _theme, _loc);
         Assert.Equal(0, hd.Scroll);

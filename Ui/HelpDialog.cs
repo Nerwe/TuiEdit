@@ -22,7 +22,7 @@ internal sealed class HelpDialog : Dialog
             (loc["help.sec.nav"], new List<string> { loc["help.k6"], loc["help.k7"] }),
             (loc["help.sec.menu"], new List<string> { loc["help.k9"] }),
             (loc["help.sec.view"], new List<string> { loc["help.k11"], loc["help.k13"], loc["help.k14"], loc["help.k15"], loc["help.k16"] }),
-            (loc["help.sec.manager"], new List<string> { loc["help.k10"], loc["help.k12"] }),
+            (loc["help.sec.manager"], new List<string> { loc["help.k10"], loc["help.k17"], loc["help.k12"] }),
         };
         _total = _sections.Sum(s => 1 + s.rows.Count);
     }

@@ -16,6 +16,7 @@ public enum EditorCommand
     /// </summary>
     Save,
     SaveAs,
+    SaveAll,
     FileFormat,
     TrimTrailing,
     /// <summary>Выход (с подтверждением при несохранённых изменениях).</summary>

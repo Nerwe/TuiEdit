@@ -68,6 +68,9 @@ internal sealed class TextBuffer
 
     public string GetLine(int row) => Lines[row];
 
+    /// <summary>Файл только для чтения (атрибут). Проверяется при открытии; Save смотрит живьём.</summary>
+    public bool IsReadOnly { get; private set; }
+
     /// <summary>
     /// Открывает файл в буфер: определяет BOM/кодировку, переводы строк и отступ.
     /// Несуществующий путь даёт пустой документ с этим именем.
@@ -86,6 +89,7 @@ internal sealed class TextBuffer
             lines.Add(string.Empty);
         Lines = lines;
         DetectIndent(lines);
+        IsReadOnly = IsReadOnlyPath(path);
         _undo.Clear();
         _redo.Clear();
         Version++;
@@ -101,6 +105,18 @@ internal sealed class TextBuffer
             [0xFE, 0xFF, ..] => (Encoding.BigEndianUnicode, "UTF-16 BE"),
             _ => (new UTF8Encoding(false), "UTF-8"),
         };
+    }
+
+    private static bool IsReadOnlyPath(string path)
+    {
+        try
+        {
+            return File.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReadOnly) != 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void DetectLineEnding(string text)
@@ -172,6 +188,7 @@ internal sealed class TextBuffer
         EncodingLabel = "UTF-8";
         Ending = DefaultEnding();
         IndentString = "    ";
+        IsReadOnly = false;
         _undo.Clear();
         _redo.Clear();
         Version++;
@@ -205,6 +222,8 @@ internal sealed class TextBuffer
     {
         string target = path ?? FilePath
             ?? throw new InvalidOperationException("NoFileName");
+        if (IsReadOnlyPath(target))
+            throw new InvalidOperationException("ReadOnly");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(target)) ?? ".");
         if (backup is not null && File.Exists(target))
         {

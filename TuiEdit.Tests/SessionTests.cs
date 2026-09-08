@@ -1,3 +1,4 @@
+using System.Reflection;
 using TuiEdit;
 using Xunit;
 
@@ -27,6 +28,26 @@ public sealed class SessionTests : IDisposable
         string p = Path.Combine(_dir, name);
         File.WriteAllLines(p, lines);
         return p;
+    }
+
+    [Fact]
+    public void SaveAllSavesNamedSkipsUnnamed()
+    {
+        string f1 = WriteFile("one.txt", "one");
+        var buf1 = new TextBuffer(f1);
+        buf1.InsertChar(0, 0, 'X');
+        var settings = new AppSettings();
+        var ed = new TuiEditor(buf1, settings,
+            new SettingsStore(Path.Combine(_dir, "settings.json")));
+        ed.NewTab();
+        var active = (TextBuffer)typeof(TuiEditor).GetProperty("_buf",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
+        active.InsertChar(0, 0, 'Y');
+        ed.SaveAll();
+        Assert.StartsWith("Xone", File.ReadAllText(f1));
+        Assert.False(buf1.IsModified);
+        Assert.True(active.IsModified);
+        Assert.Equal(2, ed.TabCount);
     }
 
     [Fact]

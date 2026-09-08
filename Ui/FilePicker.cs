@@ -9,8 +9,8 @@ public enum PickerMode
     Save,
 }
 
-/// <summary>Запись каталога: имя (без слэша) и признак папки.</summary>
-public sealed record PickerEntry(string Name, bool IsDir)
+/// <summary>Запись каталога: имя (без слэша), признак папки и размер файла (-1 — папка/неизвестен).</summary>
+public sealed record PickerEntry(string Name, bool IsDir, long Size = -1)
 {
     /// <summary>Имя для показа: папки со слэшем (кроме ..).</summary>
     public string DisplayName =>
@@ -43,6 +43,9 @@ public sealed class FilePickerState
     /// <summary>Текущий каталог; "" — диски (подпись маппит вызывающий через Loc).</summary>
     public string CurrentDir { get; private set; }
 
+    /// <summary>Показывать скрытые файлы.</summary>
+    public bool ShowHidden { get; set; } = true;
+
     /// <summary>Записи каталога: .., папки, файлы.</summary>
     public List<PickerEntry> Entries { get; private set; } = new();
 
@@ -53,33 +56,33 @@ public sealed class FilePickerState
     public int Top { get; private set; }
 
     /// <summary>Поле имени (в Open — и выбор подсвеченного).</summary>
-    public string Name { get; private set; }
+    public string Name => _name.Text;
 
     /// <summary>Курсор в поле имени.</summary>
-    public int NamePos { get; private set; }
+    public int NamePos => _name.Pos;
 
     /// <summary>Якорь выделения в поле имени (null — нет выделения).</summary>
-    public int? NameAnchor { get; private set; }
+    public int? NameAnchor => _name.Anchor;
 
     /// <summary>Есть ли невырожденное выделение.</summary>
-    public bool HasNameSelection => NameAnchor is int a && a != NamePos;
+    public bool HasNameSelection => _name.HasSelection;
 
     /// <summary>Границы выделения (a==b — нет).</summary>
-    public void GetNameSelection(out int a, out int b)
-    {
-        int anchor = NameAnchor ?? NamePos;
-        a = Math.Min(anchor, NamePos);
-        b = Math.Max(anchor, NamePos);
-    }
+    public void GetNameSelection(out int a, out int b) => _name.GetSelection(out a, out b);
 
     /// <summary>Снять выделение.</summary>
-    public void ClearNameSelection() => NameAnchor = null;
+    public void ClearNameSelection() => _name.ClearSelection();
+
+    private readonly LineField _name = new();
 
     /// <summary>Имя как его оставил последний синк (для отличия ручного ввода).</summary>
     private string _syncedName = string.Empty;
 
     /// <summary>Ошибка чтения каталога (код BadPath маппится через Loc).</summary>
     public string? Error { get; private set; }
+
+    /// <summary>Ключ локализованного уведомления для строки хинта (сбрасывается при Refresh).</summary>
+    public string? NoticeKey { get; set; }
 
     /// <param name="mode">Режим.</param>
     /// <param name="startDir">Стартовый каталог ("" — диски на Windows).</param>
@@ -88,8 +91,8 @@ public sealed class FilePickerState
     {
         Mode = mode;
         CurrentDir = startDir ?? string.Empty;
-        Name = initialName ?? string.Empty;
-        NamePos = Name.Length;
+        _name.Set(initialName ?? string.Empty);
+        _name.End(select: false);
         _syncedName = Name;
         Refresh();
     }
@@ -98,6 +101,7 @@ public sealed class FilePickerState
     public void Refresh()
     {
         Error = null;
+        NoticeKey = null;
         var up = new List<PickerEntry>();
         var dirs = new List<PickerEntry>();
         var files = new List<PickerEntry>();
@@ -113,9 +117,25 @@ public sealed class FilePickerState
                 if (CanGoUp())
                     up.Add(new PickerEntry("..", true));
                 foreach (string d in Directory.GetDirectories(CurrentDir))
+                {
+                    if (!ShowHidden && SidebarState.IsHidden(d))
+                        continue;
                     dirs.Add(new PickerEntry(BaseName(d), true));
+                }
                 foreach (string f in Directory.GetFiles(CurrentDir))
-                    files.Add(new PickerEntry(Path.GetFileName(f), false));
+                {
+                    if (!ShowHidden && SidebarState.IsHidden(f))
+                        continue;
+                    long size = -1;
+                    try
+                    {
+                        size = new FileInfo(f).Length;
+                    }
+                    catch
+                    {
+                    }
+                    files.Add(new PickerEntry(Path.GetFileName(f), false, size));
+                }
             }
         }
         catch (Exception ex)
@@ -182,97 +202,33 @@ public sealed class FilePickerState
 
     private void SetName(string name)
     {
-        Name = name;
-        NamePos = Math.Clamp(NamePos, 0, Name.Length);
-        NameAnchor = null;
+        _name.Set(name);
         _syncedName = name;
     }
 
-    /// <summary>Стереть выделение (true если было).</summary>
-    private bool DeleteNameSelection()
-    {
-        if (!HasNameSelection)
-            return false;
-        GetNameSelection(out int a, out int b);
-        Name = Name.Remove(a, b - a);
-        NamePos = a;
-        NameAnchor = null;
-        return true;
-    }
-
     /// <summary>Ввод в поле имени (поверх выделения).</summary>
-    public void InsertName(string text)
-    {
-        if (string.IsNullOrEmpty(text))
-            return;
-        DeleteNameSelection();
-        Name = Name.Insert(NamePos, text);
-        NamePos += text.Length;
-    }
+    public void InsertName(string text) => _name.Insert(text);
 
     /// <summary>Backspace только по тексту; в начале поля — ничего (вверх — Alt+←).</summary>
-    public void Backspace()
-    {
-        if (DeleteNameSelection())
-            return;
-        if (NamePos > 0)
-        {
-            Name = Name.Remove(NamePos - 1, 1);
-            NamePos--;
-        }
-    }
+    public void Backspace() => _name.Backspace();
 
     /// <summary>Delete в поле имени (сначала выделение).</summary>
-    public void DeleteChar()
-    {
-        if (DeleteNameSelection())
-            return;
-        if (NamePos < Name.Length)
-            Name = Name.Remove(NamePos, 1);
-    }
+    public void DeleteChar() => _name.DeleteChar();
 
     /// <summary>Удаление слова до/после курсора (как Ctrl+BS/Del в редакторе).</summary>
-    public void DeleteNameWord(int dir)
-    {
-        if (DeleteNameSelection())
-            return;
-        if (dir < 0)
-        {
-            int to = WordMotion.Backward(Name, NamePos);
-            Name = Name.Remove(to, NamePos - to);
-            NamePos = to;
-        }
-        else
-        {
-            int to = WordMotion.Forward(Name, NamePos);
-            Name = Name.Remove(NamePos, to - NamePos);
-        }
-    }
+    public void DeleteNameWord(int dir) => _name.DeleteWord(dir);
 
     /// <summary>Стрелки в поле имени (select — с выделением).</summary>
-    public void MoveNameCursor(int delta, bool select) => MoveNamePos(NamePos + delta, select);
+    public void MoveNameCursor(int delta, bool select) => _name.Move(delta, select);
 
     /// <summary>В начало/конец поля (select — с выделением).</summary>
-    public void HomeName(bool select) => MoveNamePos(0, select);
+    public void HomeName(bool select) => _name.Home(select);
 
     /// <summary>В начало/конец поля (select — с выделением).</summary>
-    public void EndName(bool select) => MoveNamePos(Name.Length, select);
+    public void EndName(bool select) => _name.End(select);
 
     /// <summary>По словам как Ctrl+стрелки в редакторе (select — с выделением).</summary>
-    public void MoveNameWord(int dir, bool select) =>
-        MoveNamePos(dir < 0 ? WordMotion.Backward(Name, NamePos) : WordMotion.Forward(Name, NamePos), select);
-
-    private void MoveNamePos(int pos, bool select)
-    {
-        pos = Math.Clamp(pos, 0, Name.Length);
-        if (select)
-            NameAnchor ??= NamePos; // якорь в точке старта
-        else
-            NameAnchor = null;
-        NamePos = pos;
-        if (NameAnchor == NamePos)
-            NameAnchor = null; // схлопнулось
-    }
+    public void MoveNameWord(int dir, bool select) => _name.MoveWord(dir, select);
 
     /// <summary>Вверх: родитель или диски (Windows).</summary>
     public void UpDir()
@@ -306,7 +262,7 @@ public sealed class FilePickerState
         }
         Selected = 0;
         Top = 0;
-        NameAnchor = null; // контекст сменился
+        _name.ClearSelection(); // контекст сменился
         Refresh();
     }
 
@@ -377,9 +333,7 @@ public sealed class FilePickerState
         if (Directory.Exists(full))
         {
             NavigateTo(full);
-            Name = string.Empty;
-            NamePos = 0;
-            NameAnchor = null;
+            _name.Set(string.Empty);
             return (PickerEnterResult.Navigated, null);
         }
         return (PickerEnterResult.Accepted, full);
@@ -441,5 +395,84 @@ public sealed class FilePickerState
         {
             Error = "BadPath";
         }
+    }
+
+    /// <summary>Создать подпапку из имени: ok / empty / exists / error (ошибка — в Error).</summary>
+    public string MakeDir(string? name)
+    {
+        string? full = ResolveName(name ?? Name);
+        if (full is null)
+            return "empty";
+        try
+        {
+            if (Directory.Exists(full) || File.Exists(full))
+                return "exists";
+            Directory.CreateDirectory(full);
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+            return "error";
+        }
+        Refresh();
+        return "ok";
+    }
+
+    /// <summary>Цель удаления: подсвеченная запись (не .., не корень дисков).</summary>
+    public string? DeleteTarget()
+    {
+        if (CurrentDir == "")
+            return null;
+        PickerEntry? h = Highlighted();
+        if (h is null || h.Name == "..")
+            return null;
+        try
+        {
+            return Path.Combine(CurrentDir, EntryBaseName(h));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Число объектов для confirm (файл — 1; стоп на 1001).</summary>
+    public static int CountItems(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                return 1;
+            if (!Directory.Exists(path))
+                return 0;
+            int n = 0;
+            foreach (string _ in Directory.EnumerateFileSystemEntries(path, "*", SearchOption.AllDirectories))
+                if (++n > 1000)
+                    return 1001;
+            return n;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>Удалить файл/каталог рекурсивно (Refresh; ошибка — в Error).</summary>
+    public bool DeletePath(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+            else if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+            return false;
+        }
+        Refresh();
+        return true;
     }
 }
