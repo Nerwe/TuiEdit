@@ -23,7 +23,6 @@ public sealed class RecentBackupTests
         Assert.Equal(2, s.RecentFiles.Count);
         for (int i = 0; i < 25; i++) s.TouchRecent($"f{i}.txt");
         Assert.Equal(AppSettings.MaxRecentFiles, s.RecentFiles.Count);
-        Assert.Equal(20, AppSettings.MaxRecentFiles);
         Assert.EndsWith("f24.txt", s.RecentFiles[0]);
         Assert.True(Path.IsPathFullyQualified(s.RecentFiles[0]));
     }
@@ -139,14 +138,5 @@ public sealed class RecentBackupTests
         ms.HandleKey(Arrow(ConsoleKey.Home));
         Assert.Equal(0, ms.Selected);
         Assert.Equal(0, ms.ButtonTop);
-    }
-
-    [Fact]
-    public void MruDefaults()
-    {
-        Assert.Equal(9, SettingsDialogState.RowCount);
-        var s = new AppSettings();
-        Assert.False(s.BackupOnSave);
-        Assert.Empty(s.RecentFiles);
     }
 }

@@ -88,13 +88,6 @@ public sealed class RegexTests
     }
 
     [Fact]
-    public void RegexDefaults()
-    {
-        Assert.Equal(9, SettingsDialogState.RowCount);
-        Assert.False(new AppSettings().SearchUseRegex);
-    }
-
-    [Fact]
     public void ReplaceConfirmThreshold()
     {
         Assert.Equal(50, TuiEditor.ReplaceConfirmThreshold);

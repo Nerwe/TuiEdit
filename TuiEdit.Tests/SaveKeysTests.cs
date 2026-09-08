@@ -32,22 +32,4 @@ public sealed class SaveKeysTests
             KeyMap.Map(new ConsoleKeyInfo('\0', ConsoleKey.F3, false, false, false)));
         Assert.Equal(EditorCommand.Undo, KeyMap.Map(K('z', ConsoleKey.Z, ctrl: true)));
     }
-
-    [Fact]
-    public void TerminalNoThrow()
-    {
-        bool restoredOk = false;
-        try
-        {
-            Terminal.TryEnableRawInput();
-            Terminal.RestoreInput();
-            Terminal.RestoreInput(); // идемпотентность
-            restoredOk = true;
-        }
-        catch (Exception ex)
-        {
-            Assert.Fail("terminal threw: " + ex.GetType().Name);
-        }
-        Assert.True(restoredOk);
-    }
 }

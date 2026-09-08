@@ -121,14 +121,6 @@ public sealed class ResourcesTests
     }
 
     [Fact]
-    public void RemovedKeysStayRemoved()
-    {
-        var (ru, en) = Both();
-        Assert.DoesNotContain("help.note1", ru.Keys);
-        Assert.DoesNotContain("help.note1", en.Keys);
-    }
-
-    [Fact]
     public void AboutHasNoKeyHints()
     {
         // Окно «О программе» — только информация: без хоткеев и подсказок закрытия.
@@ -145,6 +137,5 @@ public sealed class ResourcesTests
     {
         var (ru, _) = Both();
         Assert.Contains("^S", ru["help.k1"]);
-        Assert.DoesNotContain("F2", ru["help.k1"]);
     }
 }

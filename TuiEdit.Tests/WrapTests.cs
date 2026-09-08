@@ -82,11 +82,30 @@ public sealed class WrapTests
     public void ViewDefaults()
     {
         Assert.Equal(9, SettingsDialogState.RowCount);
+    }
+
+    [Fact]
+    public void AppDefaults()
+    {
         var s = new AppSettings();
+        Assert.Equal("en", s.Language);
+        Assert.Equal("dark", s.Theme);
+        Assert.Equal("auto", s.Grammar);
+        Assert.True(s.SearchMatchCase);
+        Assert.False(s.SearchWholeWord);
+        Assert.False(s.SearchUseRegex);
         Assert.True(s.ShowLineNumbers);
         Assert.True(s.ShowIndentGuides);
         Assert.False(s.ShowWhitespace);
         Assert.False(s.WordWrap);
+        Assert.False(s.BackupOnSave);
+        Assert.False(s.RestoreSession);
+        Assert.Equal(0, s.RulerColumn);
+        Assert.Empty(s.RecentFiles);
+        Assert.Empty(s.SessionTabs);
+        Assert.Empty(s.Themes);
+        Assert.Equal(20, AppSettings.MaxRecentFiles);
+        Assert.Equal(20, AppSettings.MaxSessionTabs);
     }
 
     [Fact]

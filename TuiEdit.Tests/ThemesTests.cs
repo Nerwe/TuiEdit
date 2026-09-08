@@ -164,7 +164,6 @@ public sealed class ThemesTests : IDisposable
     public void RulerRole()
     {
         var s = new AppSettings();
-        Assert.Equal(0, s.RulerColumn);
         Assert.Equal(Themes.Dark.RulerBg, ThemeCatalog.Resolve(s, "dark").RulerBg);
         s.Themes.Add(new ThemeScheme
         {
