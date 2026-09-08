@@ -134,6 +134,7 @@
   "error.readonly": "File is read-only.",
   "error.smallwindow": "Window too small for the editor.",
   "error.interactive": "TuiEdit needs an interactive console (input/output redirected).",
+  "error.crash": "Unexpected error. Unsaved changes were dumped to drafts ({0}).",
 
   "help.title": "TuiEdit — a simple TUI text editor (MS Edit / nano style).",
   "help.usage": "Usage:",

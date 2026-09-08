@@ -101,7 +101,16 @@ Editable from the settings dialog in the File menu, applied and saved immediatel
 With `BackupOnSave` on, every save keeps a versioned copy of the previous
 content in the `backups` folder next to `settings.json` — never next to your
 files. Up to 5 recent copies per file are kept, copies older than 7 days are
-pruned on startup.
+pruned on startup. Saves are atomic (temp file + rename), so an interrupted
+write never leaves a truncated file.
+
+Unsaved work is auto-drafted every 30 seconds; on a crash the editor dumps
+all modified tabs to drafts before exiting, and offers them back via
+the Recovery dialog on next start. Set `TUIEDIT_DEBUG=1` for a full stack
+trace on crash (otherwise only a one-line message is printed).
+
+Files over 16 MB open only after confirmation — highlighting a giant file
+can take seconds.
 
 ## Custom themes
 

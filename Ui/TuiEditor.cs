@@ -352,6 +352,35 @@ internal sealed class TuiEditor
         }
     }
 
+    /// <summary>Аварийный сброс черновиков всех изменённых вкладок (для crash handler).
+    /// Хендлеру падать нельзя: каждая запись и весь обход — в try/catch.</summary>
+    internal int EmergencyDump()
+    {
+        int n = 0;
+        try
+        {
+            SaveTabState(); // вид активной вкладки — из полей в модель
+            foreach (Pane p in _panes)
+                foreach (DocTab t in p.Docs)
+                {
+                    if (!t.Buf.IsModified)
+                        continue;
+                    try
+                    {
+                        _drafts.Write(t.Buf.FilePath, t.Buf.Lines, t.Row, t.Col);
+                        n++;
+                    }
+                    catch
+                    {
+                    }
+                }
+        }
+        catch
+        {
+        }
+        return n;
+    }
+
     private void MaybeRestore()
     {
         List<(string key, DocDraft draft)> all;

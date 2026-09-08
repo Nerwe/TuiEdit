@@ -52,6 +52,36 @@ public sealed class DraftRestoreTests
     }
 
     [Fact]
+    public void EmergencyDumpWritesModifiedTabsOnly()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "tui_dr_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        string target = Path.Combine(dir, "work.txt");
+        File.WriteAllText(target, "v1");
+        var ds = new DraftStore(DraftStore.DefaultDir());
+        try
+        {
+            var buf = new TextBuffer(null);
+            buf.Open(target);
+            var ed = new TuiEditor(buf, new AppSettings(),
+                new SettingsStore(Path.Combine(dir, "s.json")));
+            buf.InsertChar(0, 0, 'X'); // вкладка 1 грязная
+            ed.NewTab(); // вкладка 2 чистая
+            Assert.Equal(1, ed.EmergencyDump());
+            var all = ds.ReadAll();
+            var hit = all.FirstOrDefault(x => target.Equals(x.draft.File, StringComparison.Ordinal));
+            Assert.NotNull(hit.draft.File);
+            Assert.StartsWith("Xv1", hit.draft.Lines[0]);
+            Assert.Equal(1, all.Count(x => target.Equals(x.draft.File, StringComparison.Ordinal)));
+        }
+        finally
+        {
+            try { ds.Delete(target); } catch { }
+            try { Directory.Delete(dir, true); } catch { }
+        }
+    }
+
+    [Fact]
     public void BadJsonSkipped()
     {
         string dir = Path.Combine(Path.GetTempPath(), "tui_dr_" + Guid.NewGuid().ToString("N"));
