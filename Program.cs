@@ -28,23 +28,24 @@ foreach (string a in args)
             Console.WriteLine(loc["help.usage.line"]);
             Console.WriteLine();
             Console.WriteLine(loc["help.keys"]);
-            Console.WriteLine(loc["help.k1"]);
-            Console.WriteLine(loc["help.k2"]);
-            Console.WriteLine(loc["help.k3"]);
-            Console.WriteLine(loc["help.k4"]);
-            Console.WriteLine(loc["help.k5"]);
-            Console.WriteLine(loc["help.k6"]);
-            Console.WriteLine(loc["help.k7"]);
-            Console.WriteLine(loc["help.k8"]);
-            Console.WriteLine(loc["help.k9"]);
-            Console.WriteLine(loc["help.k10"]);
-            Console.WriteLine(loc["help.k11"]);
-            Console.WriteLine(loc["help.k12"]);
-            Console.WriteLine(loc["help.k13"]);
-            Console.WriteLine(loc["help.k14"]);
-            Console.WriteLine(loc["help.k15"]);
-            Console.WriteLine(loc["help.k16"]);
-            Console.WriteLine(loc["help.k17"]);
+            void H(string key) => Console.WriteLine(Dialog.StripSpans(loc[key]));
+            H("help.k1");
+            H("help.k2");
+            H("help.k3");
+            H("help.k4");
+            H("help.k5");
+            H("help.k6");
+            H("help.k7");
+            H("help.k8");
+            H("help.k9");
+            H("help.k10");
+            H("help.k11");
+            H("help.k12");
+            H("help.k13");
+            H("help.k14");
+            H("help.k15");
+            H("help.k16");
+            H("help.k17");
             Console.WriteLine();
             Console.WriteLine(loc["help.status"]);
             Console.WriteLine(loc.Format("help.config", ShortenHome(store.Path)));
@@ -87,3 +88,4 @@ static string ShortenHome(string path)
         return "%USERPROFILE%" + path[home.Length..];
     return path;
 }
+

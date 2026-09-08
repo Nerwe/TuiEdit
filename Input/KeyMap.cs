@@ -24,6 +24,8 @@ public static class KeyMap
                 ConsoleKey.H => EditorCommand.OpenMenuHelp,
                 ConsoleKey.N => EditorCommand.ToggleLineNumbers,
                 ConsoleKey.Z => EditorCommand.ToggleWrap,
+                ConsoleKey.OemPeriod => EditorCommand.ToggleWhitespace,
+                ConsoleKey.OemMinus => EditorCommand.ToggleFold,
                 ConsoleKey.UpArrow => EditorCommand.MoveLineUp,
                 ConsoleKey.DownArrow => EditorCommand.MoveLineDown,
                 ConsoleKey.D1 => EditorCommand.GoTabNumber,
@@ -48,6 +50,8 @@ public static class KeyMap
         {
             if (key.Key == ConsoleKey.S && (key.Modifiers & ConsoleModifiers.Shift) != 0)
                 return EditorCommand.SaveAs;
+            if (key.Key == ConsoleKey.F && (key.Modifiers & ConsoleModifiers.Shift) != 0)
+                return EditorCommand.Grep;
             // Ctrl+/ приходит как Divide или 0x1F (зависит от терминала и раскладки).
             if (key.Key == ConsoleKey.Divide || key.KeyChar == '\x1F')
                 return EditorCommand.ToggleComment;
@@ -55,6 +59,8 @@ public static class KeyMap
             if (key.Key == ConsoleKey.Tab)
                 return (key.Modifiers & ConsoleModifiers.Shift) != 0
                     ? EditorCommand.PrevTab : EditorCommand.NextTab;
+            if (key.Key == ConsoleKey.Spacebar)
+                return EditorCommand.CompleteWord;
             return key.Key switch
             {
                 ConsoleKey.S => EditorCommand.Save,
@@ -98,9 +104,11 @@ public static class KeyMap
             };
         }
 
-        // Shift+F3 — поиск назад, Shift+F6 — предыдущая панель.
+        // Shift+F3 — поиск назад, Shift+F6 — предыдущая панель, Shift+F2 — закладка.
         if (key.Key == ConsoleKey.F3 && (key.Modifiers & ConsoleModifiers.Shift) != 0)
             return EditorCommand.FindPrev;
+        if (key.Key == ConsoleKey.F2 && (key.Modifiers & ConsoleModifiers.Shift) != 0)
+            return EditorCommand.NextBookmark;
         if (key.Key == ConsoleKey.F6 && (key.Modifiers & ConsoleModifiers.Shift) != 0)
             return EditorCommand.PrevPane;
 
@@ -116,6 +124,8 @@ public static class KeyMap
             ConsoleKey.PageDown => EditorCommand.PageDown,
             ConsoleKey.F3 => EditorCommand.FindNext,
             ConsoleKey.F1 => EditorCommand.Help,
+            ConsoleKey.F2 => EditorCommand.ToggleBookmark,
+            ConsoleKey.F4 => EditorCommand.DocStats,
             ConsoleKey.F9 => EditorCommand.FileFormat,
             ConsoleKey.F6 => EditorCommand.NextPane,
             ConsoleKey.F10 => EditorCommand.ToggleMenu,

@@ -15,8 +15,10 @@ public sealed class SaveKeysTests
         Assert.Equal(EditorCommand.Save, KeyMap.Map(K('\x13', ConsoleKey.S, ctrl: true)));
         Assert.Equal(EditorCommand.SaveAs,
             KeyMap.Map(new ConsoleKeyInfo('\x13', ConsoleKey.S, true, false, true)));
-        Assert.Equal(EditorCommand.None,
+        Assert.Equal(EditorCommand.ToggleBookmark,
             KeyMap.Map(new ConsoleKeyInfo('\0', ConsoleKey.F2, false, false, false)));
+        Assert.Equal(EditorCommand.NextBookmark,
+            KeyMap.Map(new ConsoleKeyInfo('\0', ConsoleKey.F2, true, false, false)));
         Assert.Equal(EditorCommand.SaveAs, KeyMap.Map(K('\x0F', ConsoleKey.O, ctrl: true)));
     }
 

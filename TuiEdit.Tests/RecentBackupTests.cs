@@ -99,6 +99,8 @@ public sealed class RecentBackupTests
         Assert.Equal(12, m12.Buttons.Count);
         Assert.Equal('\0', m12.Buttons[10].Hotkey);
         Assert.False(m12.Buttons[10].Label.StartsWith("["));
+        // Текст без номера начинается в той же колонке, что после "[N] ".
+        Assert.Equal(4, m12.Buttons[10].Label.IndexOf("f11.txt", StringComparison.Ordinal));
         Assert.Equal(5, m12.MaxVisibleButtons);
         Assert.Equal(0, m12.Selected);
         Assert.Equal(0, m12.ButtonTop);
@@ -142,7 +144,7 @@ public sealed class RecentBackupTests
     [Fact]
     public void MruDefaults()
     {
-        Assert.Equal(7, SettingsDialogState.RowCount);
+        Assert.Equal(9, SettingsDialogState.RowCount);
         var s = new AppSettings();
         Assert.False(s.BackupOnSave);
         Assert.Empty(s.RecentFiles);

@@ -81,10 +81,18 @@ public sealed class WrapTests
     [Fact]
     public void ViewDefaults()
     {
-        Assert.Equal(7, SettingsDialogState.RowCount);
+        Assert.Equal(9, SettingsDialogState.RowCount);
         var s = new AppSettings();
         Assert.True(s.ShowLineNumbers);
         Assert.True(s.ShowIndentGuides);
+        Assert.False(s.ShowWhitespace);
         Assert.False(s.WordWrap);
+    }
+
+    [Fact]
+    public void AltPeriodMapsToToggleWhitespace()
+    {
+        Assert.Equal(EditorCommand.ToggleWhitespace,
+            KeyMap.Map(new ConsoleKeyInfo('.', ConsoleKey.OemPeriod, false, true, false)));
     }
 }

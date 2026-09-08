@@ -5,12 +5,13 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 
 ## Features
 
-- Editing: undo/redo (per keystroke and per block), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), toggle line comment (`Ctrl+/`), matching-bracket highlight and jump (`Alt+]`), move lines (`Alt+↑/↓`), word-wise delete/move, trim trailing whitespace.
-- Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, match case / whole words / regex toggles right in the prompt (`Alt+C/W/R`). Instant whole-document replace (`^H`) in a single undo step, with confirmation past 50 matches.
+- Editing: undo/redo (per keystroke and per block), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), toggle line comment (`Ctrl+/`), matching-bracket highlight and jump (`Alt+]`), move lines (`Alt+↑/↓`), word-wise delete/move, trim trailing whitespace, sort lines.
+- Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, match case / whole words / regex toggles right in the prompt (`Alt+C/W/R`). Instant whole-document replace (`^H`) in a single undo step, with confirmation past 50 matches. Grep across files (`Ctrl+Shift+F`) with jump-to-hit.
 - Syntax highlighting from JSON grammars (C#, Python, JavaScript/TypeScript, JSON, Markdown, PowerShell, XML, INI built in). On first run the grammars are extracted to the `grammars` folder next to `settings.json` — edit them to customize, drop in your own.
 - File manager for Open/Save as: drives, `..`, file highlight with sizes, overwrite confirmation in a separate window. `F7` new folder, `F8` delete (with confirmation, recursive), `Ctrl+H` hidden files. Name field and Find/Replace/GoTo prompts share one line editor: selection (`Shift`), word-wise motion (`Ctrl+arrows`), word delete (`Ctrl+BS/Del`), `Alt+←/→` navigation in the manager.
 - Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save; all three are switched in the File format dialog (`F9`, shown in the status bar). Read-only files are flagged `[read-only]` and refuse to save.
-- `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), indent guides, help screen (`F1`).
+- `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), indent guides, whitespace marks (`Alt+.`), ruler column, help screen (`F1`).
+- Bookmarks (`F2` toggle, `Shift+F2` next, gutter `●`), indent folding (`Alt+-`), buffer-word completion (`Ctrl+Space`), document stats (`F4`).
 - Optional session restore: reopen the previous tabs with cursor positions when started without arguments (off by default, toggle in Settings).
 - File panel (`Ctrl+B`): fixed-width sidebar with the current folder, arrows to select, `Enter` to open, `Esc` back to text. Entries are color-coded: dirs, `..`, hidden and executables.
 - Tabs: open tab bar (`Ctrl+T` new, `Ctrl+W` close, `Ctrl+PgDn/PgUp` switch, `Alt+1..9,0` jump, `Ctrl+P` list); long rows scroll with the active tab always visible; dirty tabs ask on close, quitting walks through them one by one.
@@ -32,7 +33,8 @@ arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Alt+up/down — move line
 Enter — new line, Tab — indent, Shift+Tab — unindent
 F10 or Alt+F/E/H — menu (arrows/Enter/Esc, letter hotkey)
 F1 — help   Alt+N — line numbers   Alt+Z — word wrap   Ctrl+B — file panel
-F9 — file format (encoding / line endings)
+F9 — file format (encoding / line endings)   F4 — document stats
+F2 — bookmark   Shift+F2 — next bookmark   Alt+- — fold   Ctrl+Space — complete
 Ctrl+PgDn — next tab   Ctrl+PgUp — prev (Ctrl+Tab where the terminal passes it)
 Ctrl+T — new tab   Ctrl+W — close tab
 Alt+1..9,0 — jump to tab   Ctrl+P — tab list
@@ -108,7 +110,7 @@ a `Name`, a `Base` (`dark`/`light`, defaults to `dark`) and `Colors`
 (role → `#rrggbb`). Unset roles come from the base; a name matching
 a built-in overrides it. Role names are the `Theme` record fields
 (`EditorBg`, `EditorFg`, `CurLineBg`, `SelBg`, `MatchBg`, `StatusBg`,
-`ModalBg`, `ButtonSelBg`, `PickerDirFg`, …). The file tolerates comments,
+`ModalBg`, `ButtonSelBg`, `PickerDirFg`, `AccentFg`, …). The file tolerates comments,
 trailing commas and any key case:
 
 ```json
@@ -187,6 +189,9 @@ Program.cs            entry, --help/--version, editor startup
 Core/TextBuffer.cs    buffer: lines, undo/redo, find/replace, encodings
 Core/LineField.cs     single-line field: text, cursor, selection (prompts, picker)
 Core/CliArgs.cs       CLI file:line parsing
+Core/Completion.cs    buffer-word completion candidates
+Core/Grep.cs          file search: recursive, hidden/binary skipped
+Core/Folding.cs       indent folding ranges
 Core/DocTab.cs        tab: buffer + view state (cursor, scroll, selection)
 Core/Pane.cs          split pane: own tabs, active tab, tab scroll
 Core/Grammar.cs       syntax grammars: seeded folder, JSON plugins + registry

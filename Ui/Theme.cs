@@ -29,7 +29,11 @@ public sealed record Theme(
     // Подсветка синтаксиса (scope -> цвет)
     Rgb SynKeywordFg, Rgb SynStringFg, Rgb SynCommentFg, Rgb SynNumberFg, Rgb SynTypeFg,
     // Направляющие отступов
-    Rgb IndentGuideFg
+    Rgb IndentGuideFg,
+    // Акцент интерфейса: полосы, заголовки диалогов, хоткеи в справке
+    Rgb AccentFg,
+    // Фон линейки колонки
+    Rgb RulerBg
 );
 
 public static class Themes
@@ -57,7 +61,9 @@ public static class Themes
         PickerHiddenFg: new Rgb(0x6C, 0x70, 0x86), PickerExeFg: new Rgb(0xA6, 0xE3, 0xA1),
         PickerEmptyFg: new Rgb(0x6C, 0x70, 0x86), PickerErrorFg: new Rgb(0xF3, 0x8B, 0xA8), PickerHintFg: new Rgb(0x7F, 0x84, 0x9C),
         SynKeywordFg: new Rgb(0xCB, 0xA6, 0xF7), SynStringFg: new Rgb(0xA6, 0xE3, 0xA1), SynCommentFg: new Rgb(0x6C, 0x70, 0x86), SynNumberFg: new Rgb(0xFA, 0xB3, 0x87), SynTypeFg: new Rgb(0x89, 0xDC, 0xEB),
-        IndentGuideFg: new Rgb(0x45, 0x47, 0x5A));
+        IndentGuideFg: new Rgb(0x45, 0x47, 0x5A),
+        AccentFg: new Rgb(0x89, 0xB4, 0xFA),
+        RulerBg: new Rgb(0x31, 0x32, 0x44));
 
     public static Theme Light { get; } = new(
         Name: "light",
@@ -80,7 +86,9 @@ public static class Themes
         PickerHiddenFg: new Rgb(0x8C, 0x8F, 0xA1), PickerExeFg: new Rgb(0x40, 0xA0, 0x2B),
         PickerEmptyFg: new Rgb(0x8C, 0x8F, 0xA1), PickerErrorFg: new Rgb(0xD2, 0x0F, 0x39), PickerHintFg: new Rgb(0x8C, 0x8F, 0xA1),
         SynKeywordFg: new Rgb(0x88, 0x39, 0xEF), SynStringFg: new Rgb(0x40, 0xA0, 0x2B), SynCommentFg: new Rgb(0x8C, 0x8F, 0xA1), SynNumberFg: new Rgb(0xFE, 0x64, 0x00), SynTypeFg: new Rgb(0x1E, 0x66, 0xF5),
-        IndentGuideFg: new Rgb(0xBC, 0xC0, 0xCC));
+        IndentGuideFg: new Rgb(0xBC, 0xC0, 0xCC),
+        AccentFg: new Rgb(0x1E, 0x66, 0xF5),
+        RulerBg: new Rgb(0xDC, 0xE0, 0xE8));
 
     /// <summary>Тёмная «3024 Night» (палитра 3024).</summary>
     public static Theme Night3024 { get; } = new(
@@ -104,7 +112,9 @@ public static class Themes
         PickerHiddenFg: new Rgb(0x5C, 0x58, 0x55), PickerExeFg: new Rgb(0x01, 0xA2, 0x52),
         PickerEmptyFg: new Rgb(0x5C, 0x58, 0x55), PickerErrorFg: new Rgb(0xDB, 0x2D, 0x20), PickerHintFg: new Rgb(0x5C, 0x58, 0x55),
         SynKeywordFg: new Rgb(0xA1, 0x6A, 0x94), SynStringFg: new Rgb(0x01, 0xA2, 0x52), SynCommentFg: new Rgb(0x5C, 0x58, 0x55), SynNumberFg: new Rgb(0xCD, 0xAB, 0x53), SynTypeFg: new Rgb(0x01, 0xA0, 0xE4),
-        IndentGuideFg: new Rgb(0x3A, 0x34, 0x32));
+        IndentGuideFg: new Rgb(0x3A, 0x34, 0x32),
+        AccentFg: new Rgb(0x01, 0xA0, 0xE4),
+        RulerBg: new Rgb(0x1D, 0x17, 0x13));
 
     public static Theme Paper { get; } = new(
         Name: "Paper (light)",
@@ -127,7 +137,9 @@ public static class Themes
         PickerHiddenFg: new Rgb(0x8A, 0x84, 0x78), PickerExeFg: new Rgb(0x0E, 0x7A, 0x3E),
         PickerEmptyFg: new Rgb(0x8A, 0x84, 0x78), PickerErrorFg: new Rgb(0xDB, 0x2D, 0x20), PickerHintFg: new Rgb(0x8A, 0x84, 0x78),
         SynKeywordFg: new Rgb(0x8A, 0x55, 0x70), SynStringFg: new Rgb(0x0E, 0x7A, 0x3E), SynCommentFg: new Rgb(0x8A, 0x84, 0x78), SynNumberFg: new Rgb(0xA1, 0x5C, 0x00), SynTypeFg: new Rgb(0x00, 0x77, 0xB6),
-        IndentGuideFg: new Rgb(0xD8, 0xD2, 0xC4));
+        IndentGuideFg: new Rgb(0xD8, 0xD2, 0xC4),
+        AccentFg: new Rgb(0x00, 0x77, 0xB6),
+        RulerBg: new Rgb(0xED, 0xE6, 0xD6));
 
     /// <summary>Тема по имени (неизвестная — тёмная).</summary>
     public static Theme Get(string? name) => name switch

@@ -148,6 +148,33 @@ public sealed class ThemesTests : IDisposable
     }
 
     [Fact]
+    public void AccentResolvesAndOverrides()
+    {
+        var s = new AppSettings();
+        Assert.Equal(Themes.Dark.AccentFg, ThemeCatalog.Resolve(s, "dark").AccentFg);
+        s.Themes.Add(new ThemeScheme
+        {
+            Name = "Mine",
+            Colors = new Dictionary<string, string> { ["AccentFg"] = "#112233" },
+        });
+        Assert.Equal(new Rgb(0x11, 0x22, 0x33), ThemeCatalog.Resolve(s, "Mine").AccentFg);
+    }
+
+    [Fact]
+    public void RulerRole()
+    {
+        var s = new AppSettings();
+        Assert.Equal(0, s.RulerColumn);
+        Assert.Equal(Themes.Dark.RulerBg, ThemeCatalog.Resolve(s, "dark").RulerBg);
+        s.Themes.Add(new ThemeScheme
+        {
+            Name = "Mine",
+            Colors = new Dictionary<string, string> { ["RulerBg"] = "#112233" },
+        });
+        Assert.Equal(new Rgb(0x11, 0x22, 0x33), ThemeCatalog.Resolve(s, "Mine").RulerBg);
+    }
+
+    [Fact]
     public void NamesAndDisplay()
     {
         var s = SettingsWith(new ThemeScheme { Name = "Mine" }, new ThemeScheme { Name = " " });

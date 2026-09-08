@@ -39,6 +39,9 @@ internal sealed class TuiEditor
     private string _overwritePath = string.Empty; // путь из модалки перезаписи
     private string _pendingReplaceTerm = string.Empty; // замена из confirm-модалки
     private string _pendingReplaceRep = string.Empty;
+    private string _pendingCompletePrefix = string.Empty; // префикс из попапа дополнения
+    private readonly List<GrepHit> _grepHits = new();
+    private int _pendingGrepRow;
     private readonly List<string> _recentPaths = new(); // пути из модалки недавних
     private readonly DraftStore _drafts = new(DraftStore.DefaultDir());
     private readonly BackupStore _backups;
@@ -416,7 +419,14 @@ internal sealed class TuiEditor
             _menu = null;
             DeleteSelection();
             ClampCursor();
+            int pr = _row;
+            int pbefore = _buf.Count;
             (_row, _col) = _buf.InsertText(_row, _col, paste.Text);
+            if (_buf.Count > pbefore)
+            {
+                _docs[_active].ShiftBookmarks(pr + 1, _buf.Count - pbefore);
+                _docs[_active].ShiftFolds(pr + 1, _buf.Count - pbefore);
+            }
             ClampCursor();
             TrackCol();
             return;
@@ -525,6 +535,11 @@ internal sealed class TuiEditor
                 _store.Save(_settings);
                 SetMessage($"{_loc["settings.wordwrap"]}: {OnOff(_settings.WordWrap)}");
                 return;
+            case EditorCommand.ToggleWhitespace:
+                _settings.ShowWhitespace = !_settings.ShowWhitespace;
+                _store.Save(_settings);
+                SetMessage($"{_loc["settings.whitespace"]}: {OnOff(_settings.ShowWhitespace)}");
+                return;
             case EditorCommand.ToggleSidebar: ToggleSidebar(); return;
             case EditorCommand.NewTab: NewTab(); return;
             case EditorCommand.CloseTab: CloseTab(); return;
@@ -552,15 +567,25 @@ internal sealed class TuiEditor
                 return;
             case EditorCommand.Settings: RunSettings(); return;
             case EditorCommand.Find: Find(); return;
+            case EditorCommand.Grep: GrepFlow(); return;
             case EditorCommand.FindNext: FindNext(); return;
             case EditorCommand.FindPrev: FindPrev(); return;
             case EditorCommand.Replace: Replace(); return;
             case EditorCommand.GoToLine: GoToLine(); return;
+            case EditorCommand.DocStats:
+                var st = _buf.CountStats();
+                SetMessage(_loc.Format("msg.stats", st.Lines, st.Words, st.Chars));
+                return;
             case EditorCommand.CutLine: CutLine(); return;
             case EditorCommand.CopyLine: CopyLine(); return;
             case EditorCommand.Paste: Paste(); return;
             case EditorCommand.DuplicateLine: DuplicateBlock(); return;
             case EditorCommand.ToggleComment: ToggleComment(); return;
+            case EditorCommand.ToggleBookmark: ToggleBookmark(); return;
+            case EditorCommand.NextBookmark: NextBookmark(); return;
+            case EditorCommand.ToggleFold: ToggleFold(); return;
+            case EditorCommand.CompleteWord: CompleteWord(); return;
+            case EditorCommand.SortLines: SortBlock(); return;
             case EditorCommand.GoBracketMatch: JumpToBracket(); return;
             case EditorCommand.MoveLineUp: MoveLineBlock(-1); return;
             case EditorCommand.MoveLineDown: MoveLineBlock(1); return;
@@ -577,16 +602,34 @@ internal sealed class TuiEditor
             case EditorCommand.InsertEnter:
                 DeleteSelection(); // замена выделения
                 (_row, _col) = _buf.SplitLine(_row, _col);
+                _docs[_active].ShiftBookmarks(_row, 1);
+                _docs[_active].ShiftFolds(_row, 1);
                 TrackCol();
                 return;
             case EditorCommand.InsertBackspace:
                 if (DeleteSelection()) return; // стереть выделение вместо символа
-                (_row, _col) = _buf.Backspace(_row, _col);
+                {
+                    int br = _row, bc = _col;
+                    (_row, _col) = _buf.Backspace(_row, _col);
+                    if (br > 0 && bc == 0)
+                    {
+                        _docs[_active].ShiftBookmarks(br, -1);
+                        _docs[_active].ShiftFolds(br, -1);
+                    }
+                }
                 TrackCol();
                 return;
             case EditorCommand.InsertDelete:
                 if (DeleteSelection()) return; // стереть выделение вместо символа
-                (_row, _col) = _buf.Delete(_row, _col);
+                {
+                    int dr = _row, dc = _col, dl = _buf.GetLine(dr).Length, dn = _buf.Count;
+                    (_row, _col) = _buf.Delete(_row, _col);
+                    if (dc >= dl && dr + 1 < dn)
+                    {
+                        _docs[_active].ShiftBookmarks(dr + 1, -1);
+                        _docs[_active].ShiftFolds(dr + 1, -1);
+                    }
+                }
                 TrackCol();
                 return;
             case EditorCommand.InsertTab:
@@ -624,6 +667,14 @@ internal sealed class TuiEditor
             return false;
         var (sr, sc, er, ec) = _sel.Normalize(_row, _col);
         (_row, _col) = _buf.DeleteRange(sr, sc, er, ec);
+        if (er > sr)
+        {
+            DocTab t = _docs[_active];
+            t.DropBookmarks(sr + 1, er);
+            t.ShiftBookmarks(sr + 1, sr - er);
+            t.DropFolds(sr + 1, er);
+            t.ShiftFolds(sr + 1, sr - er);
+        }
         _sel.Clear();
         TrackCol();
         return true;
@@ -685,6 +736,7 @@ internal sealed class TuiEditor
     {
         _row = Math.Clamp(n - 1, 0, _buf.Count - 1);
         _col = Math.Min(_col, _buf.GetLine(_row).Length);
+        UnfoldPath();
         TrackCol();
     }
 
@@ -696,6 +748,118 @@ internal sealed class TuiEditor
         _sel.Clear();
         _row = pair.Value.PairRow;
         _col = pair.Value.PairCol;
+        UnfoldPath();
+        TrackCol();
+    }
+
+    internal void ToggleBookmark()
+    {
+        DocTab t = _docs[_active];
+        t.ClampBookmarks(_buf.Count);
+        bool set = t.ToggleBookmark(_row);
+        SetMessage(set ? _loc["msg.bookmark.set"] : _loc["msg.bookmark.cleared"]);
+    }
+
+    internal void NextBookmark()
+    {
+        DocTab t = _docs[_active];
+        t.ClampBookmarks(_buf.Count);
+        if (t.Bookmarks.Count == 0)
+        {
+            SetMessage(_loc["msg.bookmark.none"]);
+            return;
+        }
+        var after = t.Bookmarks.GetViewBetween(_row + 1, int.MaxValue);
+        _row = after.Count > 0 ? after.Min : t.Bookmarks.Min;
+        _col = Math.Min(_col, _buf.GetLine(_row).Length);
+        _sel.Clear();
+        UnfoldPath();
+        TrackCol();
+    }
+
+    private bool FoldHidden(int row) => Folding.IsHidden(_buf.Lines, _docs[_active].Folds, row);
+
+    private int FoldStart(int row)
+    {
+        int start = row;
+        foreach (int f in _docs[_active].Folds)
+        {
+            if (f >= row)
+                break;
+            if (Folding.EndOf(_buf.Lines, f) >= row)
+                start = f;
+        }
+        return start;
+    }
+
+    private void UnfoldPath() =>
+        Folding.UnfoldContaining(_buf.Lines, _docs[_active].Folds, _row);
+
+    internal void ToggleFold()
+    {
+        DocTab t = _docs[_active];
+        t.ClampFolds(_buf.Count);
+        if (t.Folds.Contains(_row))
+        {
+            t.Folds.Remove(_row);
+            SetMessage(_loc["msg.fold.opened"]);
+            return;
+        }
+        int? outer = null;
+        foreach (int f in t.Folds)
+        {
+            if (f >= _row)
+                break;
+            if (Folding.EndOf(_buf.Lines, f) >= _row)
+                outer = f;
+        }
+        if (outer is not null)
+        {
+            t.Folds.Remove(outer.Value);
+            SetMessage(_loc["msg.fold.opened"]);
+            return;
+        }
+        if (!Folding.CanFold(_buf.Lines, _row))
+        {
+            SetMessage(_loc["msg.fold.none"]);
+            return;
+        }
+        t.Folds.Add(_row);
+        SetMessage(_loc["msg.fold.closed"]);
+    }
+
+    private void CompleteWord()
+    {
+        string line = CurLine;
+        int start = _col;
+        while (start > 0 && TextBuffer.IsWordChar(line[start - 1]))
+            start--;
+        string prefix = line[start.._col];
+        if (prefix.Length < 2)
+        {
+            SetMessage(_loc["msg.complete.none"]);
+            return;
+        }
+        List<string> words = Completion.Collect(_buf, prefix);
+        if (words.Count == 0)
+        {
+            SetMessage(_loc["msg.complete.none"]);
+            return;
+        }
+        if (words.Count == 1)
+        {
+            ApplyCompletion(prefix, words[0]);
+            return;
+        }
+        _pendingCompletePrefix = prefix;
+        _dialog = new ModalDialog(ModalState.Complete(_loc, words), ApplyModalOutcome);
+    }
+
+    private void ApplyCompletion(string prefix, string word)
+    {
+        string rest = word[prefix.Length..];
+        _buf.InsertString(_row, _col, rest);
+        _col += rest.Length;
         TrackCol();
     }
 
@@ -775,12 +939,20 @@ internal sealed class TuiEditor
 
     private void MoveUp()
     {
-        if (_row > 0) { _row--; _col = TabStops.CharIndexAtVisual(_buf.GetLine(_row), _desiredCol); }
+        if (_row > 0)
+        {
+            do { _row--; } while (_row > 0 && FoldHidden(_row));
+            _col = TabStops.CharIndexAtVisual(_buf.GetLine(_row), _desiredCol);
+        }
     }
 
     private void MoveDown()
     {
-        if (_row < _buf.Count - 1) { _row++; _col = TabStops.CharIndexAtVisual(_buf.GetLine(_row), _desiredCol); }
+        if (_row < _buf.Count - 1)
+        {
+            do { _row++; } while (_row < _buf.Count - 1 && FoldHidden(_row));
+            _col = TabStops.CharIndexAtVisual(_buf.GetLine(_row), _desiredCol);
+        }
     }
 
     private void GoHome() { ClampCursor(); _col = 0; _desiredCol = 0; }
@@ -792,6 +964,8 @@ internal sealed class TuiEditor
     {
         int h = TextHeight();
         _row = Math.Clamp(_row + dir * Math.Max(1, h - 1), 0, _buf.Count - 1);
+        while (FoldHidden(_row) && _row > 0 && _row < _buf.Count - 1)
+            _row += dir;
         _col = TabStops.CharIndexAtVisual(_buf.GetLine(_row), _desiredCol);
     }
 
@@ -830,7 +1004,13 @@ internal sealed class TuiEditor
         if (_col == 0 && _row == 0) return;
         if (_col == 0)
         {
+            int wr = _row;
             (_row, _col) = _buf.Backspace(_row, _col);
+            if (wr > 0)
+            {
+                _docs[_active].ShiftBookmarks(wr, -1);
+                _docs[_active].ShiftFolds(wr, -1);
+            }
             TrackCol();
             return;
         }
@@ -846,7 +1026,14 @@ internal sealed class TuiEditor
         string line = CurLine;
         if (_col >= line.Length)
         {
+            int dr = _row;
+            int dn = _buf.Count;
             (_row, _col) = _buf.Delete(_row, _col);
+            if (dr + 1 < dn)
+            {
+                _docs[_active].ShiftBookmarks(dr + 1, -1);
+                _docs[_active].ShiftFolds(dr + 1, -1);
+            }
             TrackCol();
             return;
         }
@@ -1198,11 +1385,13 @@ internal sealed class TuiEditor
             new(loc["menu.paste"], 'P', "^U", EditorCommand.Paste),
             new(loc["menu.duplicate"], 'D', "^D", EditorCommand.DuplicateLine),
             new(loc["menu.togglecomment"], 'O', "Ctrl+/", EditorCommand.ToggleComment),
+            new(loc["menu.sortlines"], 'S', null, EditorCommand.SortLines),
             MenuItem.Separator,
             new(loc["menu.gobracket"], 'J', "Alt+]", EditorCommand.GoBracketMatch),
             new(loc["menu.find"], 'F', "^F", EditorCommand.Find),
             new(loc["menu.replace"], 'H', "^H", EditorCommand.Replace),
             new(loc["menu.goto"], 'G', "^G", EditorCommand.GoToLine),
+            new(loc["menu.grep"], 'E', "Ctrl+Shift+F", EditorCommand.Grep),
             MenuItem.Separator,
             new(loc["menu.trimtrail"], 'M', null, EditorCommand.TrimTrailing),
             new(loc["menu.selectall"], 'A', "^A", EditorCommand.SelectAll),
@@ -1220,6 +1409,7 @@ internal sealed class TuiEditor
         if (o.Cancelled)
         {
             _overwritePath = string.Empty;
+            _pendingGrepRow = 0;
             _recentPaths.Clear();
             if (_pending != PendingOp.None)
             {
@@ -1273,6 +1463,13 @@ internal sealed class TuiEditor
                 _pendingReplaceTerm = string.Empty;
                 _pendingReplaceRep = string.Empty;
                 SetMessage(_loc["msg.cancelled"]);
+                return;
+            case (ModalKind.Complete, var b):
+                ApplyCompletion(_pendingCompletePrefix, m.Buttons[b].Label);
+                _pendingCompletePrefix = string.Empty;
+                return;
+            case (ModalKind.Grep, var b):
+                OpenGrepHit(b);
                 return;
             case (ModalKind.Recent, var b):
                 OpenRecentPick(b);
@@ -1361,7 +1558,14 @@ internal sealed class TuiEditor
                     _quitRequested = true;
                 }
                 break;
-            case PendingOp.Open: LoadFile(path); break;
+            case PendingOp.Open:
+                LoadFile(path);
+                if (_pendingGrepRow > 0)
+                {
+                    GoToLineNumber(_pendingGrepRow);
+                    _pendingGrepRow = 0;
+                }
+                break;
             case PendingOp.CloseTab: CloseTabNow(); break;
             default: break;
         }
@@ -1463,6 +1667,41 @@ internal sealed class TuiEditor
 
     private void FindPrev() => JumpSearch(wrap: true, backward: true);
 
+    /// <summary>Поиск по файлам: шаблон + папка, прыжок по выбору.</summary>
+    private void GrepFlow()
+    {
+        string? pattern = Prompt(_loc["prompt.grep.pattern"], _lastSearch, liveHighlight: false, showOptions: true);
+        if (pattern is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
+        if (pattern.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
+        string? dir = Prompt(_loc["prompt.grep.dir"], StartDir());
+        if (dir is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
+        if (BadPattern(pattern)) return;
+        _lastSearch = pattern;
+        _grepHits.Clear();
+        _grepHits.AddRange(Grep.Search(dir, pattern,
+            _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex));
+        if (_grepHits.Count == 0)
+        {
+            SetMessage(_loc.Format("msg.search.miss", pattern));
+            return;
+        }
+        _dialog = new ModalDialog(ModalState.Grep(_loc, _grepHits), ApplyModalOutcome);
+    }
+
+    private void OpenGrepHit(int index)
+    {
+        if (index < 0 || index >= _grepHits.Count)
+            return;
+        GrepHit h = _grepHits[index];
+        _pendingGrepRow = h.Row + 1;
+        OpenPicked(h.File);
+        if (_pending == PendingOp.None)
+        {
+            GoToLineNumber(_pendingGrepRow);
+            _pendingGrepRow = 0;
+        }
+    }
+
     /// <summary>Прыжок к вхождению со счётчиком «k/N».</summary>
     private void JumpSearch(bool wrap, bool backward)
     {
@@ -1474,6 +1713,7 @@ internal sealed class TuiEditor
         if (hit is null) { SetMessage(_loc.Format("msg.search.miss", _lastSearch)); return; }
         (_row, _col) = (hit.Value.row, hit.Value.col);
         _sel.Clear(); // прыжок снимает выделение
+        UnfoldPath();
         TrackCol();
         int total = _buf.CountMatches(_lastSearch, mc, ww, rx);
         int idx = _buf.MatchOrdinal(_lastSearch, _row, _col, mc, ww, rx);
@@ -1527,6 +1767,7 @@ internal sealed class TuiEditor
             _row = Math.Clamp(n - 1, 0, _buf.Count - 1);
             _col = Math.Min(_col, _buf.GetLine(_row).Length);
             _sel.Clear(); // прыжок снимает выделение
+            UnfoldPath();
             TrackCol();
         }
         else SetMessage(_loc["msg.notnumber"]);
@@ -1546,10 +1787,22 @@ internal sealed class TuiEditor
     {
         var (s, e) = LineBlock();
         int copy = _buf.DuplicateLines(s, e);
+        _docs[_active].ShiftBookmarks(e + 1, e - s + 1);
+        _docs[_active].ShiftFolds(e + 1, e - s + 1);
         _row = copy + (_row - s);
         _sel.Clear();
         ClampCursor();
         TrackCol();
+    }
+
+    private void SortBlock()
+    {
+        var (s, e) = LineBlock();
+        _buf.SortLines(s, e);
+        _sel.Clear();
+        ClampCursor();
+        TrackCol();
+        SetMessage(_loc.Format("msg.sorted", e - s + 1));
     }
 
     private void MoveLineBlock(int dir)
@@ -1557,6 +1810,8 @@ internal sealed class TuiEditor
         var (s, e) = LineBlock();
         bool ok = dir < 0 ? _buf.MoveLinesUp(s, e) : _buf.MoveLinesDown(s, e);
         if (!ok) return;
+        _docs[_active].MoveBookmarks(s, e, dir);
+        _docs[_active].MoveFolds(s, e, dir);
         _row += dir;
         _sel.Clear();
         ClampCursor();
@@ -1577,7 +1832,15 @@ internal sealed class TuiEditor
             SetMessage(_loc.Format("msg.cut.sel", n));
             return;
         }
+        int crow = _row, cbefore = _buf.Count;
         _clipboard.Add(_buf.CutLine(_row));
+        if (_buf.Count < cbefore)
+        {
+            _docs[_active].DropBookmarks(crow, crow);
+            _docs[_active].ShiftBookmarks(crow + 1, -1);
+            _docs[_active].DropFolds(crow, crow);
+            _docs[_active].ShiftFolds(crow + 1, -1);
+        }
         _row = Math.Clamp(_row, 0, _buf.Count - 1);
         _col = Math.Min(_col, _buf.GetLine(_row).Length);
         TrackCol();
@@ -1606,9 +1869,15 @@ internal sealed class TuiEditor
         if (_clipboard.Count == 0) { SetMessage(_loc["msg.paste.empty"]); return; }
         ClampCursor();
         DeleteSelection();
+        int pr = _row;
         _buf.PasteLines(_row, _col, _clipboard);
         if (_clipboard.Count == 1) _col += _clipboard[0].Length;
-        else { _row += _clipboard.Count - 1; _col = _clipboard[^1].Length; }
+        else
+        {
+            _docs[_active].ShiftBookmarks(pr + 1, _clipboard.Count - 1);
+            _docs[_active].ShiftFolds(pr + 1, _clipboard.Count - 1);
+            _row += _clipboard.Count - 1; _col = _clipboard[^1].Length;
+        }
         TrackCol();
     }
 
@@ -1757,15 +2026,50 @@ internal sealed class TuiEditor
         return Math.Max(1, h - 2);
     }
 
+    private int VisibleRow(int row)
+    {
+        int v = 0;
+        for (int r = 0; r < row && r < _buf.Count; r++)
+            if (!FoldHidden(r))
+                v++;
+        return v;
+    }
+
+    private int FileRowAt(int vis)
+    {
+        int v = -1;
+        for (int r = 0; r < _buf.Count; r++)
+        {
+            if (FoldHidden(r))
+                continue;
+            v++;
+            if (v == vis)
+                return r;
+        }
+        return _buf.Count - 1;
+    }
+
     private void EnsureVisible(int textHeight, int contentWidth)
     {
         ClampCursor();
+        if (FoldHidden(_row))
+            UnfoldPath(); // страховка: курсор всегда на видимой строке
+        while (_top < _buf.Count - 1 && FoldHidden(_top))
+        {
+            _top++;
+            _topSeg = 0;
+        }
         bool wrap = _settings.WordWrap;
+        SortedSet<int> folds = _docs[_active].Folds;
         if (!wrap)
         {
             _topSeg = 0;
-            if (_row < _top) _top = _row;
-            if (_row >= _top + textHeight) _top = _row - textHeight + 1;
+            int vr = VisibleRow(_row), vt = VisibleRow(_top);
+            if (vr < vt)
+                vt = vr;
+            if (vr >= vt + textHeight)
+                vt = vr - textHeight + 1;
+            _top = FileRowAt(vt);
             int vcol = TabStops.VisualWidth(_buf.GetLine(_row), _col);
             if (vcol < _left) _left = vcol;
             if (vcol >= _left + contentWidth) _left = vcol - contentWidth + 1;
@@ -1776,11 +2080,11 @@ internal sealed class TuiEditor
         _left = 0; // переносы вместо горизонтального скролла
         if (_row != _top) _topSeg = 0;
         if (_row < _top) { _top = _row; _topSeg = 0; }
-        int rows = CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, true, textHeight);
+        int rows = CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, true, textHeight, folds);
         if (rows < 0) // курсор выше видимого (сдвиг внутри длинной строки)
         {
             _top = _row; _topSeg = 0;
-            rows = CursorVisualRow(_buf.Lines, _top, 0, _row, _col, contentWidth, true, textHeight);
+            rows = CursorVisualRow(_buf.Lines, _top, 0, _row, _col, contentWidth, true, textHeight, folds);
         }
         while (rows >= textHeight)
         {
@@ -1795,7 +2099,7 @@ internal sealed class TuiEditor
                 _topSeg = Math.Max(0, CursorSeg(_buf.GetLine(_row), _col, contentWidth) - textHeight + 1);
                 break;
             }
-            rows = CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, true, textHeight);
+            rows = CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, true, textHeight, folds);
         }
         if (_top < 0) { _top = 0; _topSeg = 0; }
     }
@@ -1811,12 +2115,25 @@ internal sealed class TuiEditor
     /// Точность выше cap не гарантируется (экрану достаточно cap=textHeight).
     /// </summary>
     internal static int CursorVisualRow(IReadOnlyList<string> lines, int top, int topSeg,
-        int row, int col, int contentWidth, bool wrap, int cap = int.MaxValue)
+        int row, int col, int contentWidth, bool wrap, int cap = int.MaxValue, SortedSet<int>? folds = null)
     {
-        if (!wrap) return row - top;
+        if (!wrap)
+        {
+            if (folds is null || folds.Count == 0)
+                return row - top;
+            int d = 0;
+            for (int r = Math.Min(top, row); r < Math.Max(top, row); r++)
+                if (!Folding.IsHidden(lines, folds, r))
+                    d++;
+            return row >= top ? d : -d;
+        }
         int rows = -topSeg;
         for (int r = top; r < row && rows < cap; r++)
+        {
+            if (folds is not null && Folding.IsHidden(lines, folds, r))
+                continue;
             rows += WordWrap.SegmentCount(lines[r], contentWidth);
+        }
         if (rows >= cap) return rows;
         return rows + CursorSeg(lines[row], col, contentWidth);
     }
@@ -1855,7 +2172,7 @@ internal sealed class TuiEditor
         int y0 = 1 + tabH;
         bool wrap = _settings.WordWrap;
         int aNumWidth = Math.Max(4, _buf.Count.ToString().Length);
-        int aGutter = _settings.ShowLineNumbers ? aNumWidth + 3 : 0;
+        int aGutter = _settings.ShowLineNumbers ? aNumWidth + 4 : 0;
         int activeCw = Math.Max(1, paneWs[_pane] - aGutter);
 
         EnsureVisible(textHeight, activeCw);
@@ -1874,7 +2191,7 @@ internal sealed class TuiEditor
             LoadTabState();
             int px = paneXs[i], pw = paneWs[i];
             int numWidth = Math.Max(4, _buf.Count.ToString().Length);
-            int gutterWidth = _settings.ShowLineNumbers ? numWidth + 3 : 0;
+            int gutterWidth = _settings.ShowLineNumbers ? numWidth + 4 : 0;
             int contentWidth = Math.Max(1, pw - gutterWidth);
             DrawTabs(px, pw, i == savedPane);
             DrawText(px, y0, px + pw, textHeight, contentWidth, gutterWidth, numWidth, wrap);
@@ -1915,7 +2232,8 @@ internal sealed class TuiEditor
             : _left;
         int pxA = paneXs[_pane], pwA = paneWs[_pane];
         int cx = pxA + aGutter + (vcolCur - curBase);
-        int cy = y0 + CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, activeCw, wrap, textHeight);
+        int cy = y0 + CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, activeCw, wrap, textHeight,
+            _docs[_active].Folds);
         (int x, int y)? dlgCursor = _dialog?.Cursor;
         bool pickerCursor = dlgCursor is not null;
         bool placed = pickerCursor
@@ -1962,6 +2280,12 @@ internal sealed class TuiEditor
         var bracket = BracketPair();
         while (y < y0 + textHeight && fileLine < _buf.Count)
         {
+            if (FoldHidden(fileLine))
+            {
+                fileLine = Folding.EndOf(_buf.Lines, FoldStart(fileLine)) + 1;
+                firstSeg = 0;
+                continue;
+            }
             string line = _buf.GetLine(fileLine);
             bool isCur = fileLine == _row;
             GetRowSelection(fileLine, line.Length, out int selA, out int selB);
@@ -1975,9 +2299,17 @@ internal sealed class TuiEditor
                 int segEnd = s + 1 < starts.Count ? starts[s + 1] : int.MaxValue;
                 int @base = wrap ? segStart : _left;
                 if (gutterWidth > 0)
-                    _screen.Text(x0, y, s == 0
-                        ? $"{(fileLine + 1).ToString().PadLeft(numWidth)} │ "
-                        : $"{new string(' ', numWidth)} │ ", _theme.GutterFg, _theme.EditorBg);
+                {
+                    bool marked = s == 0 && _docs[_active].Bookmarks.Contains(fileLine);
+                    bool folded = s == 0 && !marked && _docs[_active].Folds.Contains(fileLine)
+                        && Folding.CanFold(_buf.Lines, fileLine);
+                    string num = s == 0
+                        ? (fileLine + 1).ToString().PadLeft(numWidth)
+                        : new string(' ', numWidth);
+                    _screen.Text(x0, y, marked ? "●" : folded ? "▸" : " ",
+                        marked || folded ? _theme.AccentFg : _theme.GutterFg, _theme.EditorBg);
+                    _screen.Text(x0 + 1, y, num + " │ ", _theme.GutterFg, _theme.EditorBg);
+                }
                 bool[] isMatch = FindMatches(TabStops.Slice(line, @base, contentWidth),
                     EffectiveSearchTerm, _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex);
                 int vpos = 0;
@@ -2018,12 +2350,28 @@ internal sealed class TuiEditor
                             (_, _, _, _, not null) => (synFg!.Value, _theme.EditorBg),
                             _ => (_theme.EditorFg, _theme.EditorBg),
                         };
+                        if (_settings.RulerColumn > 0 && !sel && !match && !bmatch
+                            && vpos + k == _settings.RulerColumn - 1)
+                            bg = _theme.RulerBg;
                         char glyph = c == '\t' ? ' ' : c;
                         if (_settings.ShowIndentGuides && leading && (c == ' ' || c == '\t')
                             && k == 0 && !sel && !match && !bmatch && vpos % guideStep == 0)
                         {
                             glyph = '│';
                             fg = _theme.IndentGuideFg;
+                        }
+                        else if (_settings.ShowWhitespace && !sel && !match && !bmatch)
+                        {
+                            if (c == ' ')
+                            {
+                                glyph = '·';
+                                fg = _theme.FillerFg;
+                            }
+                            else if (c == '\t' && k == 0)
+                            {
+                                glyph = '→';
+                                fg = _theme.FillerFg;
+                            }
                         }
                         _screen.Set(x0 + gutterWidth + vc, y, glyph, fg, bg);
                     }

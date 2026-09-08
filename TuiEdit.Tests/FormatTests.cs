@@ -45,6 +45,34 @@ public sealed class FormatTests
     }
 
     [Fact]
+    public void CountStats()
+    {
+        var b = new TextBuffer(null);
+        b.RestoreContent(new List<string> { "hello world", "", "a_b c!" });
+        Assert.Equal((3, 4, 17), b.CountStats());
+    }
+
+    [Fact]
+    public void F4MapsToDocStats()
+    {
+        Assert.Equal(EditorCommand.DocStats,
+            KeyMap.Map(new ConsoleKeyInfo('\0', ConsoleKey.F4, false, false, false)));
+    }
+
+    [Fact]
+    public void SortLinesSingleUndo()
+    {
+        var b = new TextBuffer(null);
+        b.RestoreContent(new List<string> { "pear", "Apple", "fig", "apple" });
+        b.SortLines(0, 3);
+        Assert.Equal(new[] { "Apple", "apple", "fig", "pear" }, b.Lines);
+        b.Undo();
+        Assert.Equal(new[] { "pear", "Apple", "fig", "apple" }, b.Lines);
+        b.SortLines(1, 2);
+        Assert.Equal(new[] { "pear", "Apple", "fig", "apple" }, b.Lines);
+    }
+
+    [Fact]
     public void TrimTrailingSingleUndo()
     {
         var b = new TextBuffer(null);

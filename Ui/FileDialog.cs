@@ -117,7 +117,11 @@ internal sealed class FileDialog : Dialog
         {
             hint = loc["picker.hint"];
         }
-        screen.Text(x0, y0 + bh - 2, "│" + CenterPad(hint, inner)[..inner] + "│", hintFg, bg);
+        // Хинт по центру по ВИДИМОЙ длине (спаны `..` не считаем).
+        int visLen = Math.Min(SpanWidth(hint), inner);
+        int hx = x0 + 1 + Math.Max(0, (inner - visLen) / 2);
+        screen.Text(x0, y0 + bh - 2, "│" + new string(' ', inner) + "│", hintFg, bg);
+        WriteSpans(screen, hx, y0 + bh - 2, hint, hintFg, theme.AccentFg, bg, inner - (hx - x0 - 1));
     }
 
     public override (int x, int y)? Cursor => _cursorX >= 0 ? (_cursorX, _cursorY) : null;

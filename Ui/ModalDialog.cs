@@ -17,9 +17,12 @@ internal sealed class ModalDialog : Dialog
     protected override (Rgb fg, Rgb bg) FrameColors(Theme theme) =>
         _state.Danger ? (theme.ModalDangerFg, theme.ModalDangerBg) : base.FrameColors(theme);
 
+    protected override Rgb TitleFg(Theme theme) =>
+        _state.Danger ? theme.ModalDangerFg : theme.AccentFg;
+
     protected override DialogBox? Measure(int screenW, int screenH, Loc loc)
     {
-        bool vertical = _state.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs;
+        bool vertical = _state.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs or ModalKind.Complete or ModalKind.Grep;
         int btnWidth = _state.Buttons.Count == 0 ? 0 : vertical
             ? _state.Buttons.Max(b => b.Label.Length)
             : _state.Buttons.Sum(b => b.Label.Length + 4) + (_state.Buttons.Count - 1) * 2;
@@ -27,12 +30,14 @@ internal sealed class ModalDialog : Dialog
         foreach (string line in _state.Lines)
             content = Math.Max(content, line.Length);
         content = Math.Max(content, btnWidth);
-        content = Math.Max(content, _state.Hint.Length);
+        content = Math.Max(content, SpanWidth(_state.Hint));
         int boxW = Math.Min(Math.Max(content + 6, 24), screenW);
         if (boxW < 12)
             return null;
-        int boxH = _state.Lines.Count + (vertical ? Math.Min(_state.MaxVisibleButtons, _state.Buttons.Count) : 1)
-            + (_state.Hint.Length > 0 ? 3 : 2);
+        // Строки: заголовок + текст + кнопки (у горизонтальных + разделитель) + хинт + рамка.
+        int btnRows = vertical ? Math.Min(_state.MaxVisibleButtons, _state.Buttons.Count) : 2;
+        int hintRows = _state.Hint.Length > 0 ? 1 : 0;
+        int boxH = 1 + _state.Lines.Count + btnRows + hintRows + 1;
         int x0 = Math.Max(0, (screenW - boxW) / 2);
         int y0 = Math.Max(0, (screenH - boxH) / 2);
         if (y0 + boxH > screenH)
@@ -48,7 +53,7 @@ internal sealed class ModalDialog : Dialog
             screen.Text(x0, y0 + 1 + i, "│" + CenterPad(m.Lines[i], boxW - 2) + "│", fg, bg);
         int bottomY;
         int btnY = 0;
-        if (m.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs)
+        if (m.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs or ModalKind.Complete or ModalKind.Grep)
         {
             int visCount = Math.Min(m.MaxVisibleButtons, m.Buttons.Count - m.ButtonTop);
             for (int vi = 0; vi < visCount; vi++)
@@ -108,7 +113,11 @@ internal sealed class ModalDialog : Dialog
         if (m.Hint.Length > 0)
         {
             Rgb hintFg = m.Danger ? theme.ModalHintDangerFg : theme.ModalHintFg;
-            screen.Text(x0, bottomY, "│" + CenterPad(m.Hint, boxW - 2) + "│", hintFg, bg);
+            int inner = boxW - 2;
+            int visLen = Math.Min(SpanWidth(m.Hint), inner);
+            int hx = x0 + 1 + Math.Max(0, (inner - visLen) / 2);
+            screen.Text(x0, bottomY, "│" + new string(' ', inner) + "│", hintFg, bg);
+            WriteSpans(screen, hx, bottomY, m.Hint, hintFg, theme.AccentFg, bg, inner - (hx - x0 - 1));
             bottomY++;
         }
         screen.Text(x0, bottomY, "└" + new string('─', boxW - 2) + "┘", fg, bg);

@@ -19,31 +19,23 @@ internal sealed class SettingsDialog : Dialog
 
     protected override DialogBox? Measure(int screenW, int screenH, Loc loc)
     {
-        if (screenW < 20 || screenH < 5)
-            return null;
         var (labels, values, title) = Rows(loc);
-        int inner = 0;
-        for (int i = 0; i < SettingsDialogState.RowCount; i++)
-            inner = Math.Max(inner, labels[i].Length + values[i].Length + 8);
-        int boxW = Math.Min(Math.Max(inner + 2, title.Length + 6), screenW);
-        int boxH = SettingsDialogState.RowCount + 2;
-        int x0 = Math.Max(0, (screenW - boxW) / 2);
-        int y0 = Math.Max(0, (screenH - boxH) / 2);
-        if (y0 + boxH > screenH)
-            return null;
-        return new DialogBox(x0, y0, boxW, boxH);
+        return MeasureOptions(screenW, screenH, title, labels, values);
     }
 
     private (string[] labels, string[] values, string title) Rows(Loc loc)
     {
         string title = loc["settings.title"];
         string[] labels = [loc["settings.theme"], loc["settings.lang"],
-            loc["settings.shownumbers"], loc["settings.wordwrap"],
+            loc["settings.shownumbers"], loc["settings.wordwrap"], loc["settings.whitespace"],
+            loc["settings.ruler"],
             loc["settings.backup"], loc["settings.guides"], loc["settings.session"]];
         string langName = loc.Language == "en" ? "English" : "Русский";
         string themeName = ThemeCatalog.DisplayName(loc, _settings.Theme);
         string[] values = [themeName, langName,
             OnOff(loc, _settings.ShowLineNumbers), OnOff(loc, _settings.WordWrap),
+            OnOff(loc, _settings.ShowWhitespace),
+            _settings.RulerColumn == 0 ? loc["settings.off"] : _settings.RulerColumn.ToString(),
             OnOff(loc, _settings.BackupOnSave),
             OnOff(loc, _settings.ShowIndentGuides), OnOff(loc, _settings.RestoreSession)];
         return (labels, values, title);
@@ -51,21 +43,8 @@ internal sealed class SettingsDialog : Dialog
 
     protected override void DrawContent(Screen screen, Theme theme, Loc loc, Rgb fg, Rgb bg, DialogBox box)
     {
-        // Точный размер окна — как раньше: по самой длинной строке.
         var (labels, values, _) = Rows(loc);
-        Theme t = theme;
-        for (int i = 0; i < SettingsDialogState.RowCount; i++)
-        {
-            string cell = $" {labels[i]}: < {values[i]} >";
-            int inner = box.W - 2;
-            if (cell.Length > inner)
-                cell = cell[..inner];
-            int y = box.Y0 + 1 + i;
-            if (i == _state.Row)
-                screen.Text(box.X0, y, "│" + cell.PadRight(inner) + "│", t.ButtonSelFg, t.ButtonSelBg);
-            else
-                screen.Text(box.X0, y, "│" + cell.PadRight(inner) + "│", t.ModalFg, t.ModalBg);
-        }
+        DrawOptionRows(screen, theme, box, labels, values, _state.Row);
     }
 
     private static string OnOff(Loc loc, bool v) => v ? loc["settings.on"] : loc["settings.off"];
@@ -114,9 +93,19 @@ internal sealed class SettingsDialog : Dialog
                 _settings.WordWrap = !_settings.WordWrap;
                 break;
             case 4:
-                _settings.BackupOnSave = !_settings.BackupOnSave;
+                _settings.ShowWhitespace = !_settings.ShowWhitespace;
                 break;
             case 5:
+                int[] steps = [0, 80, 100, 120];
+                int ri = Array.IndexOf(steps, _settings.RulerColumn);
+                if (ri < 0)
+                    ri = dir >= 0 ? -1 : 0;
+                _settings.RulerColumn = steps[SettingsDialogState.Cycle(ri, steps.Length, dir)];
+                break;
+            case 6:
+                _settings.BackupOnSave = !_settings.BackupOnSave;
+                break;
+            case 7:
                 _settings.ShowIndentGuides = !_settings.ShowIndentGuides;
                 break;
             default:

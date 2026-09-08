@@ -43,6 +43,55 @@ public sealed class DialogTests : IDisposable
         return (char)cell!.GetType().GetProperty("Ch")!.GetValue(cell)!;
     }
 
+    private static Rgb FgAt(Screen scr, int x, int y)
+    {
+        var cur = (Array)typeof(Screen).GetField("_cur", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(scr)!;
+        object? cell = cur.GetValue(x, y);
+        return (Rgb)cell!.GetType().GetProperty("Fg")!.GetValue(cell)!;
+    }
+
+    [Fact]
+    public void SpanHelpers()
+    {
+        Assert.Equal("abc", Dialog.StripSpans("`a`b`c`"));
+        Assert.Equal(3, Dialog.SpanWidth("`a`b`c`"));
+        var scr = new Screen();
+        scr.Resize(20, 3);
+        var @base = new Rgb(10, 10, 10);
+        var accent = new Rgb(20, 20, 20);
+        var bg = new Rgb(0, 0, 0);
+        Dialog.WriteSpans(scr, 0, 1, "`a`bcd", @base, accent, bg, 10);
+        Assert.Equal('a', CellAt(scr, 0, 1));
+        Assert.Equal(accent, FgAt(scr, 0, 1));
+        Assert.Equal('b', CellAt(scr, 1, 1));
+        Assert.Equal(@base, FgAt(scr, 1, 1));
+        // Обрезка по видимой ширине (бэктики не считаются).
+        Dialog.WriteSpans(scr, 0, 2, "`abcdef", @base, accent, bg, 2);
+        Assert.Equal('b', CellAt(scr, 1, 2));
+        Assert.Equal('\0', CellAt(scr, 2, 2));
+    }
+
+    [Fact]
+    public void OptionRowsAlignValues()
+    {
+        var scr = new Screen();
+        scr.Resize(60, 10);
+        var box = new DialogBox(5, 1, 40, 6);
+        Dialog.DrawOptionRows(scr, _theme, box, ["A", "Longer"], ["x", "yy"], 0);
+        int AngleX(int y)
+        {
+            for (int x = 6; x < 45; x++)
+                if (CellAt(scr, x, y) == '<')
+                    return x;
+            return -1;
+        }
+        Assert.Equal(AngleX(2), AngleX(3));
+        Assert.True(AngleX(2) > 0);
+        Assert.Equal('●', CellAt(scr, 7, 2));
+        Assert.Equal(' ', CellAt(scr, 7, 3));
+    }
+
     [Fact]
     public void BaseDrawsCenteredFrame()
     {
@@ -167,6 +216,42 @@ public sealed class DialogTests : IDisposable
     }
 
     [Fact]
+    public void ModalFrameClosesAfterButtons()
+    {
+        // Регрессия: рамка модалки с кнопками в строку закрывается строго под ними.
+        foreach (ModalKind kind in new[] { ModalKind.UnsavedQuit, ModalKind.Overwrite, ModalKind.ReplaceConfirm, ModalKind.Error })
+        {
+            var scr = new Screen();
+            scr.Resize(96, 28);
+            ModalState st = kind switch
+            {
+                ModalKind.Overwrite => ModalState.Overwrite(_loc, "a.txt"),
+                ModalKind.ReplaceConfirm => ModalState.ConfirmReplace(_loc, "foo", 60),
+                ModalKind.Error => ModalState.Error(_loc, "T", "oops"),
+                _ => ModalState.UnsavedQuit(_loc, null),
+            };
+            new ModalDialog(st, (_, _) => { }).Draw(scr, _theme, _loc);
+            var borders = new List<int>();
+            for (int y = 0; y < 28; y++)
+                for (int x = 0; x < 96; x++)
+                    if (CellAt(scr, x, y) == '└')
+                    {
+                        borders.Add(y);
+                        break;
+                    }
+            Assert.Single(borders);
+            string Above(int y)
+            {
+                var sb = new System.Text.StringBuilder();
+                for (int x = 0; x < 96; x++)
+                    sb.Append(CellAt(scr, x, y));
+                return sb.ToString();
+            }
+            Assert.DoesNotContain("└", Above(borders[0] - 1));
+        }
+    }
+
+    [Fact]
     public void ConfirmReplaceShape()
     {
         var m = ModalState.ConfirmReplace(_loc, "foo", 60);
@@ -176,6 +261,26 @@ public sealed class DialogTests : IDisposable
         Assert.Equal('Y', m.Buttons[0].Hotkey);
         Assert.Equal('N', m.Buttons[1].Hotkey);
         Assert.Contains("60", m.Lines[0]);
+    }
+
+    [Fact]
+    public void SettingsDialogRulerCyclesBothWays()
+    {
+        var settings = new AppSettings();
+        var store = new SettingsStore(Path.Combine(_cfgDir, "settings2.json"));
+        var sd = new SettingsDialog(settings, store, () => { });
+        for (int i = 0; i < 5; i++)
+            sd.HandleKey(K('\0', ConsoleKey.DownArrow));
+        sd.HandleKey(K('\0', ConsoleKey.RightArrow));
+        Assert.Equal(80, settings.RulerColumn);
+        sd.HandleKey(K('\0', ConsoleKey.RightArrow));
+        Assert.Equal(100, settings.RulerColumn);
+        sd.HandleKey(K('\0', ConsoleKey.LeftArrow));
+        Assert.Equal(80, settings.RulerColumn);
+        sd.HandleKey(K('\0', ConsoleKey.LeftArrow));
+        Assert.Equal(0, settings.RulerColumn);
+        sd.HandleKey(K('\0', ConsoleKey.LeftArrow));
+        Assert.Equal(120, settings.RulerColumn);
     }
 
     [Fact]

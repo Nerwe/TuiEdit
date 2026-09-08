@@ -29,6 +29,12 @@ public sealed class AppSettings
     /// <summary>Вертикальные направляющие на уровнях отступа.</summary>
     public bool ShowIndentGuides { get; set; } = true;
 
+    /// <summary>Показывать пробелы и табы точками и стрелками.</summary>
+    public bool ShowWhitespace { get; set; } = false;
+
+    /// <summary>Подсвечиваемая колонка-ограничитель (0 — выкл).</summary>
+    public int RulerColumn { get; set; } = 0;
+
     /// <summary>Мягкий перенос длинных строк.</summary>
     public bool WordWrap { get; set; } = false;
 

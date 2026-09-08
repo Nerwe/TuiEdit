@@ -19,6 +19,10 @@ public enum ModalKind
     Restore,
     /// <summary>Массовая замена (красный).</summary>
     ReplaceConfirm,
+    /// <summary>Автодополнение (синий, кнопки списком).</summary>
+    Complete,
+    /// <summary>Результаты поиска по файлам (синий, кнопки списком).</summary>
+    Grep,
 }
 
 /// <summary>Кнопка попапа: подпись и хоткей-буква (без Enter). '\0' — без хоткея.</summary>
@@ -141,6 +145,40 @@ public sealed class ModalState
         selected: 0,
         hint: string.Empty);
 
+    /// <summary>Попап автодополнения: слова-кандидаты списком; пустой список запрещён.</summary>
+    public static ModalState Complete(Loc loc, List<string> words)
+    {
+        if (words.Count == 0)
+            throw new ArgumentException("Нет вариантов.", nameof(words));
+        return new(
+            ModalKind.Complete,
+            loc["modal.complete.title"],
+            new List<string>(),
+            words.Select((w, i) => new ModalButton(w, NumberHotkey(i))).ToList(),
+            selected: 0,
+            hint: string.Empty,
+            maxVisibleButtons: 10);
+    }
+
+    /// <summary>Попап результатов grep: строки файл:строка; пустой список запрещён.</summary>
+    public static ModalState Grep(Loc loc, List<GrepHit> hits)
+    {
+        if (hits.Count == 0)
+            throw new ArgumentException("Нет совпадений.", nameof(hits));
+        return new(
+            ModalKind.Grep,
+            loc["modal.grep.title"],
+            new List<string>(),
+            hits.Select((h, i) => new ModalButton(
+                $"{ShortGrepPath(h.File)}:{h.Row + 1}: {h.Text.Trim()}", NumberHotkey(i))).ToList(),
+            selected: 0,
+            hint: string.Empty,
+            maxVisibleButtons: 10);
+    }
+
+    private static string ShortGrepPath(string path) =>
+        path.Length <= 40 ? path : "..." + path[^37..];
+
     /// <summary>Попап недавних файлов: каждый файл — кнопка-строка с хоткеем 1..9,0; видно разом 5, остальные — скроллом; пустой список запрещён.</summary>
     public static ModalState Recent(Loc loc, List<string> files)
     {
@@ -165,7 +203,7 @@ public sealed class ModalState
     private static string NumberedLabel(int i, string text)
     {
         char hot = NumberHotkey(i);
-        return hot == '\0' ? $"     {text}" : $"[{hot}] {text}";
+        return hot == '\0' ? $"    {text}" : $"[{hot}] {text}";
     }
 
     /// <summary>Попап списка вкладок: каждая — кнопка-строка с хоткеем 1..9,0; видно разом 5, остальные — скроллом; пустой список запрещён.</summary>

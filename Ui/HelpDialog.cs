@@ -40,9 +40,9 @@ internal sealed class HelpDialog : Dialog
         {
             content = Math.Max(content, s.title.Length + 4);
             foreach (string row in s.rows)
-                content = Math.Max(content, row.Length);
+                content = Math.Max(content, SpanWidth(row));
         }
-        content = Math.Max(content, _hint.Length);
+        content = Math.Max(content, SpanWidth(_hint));
         int boxW = Math.Min(Math.Max(content + 6, 24), screenW);
         if (boxW < 12)
             return null;
@@ -75,15 +75,30 @@ internal sealed class HelpDialog : Dialog
         for (int vi = 0; vi < visCount && _scroll + vi < flat.Count; vi++)
         {
             var (header, text) = flat[_scroll + vi];
-            // Без выделения фоном: структура — за счёт рамок ── ── у заголовков.
-            string cell = header
-                ? CenterPad("── " + text + " ──", inner)
-                : (" " + text).PadRight(inner)[..inner];
-            screen.Text(box.X0, box.Y0 + 1 + vi, "│" + cell + "│", fg, bg);
+            int y = box.Y0 + 1 + vi;
+            if (header)
+            {
+                // Заголовок раздела: dim-линейка, сам заголовок — акцентом.
+                string rule = "── " + text + " " + new string('─', Math.Max(0, inner - text.Length - 5));
+                rule = rule[..Math.Min(rule.Length, inner)];
+                screen.Text(box.X0, y, "│", fg, bg);
+                screen.Text(box.X0 + 1, y, rule, theme.ModalHintFg, bg);
+                screen.Text(box.X0 + 1 + 3, y,
+                    text[..Math.Max(0, Math.Min(text.Length, inner - 4))], theme.AccentFg, bg);
+                screen.Text(box.X0 + box.W - 1, y, "│", fg, bg);
+            }
+            else
+            {
+                screen.Text(box.X0, y, "│", fg, bg);
+                WriteSpans(screen, box.X0 + 1, y, " " + text, fg, theme.AccentFg, bg, inner);
+                screen.Text(box.X0 + box.W - 1, y, "│", fg, bg);
+            }
         }
         Rgb hintFg = theme.ModalHintFg;
-        screen.Text(box.X0, box.Y0 + box.H - 2,
-            "│" + CenterPad(_hint, inner) + "│", hintFg, bg);
+        int hintX = box.X0 + 1 + Math.Max(0, (inner - Math.Min(SpanWidth(_hint), inner)) / 2);
+        screen.Text(box.X0, box.Y0 + box.H - 2, "│" + new string(' ', inner) + "│", hintFg, bg);
+        WriteSpans(screen, hintX, box.Y0 + box.H - 2, _hint, hintFg, theme.AccentFg, bg,
+            inner - (hintX - box.X0 - 1));
         screen.Text(box.X0, box.Y0 + box.H - 1, "└" + new string('─', inner) + "┘", fg, bg);
     }
 

@@ -90,7 +90,7 @@ public sealed class RegexTests
     [Fact]
     public void RegexDefaults()
     {
-        Assert.Equal(7, SettingsDialogState.RowCount);
+        Assert.Equal(9, SettingsDialogState.RowCount);
         Assert.False(new AppSettings().SearchUseRegex);
     }
 

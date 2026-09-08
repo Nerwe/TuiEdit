@@ -548,6 +548,16 @@ internal sealed class TextBuffer
         return n;
     }
 
+    /// <summary>Сортировка строк [startRow, endRow] (ordinal) одной undo-записью.</summary>
+    public void SortLines(int startRow, int endRow)
+    {
+        PushUndo();
+        var slice = Lines.GetRange(startRow, endRow - startRow + 1);
+        slice.Sort(StringComparer.Ordinal);
+        for (int i = 0; i < slice.Count; i++)
+            Lines[startRow + i] = slice[i];
+    }
+
     public void PasteLines(int row, int col, IList<string> clipboard)
     {
         if (clipboard.Count == 0) return;
@@ -976,4 +986,31 @@ internal sealed class TextBuffer
     }
 
     public static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_';
+
+    /// <summary>Статистика документа: строки, слова (раны IsWordChar), символы без переводов.</summary>
+    public (int Lines, int Words, int Chars) CountStats()
+    {
+        int words = 0, chars = 0;
+        foreach (string line in Lines)
+        {
+            chars += line.Length;
+            bool inWord = false;
+            foreach (char c in line)
+            {
+                if (IsWordChar(c))
+                {
+                    if (!inWord)
+                    {
+                        inWord = true;
+                        words++;
+                    }
+                }
+                else
+                {
+                    inWord = false;
+                }
+            }
+        }
+        return (Lines.Count, words, chars);
+    }
 }
