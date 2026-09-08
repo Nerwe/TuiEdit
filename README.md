@@ -3,6 +3,8 @@
 A simple TUI text editor in the style of Microsoft Edit / nano.
 Pure `System.Console`, no third-party libraries. .NET 10.
 
+See [CHANGELOG.md](CHANGELOG.md) for release history.
+
 ## Features
 
 - Editing: undo/redo (per keystroke and per block), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), toggle line comment (`Ctrl+/`), matching-bracket highlight and jump (`Alt+]`), move lines (`Alt+↑/↓`), word-wise delete/move, trim trailing whitespace, sort lines.
