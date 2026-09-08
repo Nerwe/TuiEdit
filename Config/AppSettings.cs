@@ -8,6 +8,9 @@ public sealed class AppSettings
     /// <summary>Тема: dark | light | своя из Themes.</summary>
     public string Theme { get; set; } = "dark";
 
+    /// <summary>Грамматика подсветки: auto (по расширению) или имя языка.</summary>
+    public string Grammar { get; set; } = "auto";
+
     /// <summary>Язык: en | ru.</summary>
     public string Language { get; set; } = "en";
 
@@ -72,6 +75,8 @@ public sealed class AppSettings
         Themes.RemoveAll(s => string.IsNullOrWhiteSpace(s.Name));
         foreach (ThemeScheme s in Themes)
             s.Colors ??= new();
+        if (string.IsNullOrWhiteSpace(Grammar))
+            Grammar = "auto";
         Language = Loc.Normalize(Language);
     }
 }

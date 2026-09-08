@@ -1,0 +1,14 @@
+{
+  "Name": "JavaScript",
+  "Extensions": [".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx"],
+  "Rules": [
+    { "Scope": "comment", "Begin": "/\\*", "End": "\\*/" },
+    { "Scope": "comment", "Match": "//.*$" },
+    { "Scope": "string", "Match": "`(?:\\\\.|[^`\\\\])*`?" },
+    { "Scope": "string", "Match": "\"(?:\\\\.|[^\"\\\\])*\"?" },
+    { "Scope": "string", "Match": "'(?:\\\\.|[^'\\\\])*'" },
+    { "Scope": "keyword", "Match": "\\b(?:await|async|break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|false|finally|for|from|function|get|if|implements|import|in|instanceof|interface|let|new|null|of|package|private|protected|public|return|set|static|super|switch|this|throw|true|try|typeof|undefined|var|void|while|with|yield)\\b" },
+    { "Scope": "number", "Match": "\\b\\d[\\d_]*(?:\\.\\d+)?\\b" },
+    { "Scope": "type", "Match": "\\b[A-Z][\\w]*" }
+  ]
+}

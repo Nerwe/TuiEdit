@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Перенос, сегменты и клавиши вида (бывший сьют Wrap).</summary>
+/// <summary>Перенос, сегменты и клавиши вида.</summary>
 public sealed class WrapTests
 {
     private static string J(List<int> xs) => string.Join(",", xs);

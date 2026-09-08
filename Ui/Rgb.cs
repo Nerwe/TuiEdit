@@ -1,15 +1,10 @@
 namespace TuiEdit;
 
-/// <summary>
-/// Цвет RGB для truecolor-ANSI вывода: только так доступны мягкие
-/// пастельные палитры (16 цветов консоли для этого не годятся).
-/// </summary>
+/// <summary>Цвет RGB для truecolor-ANSI вывода: только так доступны мягкие пастельные палитры (16 цветов консоли для этого не годятся).</summary>
 public readonly record struct Rgb(byte R, byte G, byte B)
 {
-    /// <summary>ANSI-последовательность цвета текста.</summary>
     public string ToAnsiFg() => $"\x1b[38;2;{R};{G};{B}m";
 
-    /// <summary>ANSI-последовательность цвета фона.</summary>
     public string ToAnsiBg() => $"\x1b[48;2;{R};{G};{B}m";
 
     /// <summary>Ближайший из 16 цветов консоли (fallback без VT).</summary>

@@ -7,12 +7,9 @@ namespace TuiEdit;
 /// </summary>
 public static class TabStops
 {
-    /// <summary>Шаг табуляции.</summary>
     public const int Width = 4;
 
-    /// <summary>
-    /// Визуальная ширина первых <paramref name="charCount"/> символов строки.
-    /// </summary>
+    /// <summary>Визуальная ширина первых символов строки.</summary>
     public static int VisualWidth(string line, int charCount)
     {
         ArgumentNullException.ThrowIfNull(line);
@@ -23,9 +20,7 @@ public static class TabStops
         return pos;
     }
 
-    /// <summary>
-    /// Индекс символа по визуальной колонке (для позиционирования курсора).
-    /// </summary>
+    /// <summary>Индекс символа по визуальной колонке (для позиционирования курсора).</summary>
     public static int CharIndexAtVisual(string line, int visualCol)
     {
         ArgumentNullException.ThrowIfNull(line);
@@ -39,10 +34,7 @@ public static class TabStops
         return i;
     }
 
-    /// <summary>
-    /// Срез строки по визуальным колонкам с раскрытием табов в пробелы.
-    /// Возвращает строку визуальной шириной не более <paramref name="maxWidth"/>.
-    /// </summary>
+    /// <summary>Срез строки по визуальным колонкам (табы — пробелами).</summary>
     public static string Slice(string line, int startVisual, int maxWidth)
     {
         ArgumentNullException.ThrowIfNull(line);
@@ -67,16 +59,12 @@ public static class TabStops
 }
 
 /// <summary>
-/// Мягкий перенос строк (soft wrap): разбивка на визуальные сегменты.
-/// Таб, не влезающий в остаток сегмента, целиком едет на следующий —
-/// границы сегментов всегда совпадают с началами символов.
-/// Чистые функции без консоли — покрываются unit-тестами.
+/// Мягкий перенос строк: таб, не влезающий в остаток сегмента, целиком едет
+/// на следующий — границы сегментов всегда совпадают с началами символов.
 /// </summary>
 public static class WordWrap
 {
-    /// <summary>
-    /// Старты сегментов сырой строки в визуальных колонках (первый всегда 0).
-    /// </summary>
+    /// <summary>Старты сегментов в визуальных колонках (первый всегда 0).</summary>
     public static List<int> SegmentStarts(string line, int width)
     {
         ArgumentNullException.ThrowIfNull(line);
@@ -93,10 +81,8 @@ public static class WordWrap
         return starts;
     }
 
-    /// <summary>Число визуальных сегментов строки.</summary>
     public static int SegmentCount(string line, int width) => SegmentStarts(line, width).Count;
 
-    /// <summary>Индекс сегмента для визуальной колонки.</summary>
     public static int SegmentAt(List<int> starts, int vcol)
     {
         ArgumentNullException.ThrowIfNull(starts);

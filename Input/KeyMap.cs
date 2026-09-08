@@ -4,29 +4,17 @@ namespace TuiEdit;
 /// Преобразует <see cref="System.ConsoleKeyInfo"/> в <see cref="EditorCommand"/>.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Сохранение — Ctrl+S, сохранить как — Ctrl+Shift+S (как в MS Edit).
 /// Ctrl+S доходит до приложения благодаря сырому режиму ввода
 /// (<see cref="Terminal.TryEnableRawInput"/>): без него conhost перехватывает
 /// его как паузу вывода XOFF (см. microsoft/terminal#809).
-/// </para>
-/// <para>Метод чистый (без обращений к консоли) — тестируется напрямую.</para>
 /// </remarks>
 public static class KeyMap
 {
-    /// <summary>
-    /// Возвращает команду для нажатия клавиши.
-    /// </summary>
-    /// <param name="key">Информация о нажатии (см. <see cref="System.ConsoleKeyInfo"/>).</param>
-    /// <returns>Команда редактора или <see cref="EditorCommand.None"/>.</returns>
     public static EditorCommand Map(ConsoleKeyInfo key)
     {
         bool alt = (key.Modifiers & ConsoleModifiers.Alt) != 0;
         bool ctrl = (key.Modifiers & ConsoleModifiers.Control) != 0;
 
-        // Alt+буква открывает меню (как в MS Edit: Alt+F/E/V/H).
-        // Alt+↑/↓ двигает строку/блок (как move line в VS Code).
-        // Alt+N/Z — тогглы номеров строк и переноса (Z как в VS Code).
         if (alt && !ctrl)
         {
             return key.Key switch
@@ -53,16 +41,13 @@ public static class KeyMap
             };
         }
         if (alt)
-            return EditorCommand.None; // прочие Alt-комбинации не используем
+            return EditorCommand.None;
 
         if ((key.Modifiers & ConsoleModifiers.Control) != 0)
         {
-            // Ctrl+Shift+S — сохранить как (как в MS Edit); остальным Shift не важен.
             if (key.Key == ConsoleKey.S && (key.Modifiers & ConsoleModifiers.Shift) != 0)
                 return EditorCommand.SaveAs;
-            // Ctrl+Tab / Ctrl+Shift+Tab — вкладки (Shift проверяем явно).
-            // NB: Windows Terminal перехватывает Ctrl+Tab для своих вкладок,
-            // поэтому основной путь — Ctrl+PgDn/PgUp (как в браузерах).
+            // Ctrl+Tab перехватывает Windows Terminal — основной путь Ctrl+PgDn/PgUp.
             if (key.Key == ConsoleKey.Tab)
                 return (key.Modifiers & ConsoleModifiers.Shift) != 0
                     ? EditorCommand.PrevTab : EditorCommand.NextTab;
@@ -73,20 +58,20 @@ public static class KeyMap
                 ConsoleKey.Q => EditorCommand.Quit,
                 ConsoleKey.N => EditorCommand.NewFile,
                 ConsoleKey.F => EditorCommand.Find,
-                ConsoleKey.H => EditorCommand.Replace, // как замена в MS Edit
+                ConsoleKey.H => EditorCommand.Replace,
                 ConsoleKey.G => EditorCommand.GoToLine,
                 ConsoleKey.K => EditorCommand.CutLine,
                 ConsoleKey.U => EditorCommand.Paste,
-                ConsoleKey.V => EditorCommand.Paste, // дублируем nano ^U
+                ConsoleKey.V => EditorCommand.Paste,
                 ConsoleKey.C => EditorCommand.CopyLine,
                 ConsoleKey.D => EditorCommand.DuplicateLine,
                 ConsoleKey.Z => EditorCommand.Undo,
                 ConsoleKey.Y => EditorCommand.Redo,
-                ConsoleKey.A => EditorCommand.SelectAll, // как в MS Edit (Home — клавишей Home)
-                ConsoleKey.B => EditorCommand.ToggleSidebar, // панель файлов, как в VS Code
-                ConsoleKey.T => EditorCommand.NewTab, // новая вкладка
-                ConsoleKey.W => EditorCommand.CloseTab, // закрыть вкладку
-                ConsoleKey.P => EditorCommand.ListTabs, // список вкладок
+                ConsoleKey.A => EditorCommand.SelectAll,
+                ConsoleKey.B => EditorCommand.ToggleSidebar,
+                ConsoleKey.T => EditorCommand.NewTab,
+                ConsoleKey.W => EditorCommand.CloseTab,
+                ConsoleKey.P => EditorCommand.ListTabs,
                 ConsoleKey.D1 => EditorCommand.GoPaneNumber,
                 ConsoleKey.D2 => EditorCommand.GoPaneNumber,
                 ConsoleKey.D3 => EditorCommand.GoPaneNumber,
@@ -127,8 +112,8 @@ public static class KeyMap
             ConsoleKey.PageDown => EditorCommand.PageDown,
             ConsoleKey.F3 => EditorCommand.FindNext,
             ConsoleKey.F1 => EditorCommand.Help,
-            ConsoleKey.F6 => EditorCommand.NextPane, // соседняя панель
-            ConsoleKey.F10 => EditorCommand.ToggleMenu, // фокус на меню-бар, как в MS Edit
+            ConsoleKey.F6 => EditorCommand.NextPane,
+            ConsoleKey.F10 => EditorCommand.ToggleMenu,
             ConsoleKey.Escape => EditorCommand.None,
             ConsoleKey.Enter => EditorCommand.InsertEnter,
             ConsoleKey.Backspace => EditorCommand.InsertBackspace,

@@ -1,11 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>
-/// Справка диалоговым окном: разделы с подсвеченными заголовками,
-/// скролл стрелками/PgUp/PgDn. Строки разделов переиспользуют те же
-/// ключи help.k*, что и консольный --help. Рамка, центрирование
-/// и цикл — из базового <see cref="Dialog"/>.
-/// </summary>
+/// <summary>Справка диалоговым окном: строки разделов переиспользуют те же ключи help.k*, что и консольный --help.</summary>
 internal sealed class HelpDialog : Dialog
 {
     private readonly List<(string title, List<string> rows)> _sections;
@@ -32,10 +27,8 @@ internal sealed class HelpDialog : Dialog
         _total = _sections.Sum(s => 1 + s.rows.Count);
     }
 
-    /// <summary>Число строк контента (для тестов скролла).</summary>
     public int TotalRows => _total;
 
-    /// <summary>Текущий скролл (для тестов).</summary>
     public int Scroll => _scroll;
 
     protected override string GetTitle(Loc loc) => _title;
@@ -72,7 +65,6 @@ internal sealed class HelpDialog : Dialog
         int visCount = VisibleRows(box.H);
         _visCount = visCount;
         _scroll = Math.Clamp(_scroll, 0, Math.Max(0, _total - visCount));
-        // Плоский список: (заголовок?) + текст.
         var flat = new List<(bool header, string text)>();
         foreach (var s in _sections)
         {

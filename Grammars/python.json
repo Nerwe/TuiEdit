@@ -1,0 +1,14 @@
+{
+  "Name": "Python",
+  "Extensions": [".py", ".pyw"],
+  "Rules": [
+    { "Scope": "string", "Begin": "\"\"\"", "End": "\"\"\"" },
+    { "Scope": "string", "Begin": "'''", "End": "'''" },
+    { "Scope": "comment", "Match": "#.*$" },
+    { "Scope": "string", "Match": "\"(?:\\\\.|[^\"\\\\])*\"?" },
+    { "Scope": "string", "Match": "'(?:\\\\.|[^'\\\\])*'" },
+    { "Scope": "keyword", "Match": "\\b(?:False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|self)\\b" },
+    { "Scope": "number", "Match": "\\b\\d[\\d_]*(?:\\.\\d+)?\\b" },
+    { "Scope": "type", "Match": "\\b[A-Z][\\w]*" }
+  ]
+}

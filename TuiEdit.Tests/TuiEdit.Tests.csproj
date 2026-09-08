@@ -18,8 +18,6 @@
     <ProjectReference Include="..\TuiEdit.csproj" />
   </ItemGroup>
 
-  <!-- Ресурсы тестового раннера: Loc грузит JSON из своей сборки,
-       поэтому кладём копии с тем же логическим именем. -->
   <ItemGroup>
     <EmbeddedResource Include="..\Resources\strings.ru.json" LogicalName="TuiEdit.Resources.strings.ru.json" />
     <EmbeddedResource Include="..\Resources\strings.en.json" LogicalName="TuiEdit.Resources.strings.en.json" />

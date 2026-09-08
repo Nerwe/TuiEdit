@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Поле имени менеджера: выделение, слова, навигация (бывший сьют PickName).</summary>
+/// <summary>Поле имени менеджера: выделение, слова, навигация.</summary>
 public sealed class PickerNameTests : IDisposable
 {
     private readonly string _root;

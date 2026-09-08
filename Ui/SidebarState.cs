@@ -1,25 +1,17 @@
 namespace TuiEdit;
 
-/// <summary>Строка сайдбара: имя, признаки папки/скрытости/исполняемости.</summary>
 public sealed record SidebarEntry(string Name, bool IsDir, bool IsHidden = false, bool IsExe = false);
 
-/// <summary>
-/// Сайдбар файлов (фиксированная ширина <see cref="Width"/>):
-/// плоский список текущей папки (папки первыми, «..» — наверх),
-/// подсветка, скролл. Чистая модель без консоли — покрывается unit-тестами.
-/// </summary>
+/// <summary>Сайдбар файлов (фиксированная ширина <see cref="Width"/>): плоский список текущей папки (папки первыми, «..» — наверх), подсветка, скролл.</summary>
 public sealed class SidebarState
 {
-    /// <summary>Ширина панели в колонках (фиксирована).</summary>
     public const int Width = 24;
 
     /// <summary>Показанная папка (всегда полная).</summary>
     public string CurrentDir { get; private set; } = string.Empty;
 
-    /// <summary>Строки: «..», папки, файлы.</summary>
     public List<SidebarEntry> Entries { get; } = new();
 
-    /// <summary>Индекс подсвеченной строки.</summary>
     public int Selected { get; private set; }
 
     /// <summary>Первая видимая строка (скролл).</summary>
@@ -68,14 +60,10 @@ public sealed class SidebarState
         }
     }
 
-    /// <summary>Исполняемые расширения (для подсветки).</summary>
     private static readonly HashSet<string> ExeExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".exe", ".bat", ".cmd", ".com", ".ps1", ".sh" };
 
-    /// <summary>
-    /// Классификация записи: скрытая — точка в начале или атрибут Hidden,
-    /// исполняемая — файл с известным расширением. Чистая функция для тестов.
-    /// </summary>
+    /// <summary>Классификация записи: скрытая — точка в начале или атрибут Hidden, исполняемая — файл с известным расширением.</summary>
     internal static SidebarEntry Classify(string fullPath, bool isDir)
     {
         string name = Path.GetFileName(fullPath);
@@ -108,7 +96,6 @@ public sealed class SidebarState
     public string? SelectedPath =>
         Entries.Count == 0 ? null : Path.Combine(CurrentDir, Entries[Selected].Name);
 
-    /// <summary>Подсвечена ли папка.</summary>
     public bool SelectedIsDir => Entries.Count > 0 && Entries[Selected].IsDir;
 
     /// <summary>Enter: по папке — зайти, по файлу — false (открывает редактор).</summary>

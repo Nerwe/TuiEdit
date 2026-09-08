@@ -25,6 +25,9 @@ internal sealed class DocTab
         Buf = buf;
     }
 
+    /// <summary>Подсветка синтаксиса вкладки (кэш инвалидируется по версии буфера).</summary>
+    public SyntaxHighlighter Highlighter { get; } = new();
+
     /// <summary>Заголовок вкладки: имя файла или «без имени», грязным — «*».</summary>
     public string TabTitle(Loc loc) =>
         (Buf.FilePath is null ? loc["status.untitled"] : Path.GetFileName(Buf.FilePath))

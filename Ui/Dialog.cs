@@ -1,35 +1,23 @@
 namespace TuiEdit;
 
-/// <summary>Прямоугольник окна: левый верхний угол + размер.</summary>
 public readonly record struct DialogBox(int X0, int Y0, int W, int H);
 
-/// <summary>
-/// Базовый класс диалогового окна: центрирование, рамка с заголовком,
-/// цикл ввода с фокус-ловушкой. Контент, клавиши и исход — в наследниках
-/// (ModalDialog, FileDialog, SettingsDialog); общая логика — здесь, чтобы
-/// не дублировать её в каждом окне заново. Расширение — наследованием.
-/// </summary>
+/// <summary>Базовый класс диалогового окна: центрирование, рамка с заголовком, цикл ввода с фокус-ловушкой.</summary>
 internal abstract class Dialog
 {
     /// <summary>Диалог закрыт — цикл Render/Read завершается.</summary>
     public bool Closed { get; protected set; }
 
-    /// <summary>Заголовок окна.</summary>
     protected abstract string GetTitle(Loc loc);
 
-    /// <summary>
-    /// Рамка по центру экрана под контент. null — не влезает (не рисуем).
-    /// Каждый наследник повторяет свою прежнюю формулу размера 1 в 1.
-    /// </summary>
+    /// <summary>Рамка по центру экрана под контент (null — не влезает); каждый наследник повторяет свою прежнюю формулу размера 1 в 1.</summary>
     protected abstract DialogBox? Measure(int screenW, int screenH, Loc loc);
 
     /// <summary>Контент поверх пустой рамки (внутренняя ширина — box.W - 2).</summary>
     protected abstract void DrawContent(Screen screen, Theme theme, Loc loc, Rgb fg, Rgb bg, DialogBox box);
 
-    /// <summary>Цвета рамки (обычно модальные).</summary>
     protected virtual (Rgb fg, Rgb bg) FrameColors(Theme theme) => (theme.ModalFg, theme.ModalBg);
 
-    /// <summary>Отрисовать поверх кадра: рамка + контент наследника.</summary>
     public void Draw(Screen screen, Theme theme, Loc loc)
     {
         DialogBox? box = Measure(screen.Width, screen.Height, loc);
@@ -71,7 +59,6 @@ internal abstract class Dialog
         return new string(' ', left) + s + new string(' ', width - s.Length - left);
     }
 
-    /// <summary>Усечь строку серединой (обрезается до ширины).</summary>
     internal static string MiddleTruncate(string s, int width)
     {
         if (s.Length <= width)

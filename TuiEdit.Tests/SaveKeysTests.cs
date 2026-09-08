@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Клавиши сохранения и сырой ввод (бывший сьют SaveKeys).</summary>
+/// <summary>Клавиши сохранения и сырой ввод.</summary>
 public sealed class SaveKeysTests
 {
     private static ConsoleKeyInfo K(char c, ConsoleKey k, bool shift = false, bool alt = false, bool ctrl = false)

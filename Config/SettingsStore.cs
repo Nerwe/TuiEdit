@@ -12,7 +12,6 @@ public sealed class SettingsStore(string path)
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    // Чтение терпимое: конфиг правят руками (комментарии, запятые, регистр).
     private static readonly JsonSerializerOptions ReadOptions = new()
     {
         ReadCommentHandling = JsonCommentHandling.Skip,
@@ -20,10 +19,8 @@ public sealed class SettingsStore(string path)
         PropertyNameCaseInsensitive = true,
     };
 
-    /// <summary>Путь к файлу.</summary>
     public string Path { get; } = path;
 
-    /// <summary>Путь по умолчанию для платформы.</summary>
     public static string DefaultPath() => System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "TuiEdit", "settings.json");
@@ -66,7 +63,6 @@ public sealed class SettingsStore(string path)
         return new AppSettings();
     }
 
-    /// <summary>Сохранить (тихо игнорирует ошибки IO).</summary>
     public void Save(AppSettings settings)
     {
         try
@@ -85,16 +81,10 @@ public sealed class SettingsStore(string path)
 /// <summary>Черновик несохранённого документа для восстановления после краша.</summary>
 public sealed record DocDraft(string? File, List<string> Lines, int Row, int Col, DateTime SavedAt);
 
-/// <summary>
-/// Хранилище черновиков (%TEMP%/TuiEdit/drafts/&lt;sha1 пути&gt;.json).
-/// Чистый IO-класс без консоли — покрывается unit-тестами.
-/// </summary>
 public sealed class DraftStore(string dir)
 {
-    /// <summary>Каталог черновиков.</summary>
     public string Dir { get; } = dir;
 
-    /// <summary>Каталог по умолчанию для платформы.</summary>
     public static string DefaultDir() => System.IO.Path.Combine(
         System.IO.Path.GetTempPath(), "TuiEdit", "drafts");
 
@@ -114,7 +104,6 @@ public sealed class DraftStore(string dir)
         }
     }
 
-    /// <summary>Записать черновик (ошибки — вызывающему).</summary>
     public void Write(string? file, IList<string> lines, int row, int col)
     {
         Directory.CreateDirectory(Dir);
@@ -153,10 +142,8 @@ public sealed class DraftStore(string dir)
         return list;
     }
 
-    /// <summary>Удалить черновик документа (нет — тихо).</summary>
     public void Delete(string? file) => DeleteKey(KeyFor(file));
 
-    /// <summary>Удалить черновик по ключу (нет — тихо).</summary>
     public void DeleteKey(string key)
     {
         try

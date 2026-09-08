@@ -1,0 +1,10 @@
+{
+  "Name": "JSON",
+  "Extensions": [".json", ".jsonc", ".ipynb"],
+  "Rules": [
+    { "Scope": "comment", "Match": "//.*$" },
+    { "Scope": "string", "Match": "\"(?:\\\\.|[^\"\\\\])*\"?" },
+    { "Scope": "keyword", "Match": "\\b(?:true|false|null)\\b" },
+    { "Scope": "number", "Match": "-?\\b\\d[\\d_]*(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b" }
+  ]
+}

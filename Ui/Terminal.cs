@@ -2,10 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace TuiEdit;
 
-/// <summary>
-/// Режимы терминала: включение VT-последовательностей
-/// (нужны truecolor-цветам и bracketed paste).
-/// </summary>
+/// <summary>Режимы терминала: включение VT-последовательностей (нужны truecolor-цветам и bracketed paste).</summary>
 internal static class Terminal
 {
     private const int STD_INPUT_HANDLE = -10;
@@ -27,11 +24,7 @@ internal static class Terminal
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
 
-    /// <summary>
-    /// Включить обработку VT-последовательностей для вывода.
-    /// На Unix VT есть изначально (кроме dumb-терминалов).
-    /// </summary>
-    /// <returns>Можно ли использовать truecolor-ANSI.</returns>
+    /// <summary>Включить обработку VT-последовательностей для вывода; на Unix VT есть изначально (кроме dumb-терминалов).</summary>
     public static bool TryEnableVirtualTerminal()
     {
         if (!OperatingSystem.IsWindows())
@@ -57,17 +50,7 @@ internal static class Terminal
         }
     }
 
-    /// <summary>
-    /// Пригасить обработку ввода (как MS Edit, но без VT_INPUT): снимаем
-    /// LINE/ECHO/PROCESSED, иначе conhost перехватывает Ctrl+S как паузу
-    /// вывода (XOFF) и клавиша не доходит до приложения.
-    /// VIRTUAL_TERMINAL_INPUT намеренно НЕ ставим: с ним стрелки/F-клавиши/
-    /// Alt-комбинации приходят ESC-последовательностями посимвольно, а не
-    /// событиями клавиш, и .NET ReadKey их не собирает (в текст лезет "[D").
-    /// WINDOW_INPUT тоже не нужен (ресайз виден по WindowWidth/Height).
-    /// На Unix conhost-паузы нет — ничего не делаем.
-    /// </summary>
-    /// <returns>true если режим применён (на Unix всегда true).</returns>
+    /// <summary>Пригасить обработку ввода (как MS Edit, но без VT_INPUT): снимаем LINE/ECHO/PROCESSED, иначе conhost перехватывает Ctrl+S как паузу вывода (XOFF); VIRTUAL_TERMINAL_INPUT намеренно не ставим — с ним стрелки/F-клавиши/Alt-комбинации приходят ESC-последовательностями, а .NET ReadKey их не собирает; WINDOW_INPUT не нужен (ресайз виден по WindowWidth/Height); на Unix ничего не делаем.</summary>
     public static bool TryEnableRawInput()
     {
         if (!OperatingSystem.IsWindows())

@@ -1,10 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>
-/// Модальный попап поверх редактора: состояние — <see cref="ModalState"/>,
-/// исход (кнопка/отмена) — колбэком в редактор, где живут pending-действия.
-/// Рамка, центрирование и цикл — из базового <see cref="Dialog"/>.
-/// </summary>
+/// <summary>Модальный попап поверх редактора: исход (кнопка/отмена) — колбэком в редактор, где живут pending-действия.</summary>
 internal sealed class ModalDialog : Dialog
 {
     private readonly ModalState _state;
@@ -54,8 +50,6 @@ internal sealed class ModalDialog : Dialog
         int btnY = 0;
         if (m.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs)
         {
-            // Кнопки списком слева, выбранная подсвечена целиком;
-            // длинный список — срез со стрелками скролла.
             int visCount = Math.Min(m.MaxVisibleButtons, m.Buttons.Count - m.ButtonTop);
             for (int vi = 0; vi < visCount; vi++)
             {
@@ -76,7 +70,6 @@ internal sealed class ModalDialog : Dialog
         }
         else
         {
-            // Кнопки по центру (хоткеи уже в названиях, напр. [Y]).
             screen.Text(x0, y0 + 1 + m.Lines.Count, "│" + new string(' ', boxW - 2) + "│", fg, bg);
             int used = 0;
             var cells = new List<string>();
@@ -103,7 +96,6 @@ internal sealed class ModalDialog : Dialog
             btnRow.Append('│');
             btnY = y0 + 2 + m.Lines.Count;
             screen.Text(x0, btnY, btnRow.ToString(), fg, bg);
-            // Подсветка выбранной кнопки поверх.
             int bx = x0 + 1 + padLeft;
             for (int i = 0; i < m.Buttons.Count; i++)
             {
@@ -113,7 +105,6 @@ internal sealed class ModalDialog : Dialog
             }
             bottomY = btnY + 1;
         }
-        // Хинт (если есть) и низ.
         if (m.Hint.Length > 0)
         {
             Rgb hintFg = m.Danger ? theme.ModalHintDangerFg : theme.ModalHintFg;

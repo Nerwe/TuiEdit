@@ -13,10 +13,7 @@ public static class SystemClipboard
 {
     private const int MaxSyncChars = 128 * 1024; // как LARGE_CLIPBOARD_THRESHOLD в Edit
 
-    /// <summary>
-    /// Собрать OSC 52-последовательность для строк (чисто, для тестов).
-    /// </summary>
-    /// <returns>Последовательность или null, если пусто/слишком велико.</returns>
+    /// <summary>OSC 52-последовательность для строк (null — пусто/слишком велико).</summary>
     public static string? BuildOsc52(IEnumerable<string> lines)
     {
         ArgumentNullException.ThrowIfNull(lines);

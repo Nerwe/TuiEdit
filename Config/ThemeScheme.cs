@@ -3,17 +3,13 @@ using System.Reflection;
 namespace TuiEdit;
 
 /// <summary>
-/// Пользовательская тема из конфига (как schemes в Windows Terminal):
-/// имя, базовая встроенная тема и переопределения ролей цветами #rrggbb.
-/// Незаданные роли берутся из базовой. Имя, совпавшее со встроенной,
-/// перекрывает её.
+/// Пользовательская тема из конфига: имя, базовая встроенная тема
+/// и переопределения ролей цветами #rrggbb. Незаданное — из базовой.
 /// </summary>
 public sealed class ThemeScheme
 {
-    /// <summary>Имя темы (показывается в настройках как есть).</summary>
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>База: dark | light (прочее — dark).</summary>
     public string? Base { get; set; }
 
     /// <summary>Роль (имя поля Theme) → цвет #rrggbb.</summary>
@@ -45,13 +41,10 @@ public sealed class ThemeScheme
     }
 }
 
-/// <summary>
-/// Каталог тем: встроенные dark/light + пользовательские из настроек.
-/// Чистая логика без консоли — покрывается unit-тестами.
-/// </summary>
+/// <summary>Каталог тем: встроенные + пользовательские из настроек.</summary>
 public static class ThemeCatalog
 {
-    /// <summary>Имена для перебора: встроенные, затем пользовательские (без дублей).</summary>
+    /// <summary>Имена для перебора: встроенные, затем пользовательские.</summary>
     public static List<string> Names(AppSettings settings)
     {
         var names = new List<string>(Themes.Names);
@@ -65,7 +58,7 @@ public static class ThemeCatalog
         return names;
     }
 
-    /// <summary>Подпись темы в настройках: встроенные — локализованы, свои — как есть.</summary>
+    /// <summary>Подпись в настройках: встроенные — локализованы, свои — как есть.</summary>
     public static string DisplayName(Loc loc, string name) => name switch
     {
         "light" => loc["settings.light"],
@@ -73,14 +66,10 @@ public static class ThemeCatalog
         _ => name,
     };
 
-    /// <summary>Есть ли тема в каталоге (встроенная или своя).</summary>
     public static bool Contains(AppSettings settings, string? name) =>
         Names(settings).Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>
-    /// Собрать тему: своя схема поверх базы, неизвестное имя — встроенная
-    /// (неизвестная встроенная — тёмная). Битые цвета и роли игнорируются.
-    /// </summary>
+    /// <summary>Собрать тему: своя схема поверх базы, битое — игнорируется.</summary>
     public static Theme Resolve(AppSettings settings, string? name)
     {
         ThemeScheme? scheme = settings.Themes.FirstOrDefault(

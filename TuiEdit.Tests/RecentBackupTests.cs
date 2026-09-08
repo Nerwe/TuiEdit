@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Недавние файлы, .bak и попап Recent (бывший сьют Mru).</summary>
+/// <summary>Недавние файлы, .bak и попап Recent.</summary>
 public sealed class RecentBackupTests
 {
     private static ConsoleKeyInfo Arrow(ConsoleKey k) => new('\0', k, false, false, false);

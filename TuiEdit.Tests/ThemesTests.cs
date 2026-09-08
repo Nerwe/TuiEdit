@@ -191,17 +191,17 @@ public sealed class ThemesTests : IDisposable
         var store = new SettingsStore(Path.Combine(_cfgDir, "settings.json"));
         bool applied = false;
         var dlg = new SettingsDialog(settings, store, () => { applied = true; });
-        dlg.HandleKey(K('\0', ConsoleKey.RightArrow)); // dark -> light
+        dlg.HandleKey(K('\0', ConsoleKey.RightArrow));
         Assert.Equal("light", settings.Theme);
-        dlg.HandleKey(K('\0', ConsoleKey.RightArrow)); // light -> 3024
+        dlg.HandleKey(K('\0', ConsoleKey.RightArrow));
         Assert.Equal("3024 Night (dark)", settings.Theme);
-        dlg.HandleKey(K('\0', ConsoleKey.RightArrow)); // 3024 -> Paper
+        dlg.HandleKey(K('\0', ConsoleKey.RightArrow));
         Assert.Equal("Paper (light)", settings.Theme);
-        dlg.HandleKey(K('\0', ConsoleKey.RightArrow)); // Paper -> Mine
+        dlg.HandleKey(K('\0', ConsoleKey.RightArrow));
         Assert.Equal("Mine", settings.Theme);
         Assert.True(applied);
         Assert.True(File.Exists(Path.Combine(_cfgDir, "settings.json")));
-        dlg.HandleKey(K('\0', ConsoleKey.LeftArrow)); // Mine -> Paper
+        dlg.HandleKey(K('\0', ConsoleKey.LeftArrow));
         Assert.Equal("Paper (light)", settings.Theme);
     }
 }

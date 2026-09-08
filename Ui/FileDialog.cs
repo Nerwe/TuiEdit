@@ -1,10 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>
-/// Файловый менеджер модальным окном (как file-picker в MS Edit):
-/// состояние — <see cref="FilePickerState"/>, исход — <see cref="Result"/>
-/// (выбранный путь или null). Рамка, центрирование и цикл — из <see cref="Dialog"/>.
-/// </summary>
+/// <summary>Файловый менеджер модальным окном (как file-picker в MS Edit): исход — <see cref="Result"/> (выбранный путь или null).</summary>
 internal sealed class FileDialog : Dialog
 {
     private readonly FilePickerState _state;
@@ -43,19 +39,18 @@ internal sealed class FileDialog : Dialog
         string dirRow = loc["picker.dir"] + MiddleTruncate(dirLabel, Math.Max(0, inner - loc["picker.dir"].Length));
         screen.Text(x0, y0 + 1, "│" + dirRow.PadRight(inner)[..inner] + "│", fg, bg);
 
-        // Поле имени (хвост + курсор, как в промпте; выделение — инверсией).
         string nameTag = loc["picker.name"];
         string full = nameTag + p.Name;
         int shift = Math.Max(0, full.Length - inner);
         p.GetNameSelection(out int selA, out int selB);
         for (int i = 0; i < inner; i++)
         {
-            int fi = shift + i; // индекс в full
+            int fi = shift + i;
             char ch = fi < full.Length ? full[fi] : ' ';
             bool sel = false;
             if (fi >= nameTag.Length)
             {
-                int ni = fi - nameTag.Length; // индекс в Name
+                int ni = fi - nameTag.Length;
                 sel = ni >= selA && ni < selB;
             }
             screen.Set(x0 + 1 + i, y0 + 2, ch, sel ? theme.SelFg : fg, sel ? theme.SelBg : bg);
@@ -66,7 +61,6 @@ internal sealed class FileDialog : Dialog
         _cursorX = ncx >= x0 + 1 && ncx < x0 + bw - 1 ? ncx : -1;
         _cursorY = y0 + 2;
 
-        // Список с прокруткой: строки y0+3 .. y0+bh-3, хинт, низ.
         int listRows = bh - 5;
         p.EnsureVisible(Math.Max(1, listRows));
         for (int i = 0; i < listRows; i++)
@@ -124,7 +118,6 @@ internal sealed class FileDialog : Dialog
         if ((k.Modifiers & ConsoleModifiers.Control) != 0
             && (k.Modifiers & ConsoleModifiers.Alt) == 0)
         {
-            // Ctrl в поле имени: по словам и удаление слов.
             switch (k.Key)
             {
                 case ConsoleKey.LeftArrow: _state.MoveNameWord(-1, shift); break;
@@ -132,7 +125,7 @@ internal sealed class FileDialog : Dialog
                 case ConsoleKey.Backspace: _state.DeleteNameWord(-1); break;
                 case ConsoleKey.Delete: _state.DeleteNameWord(1); break;
             }
-            return; // прочий Ctrl в менеджере не используется
+            return;
         }
         if ((k.Modifiers & ConsoleModifiers.Control) != 0)
             return; // Ctrl+Alt (AltGr) в менеджере не используется

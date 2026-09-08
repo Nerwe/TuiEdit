@@ -1,14 +1,8 @@
 namespace TuiEdit;
 
-/// <summary>
-/// Кадр экрана: ячейки (символ + цвета) с diff-выводом.
-/// Идея как framebuffer.rs в MS Edit: каждый кадр рисуется в память,
-/// а в консоль уходят только изменившиеся runs — поэтому нет мигания.
-/// Чистая модель (ComputeDiff) — покрывается unit-тестами.
-/// </summary>
+/// <summary>Кадр экрана: ячейки (символ + цвета) с diff-выводом; идея как framebuffer.rs в MS Edit — каждый кадр рисуется в память, а в консоль уходят только изменившиеся runs, поэтому нет мигания.</summary>
 public sealed class Screen
 {
-    /// <summary>Ячейка экрана.</summary>
     public readonly record struct Cell(char Ch, Rgb Fg, Rgb Bg);
 
     /// <summary>Операция вывода: непрерывный run одного цвета.</summary>
@@ -20,10 +14,8 @@ public sealed class Screen
     private Cell[,] _cur = new Cell[0, 0];
     private Cell[,] _prev = new Cell[0, 0];
 
-    /// <summary>Ширина экрана.</summary>
     public int Width { get; private set; }
 
-    /// <summary>Высота экрана.</summary>
     public int Height { get; private set; }
 
     /// <summary>Смена размера (предыдущий кадр сбрасывается — первый вывод полный).</summary>
@@ -42,7 +34,6 @@ public sealed class Screen
             _cur[x, y] = new Cell(ch, fg, bg);
     }
 
-    /// <summary>Написать строку с одного цвета.</summary>
     public void Text(int x, int y, string text, Rgb fg, Rgb bg)
     {
         ArgumentNullException.ThrowIfNull(text);
@@ -50,18 +41,13 @@ public sealed class Screen
             Set(x + i, y, text[i], fg, bg);
     }
 
-    /// <summary>Залить run одним символом.</summary>
     public void Fill(int x, int y, int count, char ch, Rgb fg, Rgb bg)
     {
         for (int i = 0; i < count; i++)
             Set(x + i, y, ch, fg, bg);
     }
 
-    /// <summary>
-    /// Верхняя рамка модалки с заголовком ровно шириной <paramref name="boxW"/>:
-    /// <c>┌─ Title ───┐</c>. Единая формула для всех попапов
-    /// (раньше менеджер/настройки были короче на символ).
-    /// </summary>
+    /// <summary>Верхняя рамка модалки с заголовком ровно шириной boxW (<c>┌─ Title ───┐</c>); единая формула для всех попапов (раньше менеджер/настройки были короче на символ).</summary>
     public static string TitleRow(string title, int boxW)
     {
         string seg = $" {title} ";
@@ -70,10 +56,7 @@ public sealed class Screen
         return "┌─" + seg + new string('─', Math.Max(0, boxW - 3 - seg.Length)) + "┐";
     }
 
-    /// <summary>
-    /// Разница с предыдущим кадром runsами: подряд идущие изменившиеся
-    /// ячейки одного цвета объединяются в одну операцию.
-    /// </summary>
+    /// <summary>Разница с предыдущим кадром runsами: подряд идущие изменившиеся ячейки одного цвета объединяются в одну операцию.</summary>
     public List<DrawOp> ComputeDiff()
     {
         var ops = new List<DrawOp>();
@@ -104,7 +87,6 @@ public sealed class Screen
     /// <summary>Зафиксировать кадр как «предыдущий» (копия — текущий остаётся для инкремента).</summary>
     public void Swap() => _prev = (Cell[,])_cur.Clone();
 
-    /// <summary>Вывести diff в консоль одним проходом (ANSI или 16 цветов).</summary>
     public void Flush()
     {
         List<DrawOp> ops = ComputeDiff();

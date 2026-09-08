@@ -3,16 +3,11 @@ using System.Text.Json;
 
 namespace TuiEdit;
 
-/// <summary>
-/// Локализация UI: строки из встроенных JSON-ресурсов
-/// (<c>Resources/strings.{lang}.json</c>).
-/// </summary>
+/// <summary>Локализация UI: строки из встроенных JSON-ресурсов (<c>Resources/strings.{lang}.json</c>).</summary>
 public sealed class Loc
 {
-    /// <summary>Поддерживаемые языки.</summary>
     public static readonly string[] Supported = ["en", "ru"];
 
-    /// <summary>Текущий язык.</summary>
     public string Language { get; }
 
     private readonly Dictionary<string, string> _map;
@@ -23,7 +18,7 @@ public sealed class Loc
         _map = map;
     }
 
-    /// <summary>Нормализация кода языка (неизвестный — ru).</summary>
+    /// <summary>Нормализация кода языка (неизвестный — en).</summary>
     public static string Normalize(string? language) => language switch
     {
         "ru" => "ru",
@@ -53,7 +48,6 @@ public sealed class Loc
     public string this[string key] =>
         _map.TryGetValue(key, out string? v) ? v : key;
 
-    /// <summary>Форматированная строка по ключу.</summary>
     public string Format(string key, params object?[] args)
     {
         try

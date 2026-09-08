@@ -7,7 +7,7 @@ try { Console.InputEncoding = Encoding.UTF8; } catch { }
 var store = new SettingsStore(SettingsStore.ResolvePath());
 AppSettings settings = store.Load();
 if (!File.Exists(store.Path))
-    store.Save(settings); // создать конфиг по умолчанию, чтобы было что править руками
+    store.Save(settings);
 Loc loc = Loc.Load(settings.Language);
 
 string? file = null;
@@ -46,14 +46,14 @@ foreach (string a in args)
             Console.WriteLine($"TuiEdit {TuiEditor.AppVersion} (net10.0, System.Console)");
             return 0;
         case ['-', ..]:
-            break; // неизвестный флаг — игнорируем
+            break;
         default:
             file ??= a;
             break;
     }
 }
 
-Console.CancelKeyPress += (_, e) => e.Cancel = true; // Ctrl+C приходит как ввод (TreatControlCAsInput)
+Console.CancelKeyPress += (_, e) => e.Cancel = true;
 
 if (Console.IsInputRedirected || Console.IsOutputRedirected)
 {
@@ -66,7 +66,6 @@ var editor = new TuiEditor(buffer, settings, store);
 editor.Run();
 return 0;
 
-// Полный путь под домашней папкой — коротко через %USERPROFILE%.
 static string ShortenHome(string path)
 {
     string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);

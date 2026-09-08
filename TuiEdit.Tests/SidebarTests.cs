@@ -36,7 +36,7 @@ public sealed class SidebarTests : IDisposable
     {
         // Строка вкладок над панелью не должна светить старым текстом.
         var ed = NewEditor();
-        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // открыть панель
+        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true));
         var scr = (Screen)typeof(TuiEditor)
             .GetField("_screen", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
         scr.Resize(96, 28);
@@ -181,7 +181,7 @@ public sealed class SidebarTests : IDisposable
         Assert.True((bool)Field(ed, "_sidebarFocus")!);
         HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // в фокусе — закрыть
         Assert.Null(Field(ed, "_sidebar"));
-        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // открыть
+        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true));
         HandleKey(ed, K('\x1B', ConsoleKey.Escape)); // Esc — фокус в текст, панель жива
         Assert.NotNull(Field(ed, "_sidebar"));
         Assert.False((bool)Field(ed, "_sidebarFocus")!);

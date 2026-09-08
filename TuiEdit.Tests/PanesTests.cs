@@ -64,10 +64,10 @@ public sealed class PanesTests
         ed.SplitPane();
         Assert.Equal(2, ed.PaneCount);
         Assert.Equal(1, ed.ActivePane);
-        Assert.Equal("", ActiveBuf(ed).GetLine(0)); // новая панель — пустая вкладка
+        Assert.Equal("", ActiveBuf(ed).GetLine(0));
         ed.SwitchPane(0);
         Assert.Equal(0, ed.ActivePane);
-        Assert.Equal("x", ActiveBuf(ed).GetLine(0)); // состояние первой цело
+        Assert.Equal("x", ActiveBuf(ed).GetLine(0));
         ed.SwitchPane(5); // по кругу
         Assert.Equal(1, ed.ActivePane);
     }
@@ -80,7 +80,7 @@ public sealed class PanesTests
         ed.NewTab();
         Assert.Equal(2, ed.TabCount);
         ed.SplitPane();
-        Assert.Equal(1, ed.TabCount); // у новой панели своя одна вкладка
+        Assert.Equal(1, ed.TabCount);
         ed.SwitchPane(0);
         Assert.Equal(2, ed.TabCount);
         // Таб-клавиши работают по активной панели (стоим на вкладке 1 — завернёт на 0).
@@ -112,7 +112,7 @@ public sealed class PanesTests
         var ed = NewEditor();
         ActiveBuf(ed).InsertChar(0, 0, 'x');
         ed.SplitPane(); // активна чистая вторая
-        HandleKey(ed, K('\x11', ConsoleKey.Q, ctrl: true)); // Ctrl+Q
+        HandleKey(ed, K('\x11', ConsoleKey.Q, ctrl: true));
         Assert.NotNull(Get(ed, "_dialog")); // спросили: грязь в первой панели
     }
 

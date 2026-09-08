@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Черновики и попап восстановления (бывший сьют Draft).</summary>
+/// <summary>Черновики и попап восстановления.</summary>
 public sealed class DraftRestoreTests
 {
     [Theory]

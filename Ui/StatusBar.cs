@@ -1,19 +1,9 @@
 namespace TuiEdit;
 
-/// <summary>
-/// Сборка строки статусбара: слева — текст, справа — прижатый блок
-/// (кодировка | переводы строк | отступ | файл).
-/// Чистая функция без консоли — покрывается unit-тестами.
-/// </summary>
+/// <summary>Сборка строки статусбара: слева — текст, справа — прижатый блок (кодировка | переводы строк | отступ | файл).</summary>
 public static class StatusBar
 {
-    /// <summary>
-    /// Собирает строку ровно шириной <paramref name="width"/>.
-    /// </summary>
-    /// <param name="left">Левый текст (позиция или сообщение).</param>
-    /// <param name="right">Правый блок (видно всегда; при переполнении — его хвост с именем файла).</param>
-    /// <param name="width">Ширина консоли.</param>
-    /// <returns>Строка длиной <paramref name="width"/> (или пустая при неположительной ширине).</returns>
+    /// <summary>Собирает строку ровно шириной width; правый блок виден всегда, при переполнении — его хвост.</summary>
     public static string Build(string left, string right, int width) => (left, right, width) switch
     {
         (_, _, <= 0) => string.Empty,

@@ -4,10 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>
-/// Паритет strings.ru/en.json и наличие всех ключей, используемых кодом и справкой.
-/// Сводка проверок бывших сьютов: падает при ключе только в одном языке.
-/// </summary>
+/// <summary>Паритет strings.ru/en.json и наличие всех ключей, используемых кодом и справкой.</summary>
 public sealed class ResourcesTests
 {
     private static Dictionary<string, string> Load(string lang)

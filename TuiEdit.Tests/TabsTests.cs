@@ -74,7 +74,7 @@ public sealed class TabsTests : IDisposable
         var ed = NewEditor();
         Assert.Equal(1, ed.TabCount);
         ed.NewTab();
-        Assert.Equal(1, ed.TabCount); // пустую не дублируем
+        Assert.Equal(1, ed.TabCount);
         ActiveBuf(ed).InsertChar(0, 0, 'x');
         ed.NewTab();
         Assert.Equal(2, ed.TabCount);
@@ -126,7 +126,7 @@ public sealed class TabsTests : IDisposable
         ActiveBuf(ed).InsertChar(0, 0, 'x');
         ed.NewTab();
         Assert.Equal(2, ed.TabCount);
-        ed.CloseTab(); // чистая закрывается сразу
+        ed.CloseTab();
         Assert.Equal(1, ed.TabCount);
         Assert.Equal(0, ed.ActiveTab);
         ed.CloseTabNow(); // последняя — очищается, не закрывается
@@ -140,8 +140,8 @@ public sealed class TabsTests : IDisposable
         var ed = NewEditor();
         ActiveBuf(ed).InsertChar(0, 0, 'x');
         ed.CloseTab();
-        Assert.NotNull(Get(ed, "_dialog")); // попап несохранённых
-        Assert.Equal(1, ed.TabCount); // пока не закрыта
+        Assert.NotNull(Get(ed, "_dialog"));
+        Assert.Equal(1, ed.TabCount);
     }
 
     [Fact]
@@ -155,9 +155,9 @@ public sealed class TabsTests : IDisposable
         Assert.Equal(3, ed.TabCount);
         HandleKey(ed, K('1', ConsoleKey.D1, alt: true));
         Assert.Equal(0, ed.ActiveTab);
-        HandleKey(ed, K('\0', ConsoleKey.PageDown, ctrl: true)); // дальше
+        HandleKey(ed, K('\0', ConsoleKey.PageDown, ctrl: true));
         Assert.Equal(1, ed.ActiveTab);
-        HandleKey(ed, K('\0', ConsoleKey.PageUp, ctrl: true)); // назад
+        HandleKey(ed, K('\0', ConsoleKey.PageUp, ctrl: true));
         Assert.Equal(0, ed.ActiveTab);
         HandleKey(ed, K('9', ConsoleKey.D9, alt: true)); // нет такой — стоим
         Assert.Equal(0, ed.ActiveTab);
@@ -203,7 +203,7 @@ public sealed class TabsTests : IDisposable
         ActiveBuf(ed).InsertChar(0, 0, 'x');
         ed.NewTab();
         ActiveBuf(ed).InsertChar(0, 0, 'y');
-        HandleKey(ed, K('\x10', ConsoleKey.P, ctrl: true)); // Ctrl+P
+        HandleKey(ed, K('\x10', ConsoleKey.P, ctrl: true));
         Assert.NotNull(Get(ed, "_dialog"));
         // Выбираем вторую кнопку (вкладку 1) Enter'ом после стрелки вниз.
         HandleKey(ed, K('\0', ConsoleKey.DownArrow));
@@ -232,11 +232,11 @@ public sealed class TabsTests : IDisposable
     {
         var ed = NewEditor();
         HandleKey(ed, K('\x14', ConsoleKey.T, ctrl: true));
-        Assert.Equal(1, ed.TabCount); // чистая — не дублируем
+        Assert.Equal(1, ed.TabCount);
         ActiveBuf(ed).InsertChar(0, 0, 'x');
         HandleKey(ed, K('\x14', ConsoleKey.T, ctrl: true));
         Assert.Equal(2, ed.TabCount);
-        HandleKey(ed, K('\x17', ConsoleKey.W, ctrl: true)); // чистая закрылась
+        HandleKey(ed, K('\x17', ConsoleKey.W, ctrl: true));
         Assert.Equal(1, ed.TabCount);
     }
 
@@ -256,7 +256,7 @@ public sealed class TabsTests : IDisposable
         ActiveBuf(ed).InsertChar(0, 0, 'x');
         ed.NewTab();
         ActiveBuf(ed).InsertChar(0, 0, 'y');
-        HandleKey(ed, K('\x11', ConsoleKey.Q, ctrl: true)); // Ctrl+Q → модалка
+        HandleKey(ed, K('\x11', ConsoleKey.Q, ctrl: true));
         Assert.NotNull(Get(ed, "_dialog"));
         Assert.Contains("Untitled.txt", ModalLine(ed)); // видно, что спрашиваем
         HandleKey(ed, K('n', ConsoleKey.N)); // «Не сохранять» по вкладке 2
@@ -273,7 +273,7 @@ public sealed class TabsTests : IDisposable
         ActiveBuf(ed).InsertChar(0, 0, 'x');
         ed.NewTab();
         ed.SwitchTab(0);
-        HandleKey(ed, K('\x17', ConsoleKey.W, ctrl: true)); // Ctrl+W → модалка
+        HandleKey(ed, K('\x17', ConsoleKey.W, ctrl: true));
         Assert.NotNull(Get(ed, "_dialog"));
         HandleKey(ed, K('n', ConsoleKey.N)); // «Не сохранять»
         Assert.Null(Get(ed, "_dialog"));

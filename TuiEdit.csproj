@@ -17,8 +17,8 @@
     <None Remove="TuiEdit.Tests\**" />
     <InternalsVisibleTo Include="TuiEdit.Tests" />
     <InternalsVisibleTo Include="TuiEdit.Shots" />
-    <!-- WithCulture=false: убрать .en./.ru. из имён встроенных файлов и satellite-сборок -->
     <EmbeddedResource Include="Resources\*.json" WithCulture="false" />
+    <EmbeddedResource Include="Grammars\*.json" WithCulture="false" />
   </ItemGroup>
 
 </Project>

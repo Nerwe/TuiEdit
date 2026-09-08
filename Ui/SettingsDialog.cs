@@ -1,10 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>
-/// Диалог настроек: состояние — <see cref="SettingsDialogState"/>,
-/// значения применяются и сохраняются сразу при листании.
-/// Рамка, центрирование и цикл — из базового <see cref="Dialog"/>.
-/// </summary>
+/// <summary>Диалог настроек: значения применяются и сохраняются сразу при листании.</summary>
 internal sealed class SettingsDialog : Dialog
 {
     private readonly SettingsDialogState _state = new();
@@ -30,7 +26,7 @@ internal sealed class SettingsDialog : Dialog
         for (int i = 0; i < SettingsDialogState.RowCount; i++)
             inner = Math.Max(inner, labels[i].Length + values[i].Length + 8);
         int boxW = Math.Min(Math.Max(inner + 2, title.Length + 6), screenW);
-        int boxH = SettingsDialogState.RowCount + 2; // заголовок + строки + низ
+        int boxH = SettingsDialogState.RowCount + 2;
         int x0 = Math.Max(0, (screenW - boxW) / 2);
         int y0 = Math.Max(0, (screenH - boxH) / 2);
         if (y0 + boxH > screenH)
@@ -95,7 +91,6 @@ internal sealed class SettingsDialog : Dialog
         }
     }
 
-    /// <summary>Листание значения настройки с применением и сохранением (тогглы — переворот).</summary>
     private void CycleSetting(int dir)
     {
         switch (_state.Row)

@@ -1,9 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>
-/// Палитра интерфейса: именованные роли вместо разбросанных цветов.
-/// Мягкие пастельные тона (truecolor-ANSI, см. <see cref="Rgb"/>).
-/// </summary>
+/// <summary>Палитра интерфейса: именованные роли вместо разбросанных цветов; мягкие пастельные тона (truecolor-ANSI, см. <see cref="Rgb"/>).</summary>
 public sealed record Theme(
     string Name,
     // Редактор
@@ -28,16 +25,15 @@ public sealed record Theme(
     // Менеджер файлов
     Rgb PickerDirFg, Rgb PickerUpFg, Rgb PickerFileFg,
     Rgb PickerHiddenFg, Rgb PickerExeFg,
-    Rgb PickerEmptyFg, Rgb PickerErrorFg, Rgb PickerHintFg
+    Rgb PickerEmptyFg, Rgb PickerErrorFg, Rgb PickerHintFg,
+    // Подсветка синтаксиса (scope -> цвет)
+    Rgb SynKeywordFg, Rgb SynStringFg, Rgb SynCommentFg, Rgb SynNumberFg, Rgb SynTypeFg
 );
 
-/// <summary>Встроенные темы: тёмная и светлая (приглушённые тона).</summary>
 public static class Themes
 {
-    /// <summary>Имена тем для настроек.</summary>
     public static readonly string[] Names = ["dark", "light", "3024 Night (dark)", "Paper (light)"];
 
-    /// <summary>Тёмная мягкая тема.</summary>
     public static Theme Dark { get; } = new(
         Name: "dark",
         EditorBg: new Rgb(0x1E, 0x1E, 0x2E), EditorFg: new Rgb(0xCD, 0xD6, 0xF4),
@@ -57,9 +53,9 @@ public static class Themes
         ButtonSelBg: new Rgb(0xA6, 0xE3, 0xA1), ButtonSelFg: new Rgb(0x11, 0x11, 0x1B),
         PickerDirFg: new Rgb(0x89, 0xB4, 0xFA), PickerUpFg: new Rgb(0x6C, 0x70, 0x86), PickerFileFg: new Rgb(0xCD, 0xD6, 0xF4),
         PickerHiddenFg: new Rgb(0x6C, 0x70, 0x86), PickerExeFg: new Rgb(0xA6, 0xE3, 0xA1),
-        PickerEmptyFg: new Rgb(0x6C, 0x70, 0x86), PickerErrorFg: new Rgb(0xF3, 0x8B, 0xA8), PickerHintFg: new Rgb(0x7F, 0x84, 0x9C));
+        PickerEmptyFg: new Rgb(0x6C, 0x70, 0x86), PickerErrorFg: new Rgb(0xF3, 0x8B, 0xA8), PickerHintFg: new Rgb(0x7F, 0x84, 0x9C),
+        SynKeywordFg: new Rgb(0xCB, 0xA6, 0xF7), SynStringFg: new Rgb(0xA6, 0xE3, 0xA1), SynCommentFg: new Rgb(0x6C, 0x70, 0x86), SynNumberFg: new Rgb(0xFA, 0xB3, 0x87), SynTypeFg: new Rgb(0x89, 0xDC, 0xEB));
 
-    /// <summary>Светлая мягкая тема.</summary>
     public static Theme Light { get; } = new(
         Name: "light",
         EditorBg: new Rgb(0xEF, 0xF1, 0xF5), EditorFg: new Rgb(0x4C, 0x4F, 0x69),
@@ -79,7 +75,8 @@ public static class Themes
         ButtonSelBg: new Rgb(0x40, 0xA0, 0x2B), ButtonSelFg: new Rgb(0xEF, 0xF1, 0xF5),
         PickerDirFg: new Rgb(0x1E, 0x66, 0xF5), PickerUpFg: new Rgb(0x8C, 0x8F, 0xA1), PickerFileFg: new Rgb(0x4C, 0x4F, 0x69),
         PickerHiddenFg: new Rgb(0x8C, 0x8F, 0xA1), PickerExeFg: new Rgb(0x40, 0xA0, 0x2B),
-        PickerEmptyFg: new Rgb(0x8C, 0x8F, 0xA1), PickerErrorFg: new Rgb(0xD2, 0x0F, 0x39), PickerHintFg: new Rgb(0x8C, 0x8F, 0xA1));
+        PickerEmptyFg: new Rgb(0x8C, 0x8F, 0xA1), PickerErrorFg: new Rgb(0xD2, 0x0F, 0x39), PickerHintFg: new Rgb(0x8C, 0x8F, 0xA1),
+        SynKeywordFg: new Rgb(0x88, 0x39, 0xEF), SynStringFg: new Rgb(0x40, 0xA0, 0x2B), SynCommentFg: new Rgb(0x8C, 0x8F, 0xA1), SynNumberFg: new Rgb(0xFE, 0x64, 0x00), SynTypeFg: new Rgb(0x1E, 0x66, 0xF5));
 
     /// <summary>Тёмная «3024 Night» (палитра 3024).</summary>
     public static Theme Night3024 { get; } = new(
@@ -101,9 +98,9 @@ public static class Themes
         ButtonSelBg: new Rgb(0x01, 0xA2, 0x52), ButtonSelFg: new Rgb(0x09, 0x03, 0x00),
         PickerDirFg: new Rgb(0x01, 0xA0, 0xE4), PickerUpFg: new Rgb(0x5C, 0x58, 0x55), PickerFileFg: new Rgb(0xA5, 0xA2, 0xA2),
         PickerHiddenFg: new Rgb(0x5C, 0x58, 0x55), PickerExeFg: new Rgb(0x01, 0xA2, 0x52),
-        PickerEmptyFg: new Rgb(0x5C, 0x58, 0x55), PickerErrorFg: new Rgb(0xDB, 0x2D, 0x20), PickerHintFg: new Rgb(0x5C, 0x58, 0x55));
+        PickerEmptyFg: new Rgb(0x5C, 0x58, 0x55), PickerErrorFg: new Rgb(0xDB, 0x2D, 0x20), PickerHintFg: new Rgb(0x5C, 0x58, 0x55),
+        SynKeywordFg: new Rgb(0xA1, 0x6A, 0x94), SynStringFg: new Rgb(0x01, 0xA2, 0x52), SynCommentFg: new Rgb(0x5C, 0x58, 0x55), SynNumberFg: new Rgb(0xCD, 0xAB, 0x53), SynTypeFg: new Rgb(0x01, 0xA0, 0xE4));
 
-    /// <summary>Светлая «бумажная».</summary>
     public static Theme Paper { get; } = new(
         Name: "Paper (light)",
         EditorBg: new Rgb(0xF7, 0xF3, 0xEA), EditorFg: new Rgb(0x3A, 0x34, 0x32),
@@ -123,7 +120,8 @@ public static class Themes
         ButtonSelBg: new Rgb(0x0E, 0x7A, 0x3E), ButtonSelFg: new Rgb(0xF7, 0xF7, 0xF7),
         PickerDirFg: new Rgb(0x00, 0x77, 0xB6), PickerUpFg: new Rgb(0x8A, 0x84, 0x78), PickerFileFg: new Rgb(0x3A, 0x34, 0x32),
         PickerHiddenFg: new Rgb(0x8A, 0x84, 0x78), PickerExeFg: new Rgb(0x0E, 0x7A, 0x3E),
-        PickerEmptyFg: new Rgb(0x8A, 0x84, 0x78), PickerErrorFg: new Rgb(0xDB, 0x2D, 0x20), PickerHintFg: new Rgb(0x8A, 0x84, 0x78));
+        PickerEmptyFg: new Rgb(0x8A, 0x84, 0x78), PickerErrorFg: new Rgb(0xDB, 0x2D, 0x20), PickerHintFg: new Rgb(0x8A, 0x84, 0x78),
+        SynKeywordFg: new Rgb(0x8A, 0x55, 0x70), SynStringFg: new Rgb(0x0E, 0x7A, 0x3E), SynCommentFg: new Rgb(0x8A, 0x84, 0x78), SynNumberFg: new Rgb(0xA1, 0x5C, 0x00), SynTypeFg: new Rgb(0x00, 0x77, 0xB6));
 
     /// <summary>Тема по имени (неизвестная — тёмная).</summary>
     public static Theme Get(string? name) => name switch

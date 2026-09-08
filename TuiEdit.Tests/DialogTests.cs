@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Единый механизм диалогов (бывший сьют Dialogs).</summary>
+/// <summary>Единый механизм диалогов.</summary>
 public sealed class DialogTests : IDisposable
 {
     private readonly string _dir;
@@ -115,7 +115,7 @@ public sealed class DialogTests : IDisposable
         Assert.Null(fd.Result);
 
         var fd2 = new FileDialog(new FilePickerState(PickerMode.Open, _dir, ""), "Open", "Save");
-        fd2.HandleKey(K('\0', ConsoleKey.DownArrow)); // на a.txt
+        fd2.HandleKey(K('\0', ConsoleKey.DownArrow));
         fd2.HandleKey(K('\0', ConsoleKey.Enter));
         Assert.True(fd2.Closed);
         Assert.Equal(Path.Combine(_dir, "a.txt"), fd2.Result);
@@ -145,7 +145,7 @@ public sealed class DialogTests : IDisposable
         Assert.False(sd.Closed);
         sd.HandleKey(K('\0', ConsoleKey.DownArrow));
         sd.HandleKey(K('\0', ConsoleKey.DownArrow));
-        sd.HandleKey(K('\0', ConsoleKey.RightArrow)); // снять флажок
+        sd.HandleKey(K('\0', ConsoleKey.RightArrow));
         Assert.False(settings.SearchMatchCase);
         Assert.True(applied);
         Assert.True(File.Exists(Path.Combine(_cfgDir, "settings.json")));

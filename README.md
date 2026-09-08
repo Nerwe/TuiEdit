@@ -7,6 +7,7 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 
 - Editing: undo/redo (per keystroke and per block), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), move lines (`Alt+↑/↓`), word-wise delete/move.
 - Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, «match case» and «whole word» options. Instant whole-document replace (`^H`) in a single undo step.
+- Syntax highlighting from JSON grammars (C#, Python, JavaScript/TypeScript, JSON built in; drop your own into the `grammars` folder).
 - File manager for Open/Save as: drives, `..`, file highlight, overwrite confirmation in a separate window. Name field: selection (`Shift`), word-wise motion (`Ctrl+arrows`), `Alt+←/→` navigation.
 - Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save.
 - `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), help screen (`F1`).
@@ -127,6 +128,38 @@ Custom names appear in the settings dialog theme row next to the built-ins:
 `dark`, `light`, `3024 Night (dark)`, `Paper (light)`
 (the bracket says whether the theme is dark or light).
 
+## Syntax grammars
+
+Highlighting rules are JSON plugins (VS Code TextMate-style, simplified):
+`Grammars/*.json` are built in, and any `*.json` dropped into the
+`grammars` folder next to `settings.json` (or next to the exe) is picked
+up — matching by `Name` or `Extensions` overrides a built-in.
+`"Grammar": "auto"` picks by file extension; a language name forces it.
+
+```json
+{
+  "Name": "C#",
+  "Extensions": [".cs"],
+  "IgnoreCase": false,
+  "Rules": [
+    { "Scope": "comment", "Begin": "/\\*", "End": "\\*/" },
+    { "Scope": "comment", "Match": "//.*$" },
+    { "Scope": "string", "Match": "\"(?:\\\\.|[^\"\\\\])*\"?" },
+    { "Scope": "keyword", "Match": "\\b(?:if|else|for|while|return)\\b" },
+    { "Scope": "number", "Match": "\\b\\d[\\d_]*(?:\\.\\d+)?\\b" },
+    { "Scope": "type", "Match": "\\b[A-Z][\\w]*" }
+  ]
+}
+```
+
+Rules run in order (earlier wins ties); otherwise the earliest match wins.
+`Match` is single-line, `Begin`/`End` spans lines (block comments,
+triple-quoted strings). Scopes: `keyword`, `string`, `comment`, `number`,
+`type` — anything else is plain text. Colors come from the theme roles
+`SynKeywordFg`, `SynStringFg`, `SynCommentFg`, `SynNumberFg`, `SynTypeFg`,
+so custom themes recolor syntax too. Bad patterns are skipped, matching
+times out safely.
+
 ## Structure
 
 ```text
@@ -134,6 +167,8 @@ Program.cs            entry, --help/--version, editor startup
 Core/TextBuffer.cs    buffer: lines, undo/redo, find/replace, encodings
 Core/DocTab.cs        tab: buffer + view state (cursor, scroll, selection)
 Core/Pane.cs          split pane: own tabs, active tab, tab scroll
+Core/Grammar.cs       syntax grammars: JSON plugins + registry
+Core/SyntaxHighlighter.cs tokenizer (match/begin-end) with cache
 Core/WordMotion.cs    word-wise motion (VS Code style)
 Core/TabStops.cs      tabs + WordWrap (soft-wrap segments)
 Core/EditorCommand.cs editor commands

@@ -6,18 +6,14 @@ namespace TuiEdit;
 /// <summary>Перевод строки в файле.</summary>
 public enum LineEnding
 {
-    /// <summary>LF (\n).</summary>
     Lf,
-    /// <summary>CRLF (\r\n).</summary>
     CrLf,
-    /// <summary>CR (\r, старый Mac).</summary>
     Cr,
 }
 
 /// <summary>
 /// Модель текстового буфера: строки (как есть, с табами), dirty-флаг, undo/redo,
-/// кодировка / перевод строк / отступ (определяются при открытии, сохраняются при записи).
-/// Основано на System.IO.File + System.Text.Encoding (см. Microsoft Learn: System.IO.File).
+/// кодировка / переводы строк / отступ (определяются при открытии, сохраняются при записи).
 /// </summary>
 internal sealed class TextBuffer
 {
@@ -25,9 +21,11 @@ internal sealed class TextBuffer
     public string? FilePath { get; private set; }
     public bool IsModified { get; private set; }
 
+    /// <summary>Счётчик изменений содержимого: по нему кэши понимают, что пора пересчитаться.</summary>
+    public int Version { get; private set; }
+
     private Encoding _encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
-    /// <summary>Метка кодировки для статусбара: UTF-8, UTF-8 BOM, UTF-16 LE/BE.</summary>
     public string EncodingLabel { get; private set; } = "UTF-8";
 
     /// <summary>Перевод строки файла (определяется при открытии).</summary>
@@ -71,11 +69,9 @@ internal sealed class TextBuffer
     public string GetLine(int row) => Lines[row];
 
     /// <summary>
-    /// Открывает файл в буфер: определяет BOM/кодировку, перевод строк и отступ.
+    /// Открывает файл в буфер: определяет BOM/кодировку, переводы строк и отступ.
     /// Несуществующий путь даёт пустой документ с этим именем.
-    /// Табы хранятся как есть, раскрытие — только для отрисовки (см. <see cref="TabStops"/>).
     /// </summary>
-    /// <param name="path">Путь к файлу.</param>
     public void Open(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -92,6 +88,7 @@ internal sealed class TextBuffer
         DetectIndent(lines);
         _undo.Clear();
         _redo.Clear();
+        Version++;
         MarkSaved(path);
     }
 
@@ -177,6 +174,7 @@ internal sealed class TextBuffer
         IndentString = "    ";
         _undo.Clear();
         _redo.Clear();
+        Version++;
     }
 
     public void MarkSaved(string path)
@@ -198,6 +196,7 @@ internal sealed class TextBuffer
         _undo.Clear();
         _redo.Clear();
         IsModified = true;
+        Version++;
     }
 
     /// <param name="path">Путь (null — текущий).</param>
@@ -237,6 +236,7 @@ internal sealed class TextBuffer
         }
         _redo.Clear();
         IsModified = true;
+        Version++;
     }
 
     public bool CanUndo => _undo.Count > 0;
@@ -248,6 +248,7 @@ internal sealed class TextBuffer
         _redo.Push(new List<string>(Lines));
         Lines = _undo.Pop();
         IsModified = true;
+        Version++;
     }
 
     public void Redo()
@@ -256,6 +257,7 @@ internal sealed class TextBuffer
         _undo.Push(new List<string>(Lines));
         Lines = _redo.Pop();
         IsModified = true;
+        Version++;
     }
 
     public void InsertChar(int row, int col, char c)
@@ -277,7 +279,6 @@ internal sealed class TextBuffer
     /// Вставка многострочного текста (блок из bracketed paste) одной undo-записью:
     /// переводы (\r\n, \r, \n) режут на строки, управляющие символы (кроме \t) выкидываются.
     /// </summary>
-    /// <returns>Позиция курсора — конец вставки.</returns>
     public (int row, int col) InsertText(int row, int col, string text)
     {
         PushUndo();
@@ -307,7 +308,6 @@ internal sealed class TextBuffer
         return sb.ToString();
     }
 
-    /// <returns>Новая позиция курсора (row, col) после split.</returns>
     public (int row, int col) SplitLine(int row, int col)
     {
         PushUndo();
@@ -319,7 +319,6 @@ internal sealed class TextBuffer
         return (row + 1, 0);
     }
 
-    /// <returns>Новая позиция курсора после Backspace.</returns>
     public (int row, int col) Backspace(int row, int col)
     {
         if (row == 0 && col == 0) return (row, col);
@@ -330,7 +329,6 @@ internal sealed class TextBuffer
             Lines[row] = line.Remove(col - 1, 1);
             return (row, col - 1);
         }
-        // Склейка с предыдущей строкой.
         string prev = Lines[row - 1];
         string cur = Lines[row];
         Lines[row - 1] = prev + cur;
@@ -338,7 +336,6 @@ internal sealed class TextBuffer
         return (row - 1, prev.Length);
     }
 
-    /// <returns>Новая позиция курсора после Delete (не меняется, кроме склейки).</returns>
     public (int row, int col) Delete(int row, int col)
     {
         string line = Lines[row];
@@ -382,10 +379,7 @@ internal sealed class TextBuffer
         return frag;
     }
 
-    /// <summary>
-    /// Удаляет нормализованный диапазон [start, end) одной undo-записью.
-    /// </summary>
-    /// <returns>Позиция курсора — начало диапазона.</returns>
+    /// <summary>Удаляет нормализованный диапазон [start, end) одной undo-записью.</summary>
     public (int row, int col) DeleteRange(int startRow, int startCol, int endRow, int endCol)
     {
         if (startRow == endRow && startCol == endCol)
@@ -401,10 +395,7 @@ internal sealed class TextBuffer
         return (startRow, startCol);
     }
 
-    /// <summary>
-    /// Добавляет отступ в начало строк [startRow, endRow] одной undo-записью.
-    /// </summary>
-    /// <returns>Добавленная ширина по каждой строке.</returns>
+    /// <summary>Отступ в начало строк [startRow, endRow] одной undo-записью.</summary>
     public int[] IndentLines(int startRow, int endRow, string indent)
     {
         PushUndo();
@@ -417,10 +408,7 @@ internal sealed class TextBuffer
         return added;
     }
 
-    /// <summary>
-    /// Убирает один уровень отступа в строках [startRow, endRow] одной undo-записью.
-    /// </summary>
-    /// <returns>Убранная ширина по каждой строке.</returns>
+    /// <summary>Убирает один уровень отступа в строках [startRow, endRow].</summary>
     public int[] UnindentLines(int startRow, int endRow, string indent)
     {
         PushUndo();
@@ -468,10 +456,7 @@ internal sealed class TextBuffer
         Lines.Insert(row + clipboard.Count - 1, clipboard[^1] + after);
     }
 
-    /// <summary>
-    /// Дублирует строки [startRow, endRow] ниже блока. Один шаг undo.
-    /// </summary>
-    /// <returns>Первая строка копии.</returns>
+    /// <summary>Дублирует строки [startRow, endRow] ниже блока. Один шаг undo.</summary>
     public int DuplicateLines(int startRow, int endRow)
     {
         startRow = Math.Clamp(startRow, 0, Lines.Count - 1);
@@ -527,7 +512,7 @@ internal sealed class TextBuffer
         }
         catch (ArgumentException)
         {
-            return null; // некорректный шаблон
+            return null;
         }
     }
 
@@ -638,7 +623,7 @@ internal sealed class TextBuffer
         return null;
     }
 
-    /// <summary>Число вхождений term в документе (без пересечений, слева направо).</summary>
+    /// <summary>Число вхождений term в документе (без пересечений).</summary>
     public int CountMatches(string term, bool matchCase, bool wholeWord, bool useRegex = false)
     {
         if (string.IsNullOrEmpty(term)) return 0;
@@ -671,10 +656,7 @@ internal sealed class TextBuffer
         return n;
     }
 
-    /// <summary>
-    /// Порядковый номер (1-based) вхождения, начинающегося в (row, col):
-    /// число вхождений строго левее позиции + 1. Для сообщения «k/N».
-    /// </summary>
+    /// <summary>Порядковый номер (1-based) вхождения в (row, col): строго левее + 1.</summary>
     public int MatchOrdinal(string term, int row, int col, bool matchCase, bool wholeWord, bool useRegex = false)
     {
         if (string.IsNullOrEmpty(term)) return 0;
@@ -719,11 +701,9 @@ internal sealed class TextBuffer
     }
 
     /// <summary>
-    /// Заменяет все вхождения от позиции (fromRow, fromCol) до конца документа.
-    /// Один шаг undo на всё (или ни одного при отсутствии вхождений).
+    /// Заменяет все вхождения от позиции до конца документа за один шаг undo.
     /// В regex-режиме в replacement работают группы $1 (как в MS Edit).
     /// </summary>
-    /// <returns>Число замен.</returns>
     public int ReplaceAll(string term, string replacement,
         int fromRow, int fromCol, bool matchCase, bool wholeWord, bool useRegex = false)
     {
@@ -738,7 +718,7 @@ internal sealed class TextBuffer
             string line = Lines[r];
             int p = (r == fromRow) ? Math.Min(Math.Max(fromCol, 0), line.Length) : 0;
             var sb = new StringBuilder(line.Length);
-            sb.Append(line, 0, p); // голова до старта — как есть
+            sb.Append(line, 0, p);
             int cur = p;
             int n = 0;
             while (true)
@@ -841,7 +821,6 @@ internal sealed class TextBuffer
         return -1;
     }
 
-    /// <summary>Последнее вхождение, начинающееся в [start, end): -1 если нет.</summary>
     private static int LastIndexOfOpt(string line, string term, int start, int end, bool matchCase, bool wholeWord)
     {
         int p = Math.Clamp(start, 0, line.Length);
@@ -861,7 +840,6 @@ internal sealed class TextBuffer
         (idx == 0 || !IsWordChar(line[idx - 1])) &&
         (idx + len >= line.Length || !IsWordChar(line[idx + len]));
 
-    /// <summary>Первое regex-совпадение, начинающееся в [start, end).</summary>
     private static int RegexIndexOf(string line, Regex rx, int start, int end)
     {
         int lim = Math.Clamp(end, 0, line.Length);
@@ -874,7 +852,6 @@ internal sealed class TextBuffer
         return -1;
     }
 
-    /// <summary>Последнее regex-совпадение, начинающееся в [start, end).</summary>
     private static int LastRegexIndexOf(string line, Regex rx, int start, int end)
     {
         int lim = Math.Clamp(end, 0, line.Length);
