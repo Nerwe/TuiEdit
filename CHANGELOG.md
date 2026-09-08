@@ -37,6 +37,9 @@ release notes from the `Unreleased` section when a `v*` tag is pushed.
 - Mouse clicks in option dialogs (settings, file format: select + step)
   and on find/replace toggles; release updates hover position (terminals
   often don't report bare hover motion).
+- Fixed UI freeze under mouse motion on Windows (motion-event flood
+  starved keys behind full renders; motions are coalesced, clicks
+  and wheel cut through); dropped ?1002 (drag stream with no consumer).
 - Fixed input starvation with mouse on Windows: key readiness is probed
   via the queue (`PeekConsoleInput`), bare `KeyAvailable` also fires on
   mouse records and `ReadKey` would block/swallow keystrokes over them.
