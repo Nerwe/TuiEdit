@@ -2,9 +2,12 @@
 
 Rule: every `feat`/`fix` commit extends `Unreleased`; the release commit
 renames the section to the version number. `release.yml` builds the GitHub
-release notes from the `Unreleased` section when a `v*` tag is pushed.
+release notes from that version's section (falling back to `Unreleased`)
+when a `v*` tag is pushed.
 
 ## [Unreleased]
+
+## [0.3.0] - 2026-09-08
 
 ### Added
 - Crash handler: on an unhandled exception the terminal is restored,

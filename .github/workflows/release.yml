@@ -58,7 +58,7 @@ jobs:
         with:
           path: dist
       - name: Build notes from CHANGELOG
-        run: python3 .github/workflows/release-notes.py
+        run: python3 .github/workflows/release-notes.py "${{ github.ref_name }}"
       - name: Pack zips
         run: |
           VER="${GITHUB_REF_NAME#v}"
