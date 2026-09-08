@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace TuiEdit;
 
 /// <summary>TuiEditor: input dispatch, menus, pickers and prompts.</summary>
@@ -27,7 +29,73 @@ internal sealed partial class TuiEditor
             TrackCol();
             return;
         }
-        HandleKey(((KeyInput)input).Key);
+        if (input is MouseInput mouse)
+        {
+            HandleMouse(mouse);
+            return;
+        }
+        if (input is KeyInput key)
+            HandleKey(key.Key);
+        // Будущие типы событий — игнор, а не каст (мышь уже роняла это место).
+    }
+
+    /// <summary>Мышь v1: клик в текст активной панели, колесо — курсор ±3. Диалоги/меню — игнор.</summary>
+    private void HandleMouse(MouseInput m)
+    {
+        if (_dialog is not null || _menu is not null)
+            return;
+        int w, h;
+        try
+        {
+            w = Console.WindowWidth;
+            h = Console.WindowHeight;
+        }
+        catch
+        {
+            return;
+        }
+        if (w < 20 || h < 5)
+            return;
+        // Зеркало раскладки из Render (держать в sync).
+        int sideW = _sidebar is null ? 0 : SidebarState.Width;
+        int[] paneWs = PaneWidths(w - sideW, _panes.Count);
+        int[] paneXs = new int[_panes.Count];
+        for (int i = 0, x = sideW; i < paneXs.Length; i++)
+        {
+            paneXs[i] = x;
+            x += paneWs[i];
+        }
+        int tabH = _panes.Any(p => p.Docs.Count > 1) ? 1 : 0;
+        int textHeight = h - 2 - tabH;
+        int y0 = 1 + tabH;
+        int numWidth = Math.Max(4, _buf.Count.ToString(CultureInfo.InvariantCulture).Length);
+        int gutterWidth = _settings.ShowLineNumbers ? numWidth + 4 : 0;
+        int contentWidth = Math.Max(1, paneWs[_pane] - gutterWidth);
+        int cx0 = paneXs[_pane] + gutterWidth;
+        if (m.X < cx0 || m.X >= paneXs[_pane] + paneWs[_pane] || m.Y < y0 || m.Y >= y0 + textHeight)
+            return; // v1: мимо текста активной панели — мимо
+        if (m.Action is MouseAction.WheelUp or MouseAction.WheelDown)
+        {
+            ScrollWheel(m.Action == MouseAction.WheelDown ? 1 : -1);
+            return;
+        }
+        (int row, int col) = LocateClick(_buf.Lines, _docs[_active].Folds, _top, _topSeg,
+            _settings.WordWrap, contentWidth, _left, m.Y - y0, m.X - cx0);
+        _sel.Clear();
+        _row = row;
+        _col = col;
+        ClampCursor();
+        TrackCol();
+    }
+
+    /// <summary>Колесо: курсор ±3 строки, вид дотягивается на следующем Render.</summary>
+    private void ScrollWheel(int dir)
+    {
+        _sel.Clear();
+        _row = Math.Clamp(_row + 3 * dir, 0, Math.Max(0, _buf.Count - 1));
+        _col = Math.Min(_col, _buf.GetLine(_row).Length);
+        ClampCursor();
+        TrackCol();
     }
 
     private void HandleKey(ConsoleKeyInfo k)
@@ -376,7 +444,8 @@ internal sealed partial class TuiEditor
                     dlg.Paste(paste.Text);
                     continue;
                 }
-                dlg.HandleKey(((KeyInput)ev).Key);
+                if (ev is KeyInput key)
+                    dlg.HandleKey(key.Key);
             }
         }
         finally
@@ -431,7 +500,9 @@ internal sealed partial class TuiEditor
                 RefreshLive();
                 continue;
             }
-            var k = ((KeyInput)ev).Key;
+            if (ev is not KeyInput ki)
+                continue;
+            ConsoleKeyInfo k = ki.Key;
             bool ctrl = (k.Modifiers & ConsoleModifiers.Control) != 0;
             bool alt = (k.Modifiers & ConsoleModifiers.Alt) != 0;
             bool shift = (k.Modifiers & ConsoleModifiers.Shift) != 0;

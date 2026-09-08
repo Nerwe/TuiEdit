@@ -20,9 +20,15 @@ internal sealed class InputReader
         if (k.Key != ConsoleKey.Escape || !Console.KeyAvailable)
             return new KeyInput(k);
         var burst = new StringBuilder();
-        while (Console.KeyAvailable && burst.Length < 16)
+        while (Console.KeyAvailable && burst.Length < 24)
+        {
             burst.Append(Console.ReadKey(intercept: true).KeyChar);
+            if (burst.Length >= 16 && (burst.Length < 2 || burst[1] != '<'))
+                break; // длиннее 16 — только хвост SGR-мыши, остальное как раньше
+        }
         string s = burst.ToString();
+        if (MouseInput.TryParse(s) is MouseInput m)
+            return m;
         if (s.StartsWith("[200~", StringComparison.Ordinal))
             return new PasteInput(ReadBracketedPaste(s[5..]));
         // Не paste — пачку отбрасываем, чтобы мусор не попал в текст.

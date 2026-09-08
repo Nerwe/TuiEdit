@@ -73,6 +73,18 @@ internal static class Terminal
         }
     }
 
+    /// <summary>Включить отчёты мыши (клики+колесо) и SGR-расширение; терминалы без поддержки игнорят.</summary>
+    public static void TryEnableMouse()
+    {
+        try { Console.Write("\x1b[?1000h\x1b[?1006h"); } catch { }
+    }
+
+    /// <summary>Выключить отчёты мыши (вызывать при выходе и в crash handler).</summary>
+    public static void DisableMouse()
+    {
+        try { Console.Write("\x1b[?1006l\x1b[?1000l"); } catch { }
+    }
+
     /// <summary>Вернуть режим ввода консоли (вызывать при выходе).</summary>
     public static void RestoreInput()
     {

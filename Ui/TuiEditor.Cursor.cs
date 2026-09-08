@@ -121,18 +121,7 @@ internal sealed partial class TuiEditor
 
     private bool FoldHidden(int row) => Folding.IsHidden(_buf.Lines, _docs[_active].Folds, row);
 
-    private int FoldStart(int row)
-    {
-        int start = row;
-        foreach (int f in _docs[_active].Folds)
-        {
-            if (f >= row)
-                break;
-            if (Folding.EndOf(_buf.Lines, f) >= row)
-                start = f;
-        }
-        return start;
-    }
+    private int FoldStart(int row) => FoldStartAt(_buf.Lines, _docs[_active].Folds, row);
 
     private void UnfoldPath() =>
         Folding.UnfoldContaining(_buf.Lines, _docs[_active].Folds, _row);

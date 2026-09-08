@@ -36,6 +36,68 @@ internal sealed partial class TuiEditor
         return _buf.Count - 1;
     }
 
+    /// <summary>Клик в контентных координатах: vis — строка от верха текста, vc — визуальная колонка.</summary>
+    internal static (int Row, int Col) LocateClick(
+        IReadOnlyList<string> lines, SortedSet<int> folds,
+        int top, int topSeg, bool wrap, int contentWidth, int left,
+        int visTarget, int vcTarget)
+    {
+        int last = Math.Max(0, lines.Count - 1);
+        int fileLine = top, firstSeg = wrap ? topSeg : 0, vis = 0;
+        while (fileLine < lines.Count)
+        {
+            if (Folding.IsHidden(lines, folds, fileLine))
+            {
+                fileLine = Folding.EndOf(lines, FoldStartAt(lines, folds, fileLine)) + 1;
+                firstSeg = 0;
+                continue;
+            }
+            List<int> starts = wrap ? WordWrap.SegmentStarts(lines[fileLine], contentWidth) : new List<int> { 0 };
+            for (int s = firstSeg; s < starts.Count; s++)
+            {
+                if (vis == visTarget)
+                {
+                    int segStart = wrap ? starts[s] : left;
+                    return (fileLine, ColumnAt(lines[fileLine], segStart + vcTarget));
+                }
+                vis++;
+            }
+            fileLine++;
+            firstSeg = 0;
+        }
+        return (last, lines.Count == 0 ? 0 : lines[last].Length); // ниже текста — конец
+    }
+
+    internal static int FoldStartAt(IReadOnlyList<string> lines, SortedSet<int> folds, int row)
+    {
+        int start = row;
+        foreach (int f in folds)
+        {
+            if (f >= row)
+                break;
+            if (Folding.EndOf(lines, f) >= row)
+                start = f;
+        }
+        return start;
+    }
+
+    /// <summary>Визуальная колонка — индекс символа (табы как в отрисовке).</summary>
+    internal static int ColumnAt(string line, int target)
+    {
+        if (target <= 0)
+            return 0;
+        int vpos = 0, ci = 0;
+        foreach (char c in line)
+        {
+            int cw = c == '\t' ? TabStops.Width - vpos % TabStops.Width : 1;
+            if (vpos + cw > target)
+                break;
+            vpos += cw;
+            ci++;
+        }
+        return ci;
+    }
+
     private void EnsureVisible(int textHeight, int contentWidth)
     {
         ClampCursor();

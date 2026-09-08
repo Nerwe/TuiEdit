@@ -19,6 +19,8 @@ release notes from the `Unreleased` section when a `v*` tag is pushed.
   Modal) plus a pure `StatusBar.BuildRight`; no behavior change.
 - Customizable keybindings (`keybindings.json` next to settings):
   per-command override, `null` unbinds, menu hints follow automatically.
+- Mouse v1 (SGR 1006): left-click positions the cursor in the active pane,
+  wheel moves it ±3 lines; ignored over dialogs and menus.
 
 ### Fixed
 - Atomic save: content is written to a temp file in the same folder,

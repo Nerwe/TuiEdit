@@ -132,6 +132,7 @@ internal sealed partial class TuiEditor
         try
         {
             try { Console.Write("\x1b[?2004h"); } catch (IOException) { }
+            Terminal.TryEnableMouse();
             Render();
             MaybeRestore();
             if (_docs.Count == 1 && _buf.FilePath is null && !_buf.IsModified)
@@ -156,6 +157,7 @@ internal sealed partial class TuiEditor
         finally
         {
             try { Console.Write("\x1b[?2004l"); } catch (IOException) { }
+            Terminal.DisableMouse();
             Terminal.RestoreInput();
             Console.ResetColor();
             Console.Clear();

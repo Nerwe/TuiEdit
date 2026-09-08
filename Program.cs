@@ -121,6 +121,7 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
 static void RestoreTerminal()
 {
     try { Console.Write("\x1b[?2004l"); } catch { }
+    try { Terminal.DisableMouse(); } catch { }
     try { Terminal.RestoreInput(); } catch { }
     try { Console.ResetColor(); } catch { }
     try { Console.CursorVisible = true; } catch { }
