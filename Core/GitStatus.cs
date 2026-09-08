@@ -5,62 +5,134 @@ namespace TuiEdit;
 /// <summary>
 /// Ветка и грязь git для статусбара: «⎇ main*» (грязь — только tracked,
 /// untracked пропускаем ради скорости). Вне репо и при любых ошибках — null.
-/// Дорогие вызовы (fork+exec, status на больших репо) прячем за TTL-кэшем:
-/// Render зовёт это на каждый кадр, процесс плодить нельзя.
+/// Git вызывается ФОНОМ (один спавн status -sb за обновление): синхронные
+/// форки в Render давали заминку ~100мс каждые 5с даже на маленьком репо,
+/// а на большом — секунды. Render читает только последнее известное.
 /// </summary>
 internal static class GitStatus
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan ProcTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ProcTimeout = TimeSpan.FromSeconds(10);
 
     private static readonly object Gate = new();
     private static string? _dir; // папка, для которой посчитано
     private static Info? _cached; // null — тоже кэшируем (не репо), чтобы не форкать зря
     private static DateTime _at = DateTime.MinValue;
+    private static bool _refreshing;
 
-    /// <summary>Сегмент статусбара для файла («⎇ main*») или null.</summary>
+    /// <summary>Сегмент статусбара для файла («⎇ main*») или null. Никогда не блокирует.</summary>
     public static string? ForFile(string? filePath)
     {
-        string? dir;
+        string? dir = DirOf(filePath);
+        if (dir is null)
+            return null;
+        lock (Gate)
+        {
+            if (dir != _dir)
+            {
+                _dir = dir;
+                _cached = null;
+                _at = DateTime.MinValue; // новое место — сразу обновить
+            }
+            if (DateTime.UtcNow - _at >= Ttl && !_refreshing)
+            {
+                _refreshing = true;
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        Info? fresh = QueryCombined(dir);
+                        lock (Gate)
+                        {
+                            if (dir == _dir)
+                            {
+                                _cached = fresh;
+                                _at = DateTime.UtcNow;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                    }
+                    finally
+                    {
+                        lock (Gate)
+                        {
+                            _refreshing = false;
+                        }
+                    }
+                });
+            }
+            return _cached is null ? null : Segment(_cached.Branch, _cached.Dirty);
+        }
+    }
+
+    /// <summary>То же синхронно (для тестов; тоже кладёт в кэш).</summary>
+    internal static string? ForFileSync(string? filePath)
+    {
+        string? dir = DirOf(filePath);
+        if (dir is null)
+            return null;
+        Info? fresh = QueryCombined(dir);
+        lock (Gate)
+        {
+            _dir = dir;
+            _cached = fresh;
+            _at = DateTime.UtcNow;
+        }
+        return fresh is null ? null : Segment(fresh.Branch, fresh.Dirty);
+    }
+
+    private static string? DirOf(string? filePath)
+    {
         try
         {
             if (string.IsNullOrWhiteSpace(filePath))
                 return null;
-            dir = Path.GetDirectoryName(Path.GetFullPath(filePath));
+            return Path.GetDirectoryName(Path.GetFullPath(filePath));
         }
         catch
         {
             return null;
-        }
-        if (string.IsNullOrEmpty(dir))
-            return null;
-        lock (Gate)
-        {
-            if (dir != _dir || DateTime.UtcNow - _at >= Ttl)
-            {
-                _cached = Query(dir);
-                _dir = dir;
-                _at = DateTime.UtcNow;
-            }
-            return _cached is null ? null : Segment(_cached.Branch, _cached.Dirty);
         }
     }
 
     private static string Segment(string? branch, bool dirty) =>
         $"⎇ {(string.IsNullOrEmpty(branch) ? "?" : branch)}{(dirty ? "*" : string.Empty)}";
 
-    private sealed record Info(string Root, string Branch, bool Dirty);
+    private sealed record Info(string Branch, bool Dirty);
 
-    private static Info? Query(string dir)
+    /// <summary>Один спавн: ветка из заголовка ##, грязь — непустые строки ниже.</summary>
+    private static Info? QueryCombined(string dir)
     {
-        string? root = Run("rev-parse", "--show-toplevel", dir);
-        if (string.IsNullOrWhiteSpace(root))
+        string? output = Run("status", "-sb --porcelain=v1 --untracked-files=no", dir);
+        if (output is null)
             return null;
-        string? branch = Run("rev-parse", "--abbrev-ref HEAD", dir);
-        string? porcelain = Run("status", "--porcelain=v1 --untracked-files=no", dir);
-        if (porcelain is null)
-            return null;
-        return new Info(root.Trim(), (branch ?? "?").Trim(), porcelain.Length > 0);
+        string[] lines = output.Split('\n');
+        string branch = "?";
+        string head = lines.Length > 0 ? lines[0].Trim() : string.Empty;
+        const string unborn = "No commits yet on ";
+        if (head.StartsWith("## ", StringComparison.Ordinal))
+        {
+            string rest = head[3..];
+            if (rest.StartsWith(unborn, StringComparison.Ordinal))
+            {
+                branch = rest[unborn.Length..];
+            }
+            else
+            {
+                int end = rest.IndexOfAny(['.', ' ']);
+                branch = (end < 0 ? rest : rest[..end]).Trim();
+            }
+        }
+        bool dirty = false;
+        for (int i = 1; i < lines.Length; i++)
+            if (lines[i].Length > 0)
+            {
+                dirty = true;
+                break;
+            }
+        return new Info(branch, dirty);
     }
 
     private static string? Run(string command, string args, string dir)

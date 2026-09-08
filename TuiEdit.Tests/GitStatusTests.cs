@@ -57,14 +57,30 @@ public sealed class GitStatusTests
     }
 
     [Fact]
+    public void AsyncCacheAgreesWithSync()
+    {
+        if (!HaveGit())
+            return; // git optional for tests
+        string dir = InitRepo(out string file);
+        try
+        {
+            string? want = GitStatus.ForFileSync(file);
+            Assert.NotNull(want);
+            // Кэш свежий — асинхронный путь отдаёт то же без фонового опроса.
+            Assert.Equal(want, GitStatus.ForFile(file));
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
     public void NullAndNonRepoGiveNull()
     {
-        Assert.Null(GitStatus.ForFile(null));
-        Assert.Null(GitStatus.ForFile(""));
+        Assert.Null(GitStatus.ForFileSync(null));
+        Assert.Null(GitStatus.ForFileSync(""));
         string dir = NewDir();
         try
         {
-            Assert.Null(GitStatus.ForFile(Path.Combine(dir, "x.txt")));
+            Assert.Null(GitStatus.ForFileSync(Path.Combine(dir, "x.txt")));
         }
         finally { try { Directory.Delete(dir, true); } catch { } }
     }
@@ -77,7 +93,7 @@ public sealed class GitStatusTests
         string dir = InitRepo(out string file);
         try
         {
-            string? seg = GitStatus.ForFile(file);
+            string? seg = GitStatus.ForFileSync(file);
             Assert.NotNull(seg);
             Assert.StartsWith("⎇ ", seg);
             Assert.DoesNotContain("*", seg, StringComparison.Ordinal);
@@ -94,7 +110,7 @@ public sealed class GitStatusTests
         try
         {
             File.AppendAllText(file, "two"); // tracked правка — отдельный репо, кэш чист
-            string? seg = GitStatus.ForFile(file);
+            string? seg = GitStatus.ForFileSync(file);
             Assert.NotNull(seg);
             Assert.StartsWith("⎇ ", seg);
             Assert.EndsWith("*", seg);
@@ -111,7 +127,7 @@ public sealed class GitStatusTests
         try
         {
             // Только untracked — по решению не считаем грязью (скорость status).
-            string? seg = GitStatus.ForFile(Path.Combine(dir, "new.txt"));
+            string? seg = GitStatus.ForFileSync(Path.Combine(dir, "new.txt"));
             Assert.NotNull(seg);
             Assert.DoesNotContain("*", seg, StringComparison.Ordinal);
         }
