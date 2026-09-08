@@ -6,6 +6,11 @@ namespace TuiEdit.Tests;
 /// <summary>Модульная подсветка: грамматики, токенизатор, кэш, реестр.</summary>
 public sealed class SyntaxTests
 {
+    private static readonly string SeedDir =
+        Path.Combine(Path.GetTempPath(), "TuiEdit.Tests", "grammars");
+
+    static SyntaxTests() => GrammarRegistry.UseDirForTests(SeedDir);
+
     private static TextBuffer Buf(params string[] lines)
     {
         string p = Path.GetTempFileName();
@@ -38,6 +43,60 @@ public sealed class SyntaxTests
         Assert.Null(GrammarRegistry.ForExtension(""));
         Assert.Equal("JSON", GrammarRegistry.ByName("json")?.Name);
         Assert.Null(GrammarRegistry.ByName("nope"));
+    }
+
+    [Fact]
+    public void NewGrammarsLoad()
+    {
+        Assert.Equal("Markdown", GrammarRegistry.ForExtension(".md")?.Name);
+        Assert.Equal("PowerShell", GrammarRegistry.ForExtension(".PS1")?.Name);
+        Assert.Equal("XML", GrammarRegistry.ForExtension(".xml")?.Name);
+        Assert.Equal("XML", GrammarRegistry.ForExtension(".csproj")?.Name);
+        Assert.Equal("INI", GrammarRegistry.ForExtension(".ini")?.Name);
+        Assert.Equal("//", GrammarRegistry.ForExtension(".cs")?.LineComment);
+        Assert.Equal("#", GrammarRegistry.ForExtension(".py")?.LineComment);
+        Assert.Equal("#", GrammarRegistry.ForExtension(".ps1")?.LineComment);
+        Assert.Equal(";", GrammarRegistry.ForExtension(".ini")?.LineComment);
+        Assert.Equal("", GrammarRegistry.ForExtension(".json")?.LineComment);
+        var hl = new SyntaxHighlighter();
+        var md = Buf("# Title", "`code` and **bold**", "- item");
+        Assert.Equal("keyword", ScopeAt(hl.GetLine(md, GrammarRegistry.ByName("Markdown")!, 0), 0));
+        Assert.Equal("string", ScopeAt(hl.GetLine(md, GrammarRegistry.ByName("Markdown")!, 1), 0));
+    }
+
+    [Fact]
+    public void DefaultsSeededToDir()
+    {
+        GrammarRegistry.EnsureLoaded();
+        Assert.True(File.Exists(Path.Combine(SeedDir, "csharp.json")));
+        Assert.True(File.Exists(Path.Combine(SeedDir, "powershell.json")));
+        Assert.Contains("\"Name\": \"C#\"", File.ReadAllText(Path.Combine(SeedDir, "csharp.json")));
+    }
+
+    [Fact]
+    public void EditedSeedFileWinsOverEmbedded()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "TuiEdit.Tests", "override");
+        try
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+            GrammarRegistry.UseDirForTests(dir);
+            GrammarRegistry.EnsureLoaded();
+            Assert.Equal("Python", GrammarRegistry.ForExtension(".py")?.Name);
+            File.WriteAllText(Path.Combine(dir, "python.json"), """
+                { "Name": "Mine", "Extensions": [".py"],
+                  "Rules": [ { "Scope": "keyword", "Match": "x" } ] }
+                """);
+            GrammarRegistry.ResetForTests();
+            GrammarRegistry.EnsureLoaded();
+            Assert.Equal("Mine", GrammarRegistry.ForExtension(".py")?.Name);
+            Assert.Contains("Mine", File.ReadAllText(Path.Combine(dir, "python.json")));
+        }
+        finally
+        {
+            GrammarRegistry.UseDirForTests(SeedDir);
+        }
     }
 
     [Fact]

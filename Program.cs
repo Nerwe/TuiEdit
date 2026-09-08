@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using TuiEdit;
 
 Console.OutputEncoding = Encoding.UTF8;
@@ -9,6 +9,10 @@ AppSettings settings = store.Load();
 if (!File.Exists(store.Path))
     store.Save(settings);
 Loc loc = Loc.Load(settings.Language);
+string? settingsDir = Path.GetDirectoryName(store.Path);
+GrammarRegistry.EnsureLoaded(settingsDir is not null
+    ? Path.Combine(settingsDir, "grammars")
+    : GrammarRegistry.DefaultDir());
 
 string? file = null;
 foreach (string a in args)
@@ -63,6 +67,8 @@ if (Console.IsInputRedirected || Console.IsOutputRedirected)
 
 var buffer = new TextBuffer(file);
 var editor = new TuiEditor(buffer, settings, store);
+if (file is null)
+    editor.RestoreSessionTabs();
 editor.Run();
 return 0;
 
@@ -75,4 +81,5 @@ static string ShortenHome(string path)
         return "%USERPROFILE%" + path[home.Length..];
     return path;
 }
+
 

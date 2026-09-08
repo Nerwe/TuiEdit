@@ -40,13 +40,15 @@ internal sealed class SettingsDialog : Dialog
         string[] labels = [loc["settings.theme"], loc["settings.lang"],
             loc["settings.matchcase"], loc["settings.wholeword"],
             loc["settings.shownumbers"], loc["settings.wordwrap"],
-            loc["settings.backup"], loc["settings.useregex"]];
+            loc["settings.backup"], loc["settings.useregex"],
+            loc["settings.guides"], loc["settings.session"]];
         string langName = loc.Language == "en" ? "English" : "Русский";
         string themeName = ThemeCatalog.DisplayName(loc, _settings.Theme);
         string[] values = [themeName, langName,
             OnOff(loc, _settings.SearchMatchCase), OnOff(loc, _settings.SearchWholeWord),
             OnOff(loc, _settings.ShowLineNumbers), OnOff(loc, _settings.WordWrap),
-            OnOff(loc, _settings.BackupOnSave), OnOff(loc, _settings.SearchUseRegex)];
+            OnOff(loc, _settings.BackupOnSave), OnOff(loc, _settings.SearchUseRegex),
+            OnOff(loc, _settings.ShowIndentGuides), OnOff(loc, _settings.RestoreSession)];
         return (labels, values, title);
     }
 
@@ -123,8 +125,14 @@ internal sealed class SettingsDialog : Dialog
             case 6:
                 _settings.BackupOnSave = !_settings.BackupOnSave;
                 break;
-            default:
+            case 7:
                 _settings.SearchUseRegex = !_settings.SearchUseRegex;
+                break;
+            case 8:
+                _settings.ShowIndentGuides = !_settings.ShowIndentGuides;
+                break;
+            default:
+                _settings.RestoreSession = !_settings.RestoreSession;
                 break;
         }
         _store.Save(_settings);

@@ -1,0 +1,12 @@
+{
+  "Name": "XML",
+  "Extensions": [".xml", ".xsl", ".xslt", ".xsd", ".config", ".csproj", ".resx", ".props", ".targets"],
+  "Rules": [
+    { "Scope": "comment", "Begin": "<!--", "End": "-->" },
+    { "Scope": "comment", "Match": "<\\?.*?\\?>" },
+    { "Scope": "string", "Match": "\"[^\"]*\"?" },
+    { "Scope": "keyword", "Match": "</?[\\w:.-]+|/?>" },
+    { "Scope": "type", "Match": "[\\w:.-]+(?=\\s*=)" },
+    { "Scope": "number", "Match": "&[\\w#]+;" }
+  ]
+}

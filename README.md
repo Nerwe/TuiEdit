@@ -5,12 +5,13 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 
 ## Features
 
-- Editing: undo/redo (per keystroke and per block), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), move lines (`Alt+↑/↓`), word-wise delete/move.
+- Editing: undo/redo (per keystroke and per block), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), toggle line comment (`Ctrl+/`), matching-bracket highlight and jump (`Alt+]`), move lines (`Alt+↑/↓`), word-wise delete/move, trim trailing whitespace.
 - Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, «match case» and «whole word» options. Instant whole-document replace (`^H`) in a single undo step.
-- Syntax highlighting from JSON grammars (C#, Python, JavaScript/TypeScript, JSON built in; drop your own into the `grammars` folder).
+- Syntax highlighting from JSON grammars (C#, Python, JavaScript/TypeScript, JSON, Markdown, PowerShell, XML, INI built in). On first run the grammars are extracted to the `grammars` folder next to `settings.json` — edit them to customize, drop in your own.
 - File manager for Open/Save as: drives, `..`, file highlight, overwrite confirmation in a separate window. Name field: selection (`Shift`), word-wise motion (`Ctrl+arrows`), `Alt+←/→` navigation.
-- Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save.
-- `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), help screen (`F1`).
+- Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save; encoding and endings can be switched from the File menu (shown in the status bar).
+- `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), indent guides, help screen (`F1`).
+- Optional session restore: reopen the previous tabs with cursor positions when started without arguments (off by default, toggle in Settings).
 - File panel (`Ctrl+B`): fixed-width sidebar with the current folder, arrows to select, `Enter` to open, `Esc` back to text. Entries are color-coded: dirs, `..`, hidden and executables.
 - Tabs: open tab bar (`Ctrl+T` new, `Ctrl+W` close, `Ctrl+PgDn/PgUp` switch, `Alt+1..9,0` jump, `Ctrl+P` list); long rows scroll with the active tab always visible; dirty tabs ask on close, quitting walks through them one by one.
 - Split view (`Alt+S`): two or more panes side by side, each with its own tabs; `F6`/`Shift+F6` or `Ctrl+1..9` move focus (tab keys act on the focused pane).
@@ -22,6 +23,7 @@ Pure `System.Console`, no third-party libraries. .NET 10.
 ^S save (asks for name if new)   Ctrl+Shift+S save as   ^Q quit
 ^F find       F3 next / Shift+F3 prev   ^H replace   ^G go to line
 ^K cut line  ^U/^V paste  ^C copy line  ^D duplicate
+Ctrl+/ toggle line comment  Alt+] matching bracket
 ^C also puts the copy into the system clipboard (Windows Terminal) — paste with Ctrl+V
 ^Z undo  ^Y redo  ^A select all   Shift+arrows — selection
 arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Alt+up/down — move line
@@ -80,7 +82,9 @@ tui-edit --help | --version
   "SearchMatchCase": true,
   "SearchWholeWord": false,
   "ShowLineNumbers": true,
-  "WordWrap": false
+  "ShowIndentGuides": true,
+  "WordWrap": false,
+  "RestoreSession": false
 }
 ```
 
@@ -130,16 +134,19 @@ Custom names appear in the settings dialog theme row next to the built-ins:
 
 ## Syntax grammars
 
-Highlighting rules are JSON plugins (VS Code TextMate-style, simplified):
-`Grammars/*.json` are built in, and any `*.json` dropped into the
-`grammars` folder next to `settings.json` (or next to the exe) is picked
-up — matching by `Name` or `Extensions` overrides a built-in.
+Highlighting rules are JSON plugins (VS Code TextMate-style, simplified).
+On first run the built-in grammars are extracted to the `grammars` folder
+next to `settings.json` (portable mode: next to the exe) — edit them in
+place to customize; any `*.json` you drop there is picked up, matching by
+`Name` or `Extensions` overrides a built-in. If the folder is missing or
+unreadable, the embedded copies are used as a fallback.
 `"Grammar": "auto"` picks by file extension; a language name forces it.
 
 ```json
 {
   "Name": "C#",
   "Extensions": [".cs"],
+  "LineComment": "//",
   "IgnoreCase": false,
   "Rules": [
     { "Scope": "comment", "Begin": "/\\*", "End": "\\*/" },
@@ -155,7 +162,9 @@ up — matching by `Name` or `Extensions` overrides a built-in.
 Rules run in order (earlier wins ties); otherwise the earliest match wins.
 `Match` is single-line, `Begin`/`End` spans lines (block comments,
 triple-quoted strings). Scopes: `keyword`, `string`, `comment`, `number`,
-`type` — anything else is plain text. Colors come from the theme roles
+`type` — anything else is plain text. `LineComment` drives `Ctrl+/`
+(toggle line comment); languages without one (JSON, XML, Markdown) report it.
+Colors come from the theme roles
 `SynKeywordFg`, `SynStringFg`, `SynCommentFg`, `SynNumberFg`, `SynTypeFg`,
 so custom themes recolor syntax too. Bad patterns are skipped, matching
 times out safely.
@@ -167,7 +176,8 @@ Program.cs            entry, --help/--version, editor startup
 Core/TextBuffer.cs    buffer: lines, undo/redo, find/replace, encodings
 Core/DocTab.cs        tab: buffer + view state (cursor, scroll, selection)
 Core/Pane.cs          split pane: own tabs, active tab, tab scroll
-Core/Grammar.cs       syntax grammars: JSON plugins + registry
+Core/Grammar.cs       syntax grammars: seeded folder, JSON plugins + registry
+Core/BracketMatcher.cs bracket pairs (skips strings/comments via highlighter)
 Core/SyntaxHighlighter.cs tokenizer (match/begin-end) with cache
 Core/WordMotion.cs    word-wise motion (VS Code style)
 Core/TabStops.cs      tabs + WordWrap (soft-wrap segments)

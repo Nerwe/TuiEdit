@@ -1,6 +1,7 @@
 {
   "Name": "Python",
   "Extensions": [".py", ".pyw"],
+  "LineComment": "#",
   "Rules": [
     { "Scope": "string", "Begin": "\"\"\"", "End": "\"\"\"" },
     { "Scope": "string", "Begin": "'''", "End": "'''" },

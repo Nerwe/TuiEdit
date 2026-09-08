@@ -395,6 +395,45 @@ internal sealed class TextBuffer
         return (startRow, startCol);
     }
 
+    /// <summary>Переключить кодировку сохранения: UTF-8 → UTF-8 BOM → UTF-16 LE.</summary>
+    public void CycleEncoding()
+    {
+        (_encoding, EncodingLabel) = EncodingLabel switch
+        {
+            "UTF-8" => (new UTF8Encoding(true), "UTF-8 BOM"),
+            "UTF-8 BOM" => (Encoding.Unicode, "UTF-16 LE"),
+            _ => (new UTF8Encoding(false), "UTF-8"),
+        };
+        IsModified = true;
+    }
+
+    /// <summary>Переключить переводы строк: CRLF → LF → CR.</summary>
+    public void CycleEnding()
+    {
+        Ending = Ending switch
+        {
+            LineEnding.CrLf => LineEnding.Lf,
+            LineEnding.Lf => LineEnding.Cr,
+            _ => LineEnding.CrLf,
+        };
+        IsModified = true;
+    }
+
+    /// <summary>Срезать висячие пробелы/табы в концах строк одной undo-записью.</summary>
+    public int TrimTrailingWhitespace()
+    {
+        int n = 0;
+        for (int r = 0; r < Lines.Count; r++)
+            if (Lines[r].TrimEnd().Length != Lines[r].Length)
+                n++;
+        if (n == 0)
+            return 0;
+        PushUndo();
+        for (int r = 0; r < Lines.Count; r++)
+            Lines[r] = Lines[r].TrimEnd();
+        return n;
+    }
+
     /// <summary>Отступ в начало строк [startRow, endRow] одной undo-записью.</summary>
     public int[] IndentLines(int startRow, int endRow, string indent)
     {
@@ -429,6 +468,45 @@ internal sealed class TextBuffer
         var (l, _) when l[0] == '\t' => 1, // чужой таб — убираем один
         var (l, u) => TakeSpaces(l, u == "\t" ? TabStops.Width : u.Length),
     };
+
+    /// <summary>Комментарий-переключатель для строк [startRow, endRow] одной undo-записью.</summary>
+    public int[] ToggleLineComment(int startRow, int endRow, string lineComment)
+    {
+        PushUndo();
+        var delta = new int[endRow - startRow + 1];
+        bool all = true;
+        for (int r = startRow; r <= endRow; r++)
+            if (!IsCommented(Lines[r], lineComment))
+            {
+                all = false;
+                break;
+            }
+        for (int r = startRow; r <= endRow; r++)
+        {
+            string line = Lines[r];
+            if (all)
+            {
+                int at = line.IndexOf(lineComment, StringComparison.Ordinal);
+                int cut = lineComment.Length;
+                if (at + cut < line.Length && line[at + cut] == ' ')
+                    cut++;
+                Lines[r] = line.Remove(at, cut);
+                delta[r - startRow] = -cut;
+            }
+            else if (!IsCommented(line, lineComment))
+            {
+                int indent = 0;
+                while (indent < line.Length && (line[indent] == ' ' || line[indent] == '\t'))
+                    indent++;
+                Lines[r] = line.Insert(indent, lineComment + " ");
+                delta[r - startRow] = lineComment.Length + 1;
+            }
+        }
+        return delta;
+    }
+
+    private static bool IsCommented(string line, string lc) =>
+        line.TrimStart().StartsWith(lc, StringComparison.Ordinal);
 
     private static int TakeSpaces(string line, int max)
     {

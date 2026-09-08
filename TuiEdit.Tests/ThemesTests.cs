@@ -134,6 +134,20 @@ public sealed class ThemesTests : IDisposable
     }
 
     [Fact]
+    public void IndentGuideRole()
+    {
+        var s = new AppSettings();
+        Assert.True(s.ShowIndentGuides);
+        Assert.Equal(Themes.Dark.IndentGuideFg, ThemeCatalog.Resolve(s, "dark").IndentGuideFg);
+        s.Themes.Add(new ThemeScheme
+        {
+            Name = "Mine",
+            Colors = new Dictionary<string, string> { ["IndentGuideFg"] = "#112233" },
+        });
+        Assert.Equal(new Rgb(0x11, 0x22, 0x33), ThemeCatalog.Resolve(s, "Mine").IndentGuideFg);
+    }
+
+    [Fact]
     public void NamesAndDisplay()
     {
         var s = SettingsWith(new ThemeScheme { Name = "Mine" }, new ThemeScheme { Name = " " });

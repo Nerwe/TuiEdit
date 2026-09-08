@@ -1,6 +1,7 @@
 {
   "Name": "JavaScript",
   "Extensions": [".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx"],
+  "LineComment": "//",
   "Rules": [
     { "Scope": "comment", "Begin": "/\\*", "End": "\\*/" },
     { "Scope": "comment", "Match": "//.*$" },

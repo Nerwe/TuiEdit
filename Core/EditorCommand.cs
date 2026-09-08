@@ -16,6 +16,9 @@ public enum EditorCommand
     /// </summary>
     Save,
     SaveAs,
+    CycleEncoding,
+    CycleEnding,
+    TrimTrailing,
     /// <summary>Выход (с подтверждением при несохранённых изменениях).</summary>
     Quit,
     NewFile,
@@ -33,6 +36,8 @@ public enum EditorCommand
     GoToLine,
     CutLine, CopyLine, Paste,
     DuplicateLine,
+    ToggleComment,
+    GoBracketMatch,
     MoveLineUp, MoveLineDown,
     Undo, Redo,
     InsertEnter, InsertBackspace, InsertDelete, InsertTab, InsertChar,

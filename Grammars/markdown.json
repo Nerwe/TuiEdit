@@ -1,0 +1,12 @@
+{
+  "Name": "Markdown",
+  "Extensions": [".md", ".markdown"],
+  "Rules": [
+    { "Scope": "comment", "Begin": "<!--", "End": "-->" },
+    { "Scope": "string", "Begin": "```", "End": "```" },
+    { "Scope": "string", "Match": "`[^`]*`?" },
+    { "Scope": "keyword", "Match": "^#{1,6}\\s.*$" },
+    { "Scope": "type", "Match": "\\*\\*[^*]+\\*\\*|__[^_]+__" },
+    { "Scope": "number", "Match": "^\\s*(?:[-*+]|\\d+\\.)\\s" }
+  ]
+}

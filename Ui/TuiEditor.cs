@@ -110,6 +110,66 @@ internal sealed class TuiEditor
         LoadTabState();
     }
 
+    /// <summary>Открыть вкладки прошлой сессии (несуществующие пропускаем).</summary>
+    internal int RestoreSessionTabs()
+    {
+        if (!_settings.RestoreSession || _settings.SessionTabs.Count == 0)
+            return 0;
+        int n = 0;
+        foreach (SessionTab t in _settings.SessionTabs)
+        {
+            if (string.IsNullOrWhiteSpace(t.Path) || !File.Exists(t.Path))
+                continue;
+            try
+            {
+                if (n == 0 && _docs.Count == 1 && _buf.FilePath is null && !_buf.IsModified)
+                    _buf.Open(t.Path);
+                else
+                {
+                    SaveTabState();
+                    _docs.Add(new DocTab(new TextBuffer(t.Path)));
+                    _active = _docs.Count - 1;
+                    LoadTabState();
+                }
+                _row = Math.Clamp(t.Row, 0, _buf.Count - 1);
+                _col = Math.Clamp(t.Col, 0, _buf.GetLine(_row).Length);
+                TrackCol();
+                SaveTabState();
+                TouchRecent(t.Path);
+                n++;
+            }
+            catch
+            {
+            }
+        }
+        return n;
+    }
+
+    /// <summary>Запомнить открытые файлы с курсорами для следующего старта.</summary>
+    internal void SaveSessionTabs()
+    {
+        if (!_settings.RestoreSession)
+            return;
+        SaveTabState();
+        var tabs = new List<SessionTab>();
+        foreach (Pane p in _panes)
+        {
+            foreach (DocTab t in p.Docs)
+            {
+                if (t.Buf.FilePath is null || !File.Exists(t.Buf.FilePath))
+                    continue;
+                int row = Math.Clamp(t.Row, 0, t.Buf.Count - 1);
+                tabs.Add(new SessionTab(t.Buf.FilePath, row, Math.Max(0, t.Col)));
+                if (tabs.Count >= AppSettings.MaxSessionTabs)
+                    break;
+            }
+            if (tabs.Count >= AppSettings.MaxSessionTabs)
+                break;
+        }
+        _settings.SessionTabs = tabs;
+        _store.Save(_settings);
+    }
+
     /// <summary>Переключиться на вкладку (по кругу).</summary>
     internal void SwitchTab(int index)
     {
@@ -250,6 +310,7 @@ internal sealed class TuiEditor
                 HandleInput(ev);
                 AutoDraft();
             }
+            SaveSessionTabs();
         }
         finally
         {
@@ -490,9 +551,18 @@ internal sealed class TuiEditor
             case EditorCommand.CopyLine: CopyLine(); return;
             case EditorCommand.Paste: Paste(); return;
             case EditorCommand.DuplicateLine: DuplicateBlock(); return;
+            case EditorCommand.ToggleComment: ToggleComment(); return;
+            case EditorCommand.GoBracketMatch: JumpToBracket(); return;
             case EditorCommand.MoveLineUp: MoveLineBlock(-1); return;
             case EditorCommand.MoveLineDown: MoveLineBlock(1); return;
             case EditorCommand.SaveAs: SaveAs(); return;
+            case EditorCommand.CycleEncoding: _buf.CycleEncoding(); SetMessage(_loc.Format("msg.encoding", _buf.EncodingLabel)); return;
+            case EditorCommand.CycleEnding: _buf.CycleEnding(); SetMessage(_loc.Format("msg.ending", _buf.EndingLabel)); return;
+            case EditorCommand.TrimTrailing:
+                int trimmed = _buf.TrimTrailingWhitespace();
+                ClampCursor(); TrackCol();
+                SetMessage(_loc.Format("msg.trimmed", trimmed));
+                return;
             case EditorCommand.Undo: _buf.Undo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.undo"]); return;
             case EditorCommand.Redo: _buf.Redo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.redo"]); return;
             case EditorCommand.InsertEnter:
@@ -582,6 +652,50 @@ internal sealed class TuiEditor
         if (_row >= sr && _row <= er)
             _col += added[_row - sr];
         TrackCol();
+    }
+
+    private void ToggleComment()
+    {
+        string lc = CurrentGrammar()?.LineComment ?? string.Empty;
+        if (string.IsNullOrEmpty(lc))
+        {
+            SetMessage(_loc["msg.nocomment"]);
+            return;
+        }
+        var (sr, er) = SelectionLineRange();
+        int[] delta = _buf.ToggleLineComment(sr, er, lc);
+        if (_sel.AnchorRow >= sr && _sel.AnchorRow <= er)
+            _sel.AnchorCol = Math.Max(0, _sel.AnchorCol + delta[_sel.AnchorRow - sr]);
+        if (_row >= sr && _row <= er)
+            _col = Math.Max(0, _col + delta[_row - sr]);
+        TrackCol();
+    }
+
+    private void JumpToBracket()
+    {
+        var pair = BracketPair();
+        if (pair is null)
+            return;
+        _sel.Clear();
+        _row = pair.Value.PairRow;
+        _col = pair.Value.PairCol;
+        TrackCol();
+    }
+
+    private (int Row, int Col, int PairRow, int PairCol)? BracketPair()
+    {
+        if (_row < 0 || _row >= _buf.Count)
+            return null;
+        string line = _buf.GetLine(_row);
+        int at = -1;
+        if (_col >= 0 && _col < line.Length && BracketMatcher.IsBracket(line[_col]))
+            at = _col;
+        else if (_col > 0 && _col <= line.Length && BracketMatcher.IsBracket(line[_col - 1]))
+            at = _col - 1;
+        if (at < 0)
+            return null;
+        var pair = BracketMatcher.FindMatch(_buf, _docs[_active].Highlighter, CurrentGrammar(), _row, at);
+        return pair is null ? null : (_row, at, pair.Value.Row, pair.Value.Col);
     }
 
     private void UnindentSelectionOrLine()
@@ -1002,6 +1116,8 @@ internal sealed class TuiEditor
             new(loc["menu.recent"], 'R', null, EditorCommand.OpenRecent),
             new(loc["menu.save"], 'S', "^S", EditorCommand.Save),
             new(loc["menu.saveas"], 'A', "Ctrl+Shift+S", EditorCommand.SaveAs),
+            new(loc["menu.encoding"], 'E', null, EditorCommand.CycleEncoding),
+            new(loc["menu.lineending"], 'L', null, EditorCommand.CycleEnding),
             new(loc["menu.closetab"], 'W', "Ctrl+W", EditorCommand.CloseTab),
             new(loc["menu.settings"], 'P', null, EditorCommand.Settings),
             new(loc["menu.exit"], 'X', "^Q", EditorCommand.Quit),
@@ -1014,9 +1130,12 @@ internal sealed class TuiEditor
             new(loc["menu.copy"], 'C', "^C", EditorCommand.CopyLine),
             new(loc["menu.paste"], 'P', "^U", EditorCommand.Paste),
             new(loc["menu.duplicate"], 'D', "^D", EditorCommand.DuplicateLine),
+            new(loc["menu.togglecomment"], 'O', "Ctrl+/", EditorCommand.ToggleComment),
+            new(loc["menu.gobracket"], 'J', "Alt+]", EditorCommand.GoBracketMatch),
             new(loc["menu.find"], 'F', "^F", EditorCommand.Find),
             new(loc["menu.replace"], 'H', "^H", EditorCommand.Replace),
             new(loc["menu.goto"], 'G', "^G", EditorCommand.GoToLine),
+            new(loc["menu.trimtrail"], 'M', null, EditorCommand.TrimTrailing),
             new(loc["menu.selectall"], 'A', "^A", EditorCommand.SelectAll),
         }),
         new TopMenu(loc["menu.help"], 'H', new List<MenuItem>
@@ -1707,6 +1826,7 @@ internal sealed class TuiEditor
         int fileLine = _top;
         int firstSeg = _topSeg;
         CompiledGrammar? grammar = CurrentGrammar();
+        var bracket = BracketPair();
         while (y < y0 + textHeight && fileLine < _buf.Count)
         {
             string line = _buf.GetLine(fileLine);
@@ -1729,8 +1849,12 @@ internal sealed class TuiEditor
                     EffectiveSearchTerm, _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex);
                 int vpos = 0;
                 int ci = 0;
+                bool leading = true;
+                int guideStep = _buf.IndentString == "\t" ? TabStops.Width : Math.Max(1, _buf.IndentString.Length);
                 foreach (char c in line)
                 {
+                    if (c != ' ' && c != '\t')
+                        leading = false;
                     int cw = c == '\t' ? TabStops.Width - vpos % TabStops.Width : 1;
                     if (vpos + cw <= segStart) { vpos += cw; ci++; continue; }
                     if (vpos >= segEnd) break;
@@ -1743,21 +1867,32 @@ internal sealed class TuiEditor
                             break;
                         bool sel = ci >= selA && ci < selB;
                         bool match = vc < isMatch.Length && isMatch[vc];
+                        bool bmatch = bracket is not null
+                            && ((fileLine == bracket.Value.Row && ci == bracket.Value.Col)
+                                || (fileLine == bracket.Value.PairRow && ci == bracket.Value.PairCol));
                         while (synIdx + 1 < synToks.Count && synToks[synIdx + 1].Start <= ci)
                             synIdx++;
                         SyntaxToken tok = synIdx < synToks.Count ? synToks[synIdx] : default;
                         Rgb? synFg = ci >= tok.Start && ci < tok.Start + tok.Length
                             ? SyntaxHighlighter.ScopeColor(_theme, tok.Scope) : null;
-                        (Rgb fg, Rgb bg) = (sel, match, isCur, synFg) switch
+                        (Rgb fg, Rgb bg) = (sel, match, bmatch, isCur, synFg) switch
                         {
-                            (true, _, _, _) => (_theme.SelFg, _theme.SelBg),
-                            (_, true, _, _) => (_theme.MatchFg, _theme.MatchBg),
-                            (_, _, true, not null) => (synFg!.Value, _theme.CurLineBg),
-                            (_, _, true, _) => (_theme.CurLineFg, _theme.CurLineBg),
-                            (_, _, _, not null) => (synFg!.Value, _theme.EditorBg),
+                            (true, _, _, _, _) => (_theme.SelFg, _theme.SelBg),
+                            (_, true, _, _, _) => (_theme.MatchFg, _theme.MatchBg),
+                            (_, _, true, _, _) => (_theme.MatchFg, _theme.MatchBg),
+                            (_, _, _, true, not null) => (synFg!.Value, _theme.CurLineBg),
+                            (_, _, _, true, _) => (_theme.CurLineFg, _theme.CurLineBg),
+                            (_, _, _, _, not null) => (synFg!.Value, _theme.EditorBg),
                             _ => (_theme.EditorFg, _theme.EditorBg),
                         };
-                        _screen.Set(x0 + gutterWidth + vc, y, c == '\t' ? ' ' : c, fg, bg);
+                        char glyph = c == '\t' ? ' ' : c;
+                        if (_settings.ShowIndentGuides && leading && (c == ' ' || c == '\t')
+                            && k == 0 && !sel && !match && !bmatch && vpos % guideStep == 0)
+                        {
+                            glyph = '│';
+                            fg = _theme.IndentGuideFg;
+                        }
+                        _screen.Set(x0 + gutterWidth + vc, y, glyph, fg, bg);
                     }
                     vpos += cw;
                     if (vpos - @base >= contentWidth)

@@ -1,6 +1,7 @@
 {
   "Name": "C#",
   "Extensions": [".cs"],
+  "LineComment": "//",
   "Rules": [
     { "Scope": "comment", "Begin": "/\\*", "End": "\\*/" },
     { "Scope": "comment", "Match": "//.*$" },

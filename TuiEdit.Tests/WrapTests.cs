@@ -81,9 +81,10 @@ public sealed class WrapTests
     [Fact]
     public void ViewDefaults()
     {
-        Assert.Equal(8, SettingsDialogState.RowCount);
+        Assert.Equal(10, SettingsDialogState.RowCount);
         var s = new AppSettings();
         Assert.True(s.ShowLineNumbers);
+        Assert.True(s.ShowIndentGuides);
         Assert.False(s.WordWrap);
     }
 }

@@ -37,6 +37,7 @@ public static class KeyMap
                 ConsoleKey.D9 => EditorCommand.GoTabNumber,
                 ConsoleKey.D0 => EditorCommand.GoTabNumber, // десятая вкладка
                 ConsoleKey.S => EditorCommand.SplitPane, // разделить вид
+                ConsoleKey.Oem6 => EditorCommand.GoBracketMatch, // Alt+] — парная скобка
                 _ => EditorCommand.None,
             };
         }
@@ -47,6 +48,9 @@ public static class KeyMap
         {
             if (key.Key == ConsoleKey.S && (key.Modifiers & ConsoleModifiers.Shift) != 0)
                 return EditorCommand.SaveAs;
+            // Ctrl+/ приходит как Divide или 0x1F (зависит от терминала и раскладки).
+            if (key.Key == ConsoleKey.Divide || key.KeyChar == '\x1F')
+                return EditorCommand.ToggleComment;
             // Ctrl+Tab перехватывает Windows Terminal — основной путь Ctrl+PgDn/PgUp.
             if (key.Key == ConsoleKey.Tab)
                 return (key.Modifiers & ConsoleModifiers.Shift) != 0

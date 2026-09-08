@@ -1,0 +1,13 @@
+{
+  "Name": "INI",
+  "Extensions": [".ini", ".cfg", ".inf"],
+  "IgnoreCase": true,
+  "LineComment": ";",
+  "Rules": [
+    { "Scope": "comment", "Match": "[;#].*$" },
+    { "Scope": "keyword", "Match": "^\\s*\\[[^\\]]*\\]" },
+    { "Scope": "string", "Match": "\"(?:\\\\.|[^\"\\\\])*\"?" },
+    { "Scope": "type", "Match": "^\\s*[\\w.-]+(?=\\s*=)" },
+    { "Scope": "number", "Match": "\\b\\d[\\d_]*(?:\\.\\d+)?\\b" }
+  ]
+}

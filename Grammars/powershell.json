@@ -1,0 +1,15 @@
+{
+  "Name": "PowerShell",
+  "Extensions": [".ps1", ".psm1", ".psd1"],
+  "IgnoreCase": true,
+  "LineComment": "#",
+  "Rules": [
+    { "Scope": "comment", "Begin": "<#", "End": "#>" },
+    { "Scope": "comment", "Match": "#.*$" },
+    { "Scope": "string", "Match": "\"(?:`|\\$\\{|[^\"`])*\"?" },
+    { "Scope": "string", "Match": "'[^']*'" },
+    { "Scope": "type", "Match": "\\$[\\w:]+|\\$\\{[^{}]+\\}" },
+    { "Scope": "keyword", "Match": "\\b(?:begin|break|catch|class|continue|do|dynamicparam|else|elseif|end|enum|exit|filter|finally|for|foreach|from|function|hidden|if|in|param|process|return|static|switch|throw|trap|try|using|while)\\b|(?:-[a-z][\\w-]*\\b)" },
+    { "Scope": "number", "Match": "\\b\\d[\\d_]*(?:\\.\\d+)?\\b" }
+  ]
+}

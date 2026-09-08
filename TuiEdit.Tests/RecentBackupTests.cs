@@ -141,7 +141,7 @@ public sealed class RecentBackupTests
     [Fact]
     public void MruDefaults()
     {
-        Assert.Equal(8, SettingsDialogState.RowCount);
+        Assert.Equal(10, SettingsDialogState.RowCount);
         var s = new AppSettings();
         Assert.False(s.BackupOnSave);
         Assert.Empty(s.RecentFiles);

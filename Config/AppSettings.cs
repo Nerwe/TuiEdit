@@ -26,11 +26,20 @@ public sealed class AppSettings
     /// <summary>Показывать номера строк (гуттер).</summary>
     public bool ShowLineNumbers { get; set; } = true;
 
+    /// <summary>Вертикальные направляющие на уровнях отступа.</summary>
+    public bool ShowIndentGuides { get; set; } = true;
+
     /// <summary>Мягкий перенос длинных строк.</summary>
     public bool WordWrap { get; set; } = false;
 
     /// <summary>Копия .bak при сохранении.</summary>
     public bool BackupOnSave { get; set; } = false;
+
+    /// <summary>Открывать при старте вкладки прошлой сессии.</summary>
+    public bool RestoreSession { get; set; } = false;
+
+    /// <summary>Вкладки прошлой сессии (путь + курсор).</summary>
+    public List<SessionTab> SessionTabs { get; set; } = new();
 
     /// <summary>Недавние файлы (новые сверху).</summary>
     public List<string> RecentFiles { get; set; } = new();
@@ -40,6 +49,9 @@ public sealed class AppSettings
 
     /// <summary>Максимум недавних файлов.</summary>
     public const int MaxRecentFiles = 20;
+
+    /// <summary>Максимум вкладок сессии.</summary>
+    public const int MaxSessionTabs = 20;
 
     /// <summary>Отметить файл недавним (вверх, без дублей, с обрезкой).</summary>
     public void TouchRecent(string path)
@@ -66,7 +78,6 @@ public sealed class AppSettings
 
     /// <summary>Убрать из недавних несуществующие файлы.</summary>
     public void PruneRecent() => RecentFiles.RemoveAll(p => !File.Exists(p));
-
     /// <summary>Привести к допустимым значениям.</summary>
     public void Normalize()
     {
@@ -80,3 +91,6 @@ public sealed class AppSettings
         Language = Loc.Normalize(Language);
     }
 }
+
+/// <summary>Вкладка прошлой сессии: путь и позиция курсора.</summary>
+public sealed record SessionTab(string Path, int Row, int Col);

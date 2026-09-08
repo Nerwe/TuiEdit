@@ -1,9 +1,9 @@
 namespace TuiEdit;
 
-/// <summary>Состояние диалога настроек: выбранная строка (значения живут в <see cref="AppSettings"/>); строка 0 — тема, 1 — язык, 2 — регистр поиска, 3 — целые слова, 4 — номера строк, 5 — перенос строк, 6 — копия .bak, 7 — регулярки.</summary>
+/// <summary>Состояние диалога настроек: выбранная строка (значения живут в <see cref="AppSettings"/>); строка 0 — тема, 1 — язык, 2 — регистр поиска, 3 — целые слова, 4 — номера строк, 5 — перенос строк, 6 — копия .bak, 7 — регулярки, 8 — направляющие, 9 — сессия.</summary>
 public sealed class SettingsDialogState
 {
-    public const int RowCount = 8;
+    public const int RowCount = 10;
 
     public int Row { get; private set; }
 

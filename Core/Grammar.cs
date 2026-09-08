@@ -25,6 +25,7 @@ public sealed class Grammar
     public string Name { get; set; } = string.Empty;
     public List<string> Extensions { get; set; } = new();
     public bool IgnoreCase { get; set; }
+    public string? LineComment { get; set; }
     public List<GrammarRule> Rules { get; set; } = new();
 }
 
@@ -38,18 +39,21 @@ internal sealed record CompiledRule(string Scope, Regex? Match, Regex? Begin, Re
 internal sealed class CompiledGrammar
 {
     public string Name { get; }
+    public string LineComment { get; } = string.Empty;
     public List<string> Extensions { get; } = new();
     public List<CompiledRule> Rules { get; } = new();
 
-    public CompiledGrammar(string name)
+    public CompiledGrammar(string name, string lineComment = "")
     {
         Name = name;
+        LineComment = lineComment;
     }
 }
 
-/// <summary>Реестр грамматик: встроенные + пользовательские (перекрывают).</summary>
+/// <summary>Реестр грамматик: папка рядом с settings.json (перекрывает встроенные).</summary>
 internal static class GrammarRegistry
 {
+    private const string ResourcePrefix = "TuiEdit.Grammars.";
     private static readonly TimeSpan PatternTimeout = TimeSpan.FromMilliseconds(500);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -65,13 +69,13 @@ internal static class GrammarRegistry
     private static readonly Dictionary<string, CompiledGrammar> _byExt =
         new(StringComparer.OrdinalIgnoreCase);
 
-    public static string UserDir()
+    public static string DefaultDir()
     {
         try
         {
-            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            if (!string.IsNullOrEmpty(appData))
-                return Path.Combine(appData, "TuiEdit", "grammars");
+            string? dir = Path.GetDirectoryName(SettingsStore.ResolvePath());
+            if (!string.IsNullOrEmpty(dir))
+                return Path.Combine(dir, "grammars");
         }
         catch
         {
@@ -79,29 +83,57 @@ internal static class GrammarRegistry
         return Path.Combine(Path.GetTempPath(), "TuiEdit", "grammars");
     }
 
-    public static string? PortableDir()
+    private static string? _dirOverride;
+
+    internal static void UseDirForTests(string dir)
     {
-        try
-        {
-            string dir = Path.Combine(AppContext.BaseDirectory, "grammars");
-            if (Directory.Exists(dir))
-                return dir;
-        }
-        catch
-        {
-        }
-        return null;
+        _dirOverride = dir;
+        ResetForTests();
     }
 
-    /// <summary>Загрузить всё (повторно — нет): встроенные, затем пользовательские.</summary>
-    public static void EnsureLoaded()
+    public static void EnsureLoaded() => EnsureLoaded(_dirOverride ?? DefaultDir());
+
+    internal static void EnsureLoaded(string dir)
     {
         if (_loaded)
             return;
         _loaded = true;
+        SeedDefaults(dir);
+        if (!LoadDir(dir))
+            LoadEmbedded();
+    }
+
+    /// <summary>Выложить отсутствующие встроенные грамматики (правки пользователя не трогаем).</summary>
+    private static void SeedDefaults(string dir)
+    {
+        try
+        {
+            Directory.CreateDirectory(dir);
+            foreach (string name in typeof(GrammarRegistry).Assembly.GetManifestResourceNames())
+            {
+                if (!name.StartsWith(ResourcePrefix, StringComparison.Ordinal)
+                    || !name.EndsWith(".json", StringComparison.Ordinal))
+                    continue;
+                string target = Path.Combine(dir, name[ResourcePrefix.Length..]);
+                if (File.Exists(target))
+                    continue;
+                using Stream? s = typeof(GrammarRegistry).Assembly.GetManifestResourceStream(name);
+                if (s is null)
+                    continue;
+                using var reader = new StreamReader(s);
+                File.WriteAllText(target, reader.ReadToEnd());
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void LoadEmbedded()
+    {
         foreach (string name in typeof(GrammarRegistry).Assembly.GetManifestResourceNames())
         {
-            if (!name.StartsWith("TuiEdit.Grammars.", StringComparison.Ordinal)
+            if (!name.StartsWith(ResourcePrefix, StringComparison.Ordinal)
                 || !name.EndsWith(".json", StringComparison.Ordinal))
                 continue;
             try
@@ -116,36 +148,35 @@ internal static class GrammarRegistry
             {
             }
         }
-        string? portable = PortableDir();
-        if (portable is not null)
-            LoadDir(portable);
-        LoadDir(UserDir());
     }
 
-    private static void LoadDir(string dir)
+    /// <summary>Загрузить папку (*.json по алфавиту, поздние перекрывают). True — хоть одна встала.</summary>
+    private static bool LoadDir(string dir)
     {
         string[] files;
         try
         {
             if (!Directory.Exists(dir))
-                return;
+                return false;
             files = Directory.GetFiles(dir, "*.json");
         }
         catch
         {
-            return;
+            return false;
         }
+        bool any = false;
         Array.Sort(files, StringComparer.Ordinal);
         foreach (string f in files)
         {
             try
             {
-                AddJson(File.ReadAllText(f));
+                any |= AddJson(File.ReadAllText(f));
             }
             catch
             {
             }
         }
+        return any;
     }
 
     /// <summary>Добавить грамматику из JSON-текста. Без валидных правил — мимо.</summary>
@@ -162,7 +193,7 @@ internal static class GrammarRegistry
         }
         if (g is null || string.IsNullOrWhiteSpace(g.Name))
             return false;
-        var cg = new CompiledGrammar(g.Name.Trim());
+        var cg = new CompiledGrammar(g.Name.Trim(), (g.LineComment ?? string.Empty).Trim());
         RegexOptions opts = RegexOptions.CultureInvariant;
         if (g.IgnoreCase)
             opts |= RegexOptions.IgnoreCase;
