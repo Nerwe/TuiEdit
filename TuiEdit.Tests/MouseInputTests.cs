@@ -37,6 +37,42 @@ public sealed class MouseInputTests
         Assert.Null(MouseInput.TryParse(burst));
     }
 
+    private static Terminal.MouseEventRecord Rec(uint buttons, uint flags, short x, short y) =>
+        new() { ButtonState = buttons, EventFlags = flags, MousePosition = new Terminal.Coord { X = x, Y = y } };
+
+    [Theory]
+    [InlineData(0x0001u, 0u, 10, 5, 0)] // левый клик
+    [InlineData(0x0001u, 0x0002u, 10, 5, 0)] // дабл-клик (второе нажатие) — тоже клик
+    [InlineData(0x0000u, 0u, 10, 5, -1)] // отпускание — игнор
+    [InlineData(0x0002u, 0u, 10, 5, -1)] // правая — игнор
+    [InlineData(0x0001u, 0x0001u, 10, 5, -1)] // движение с зажатой — игнор (drag позже)
+    [InlineData(0x00780000u, 0x0004u, 3, 7, 1)] // колесо вверх (delta +120)
+    [InlineData(0xFF880000u, 0x0004u, 3, 7, 2)] // колесо вниз (delta -120)
+    [InlineData(0x00000000u, 0x0004u, 3, 7, -1)] // колесо с нулевой дельтой — игнор
+    public void TranslateConsoleRecord(uint buttons, uint flags, short x, short y, int action)
+    {
+        Terminal.MouseEventRecord r = Rec(buttons, flags, x, y);
+        if (action < 0)
+        {
+            Assert.Null(Terminal.TranslateMouse(r));
+            return;
+        }
+        MouseInput? m = Terminal.TranslateMouse(r);
+        Assert.NotNull(m);
+        Assert.Equal((MouseAction)action, m.Action);
+        Assert.Equal(x, m.X);
+        Assert.Equal(y, m.Y);
+    }
+
+    [Fact]
+    public void TranslateClampsNegativeCoords()
+    {
+        MouseInput? m = Terminal.TranslateMouse(Rec(0x0001u, 0u, -5, -2));
+        Assert.NotNull(m);
+        Assert.Equal(0, m.X);
+        Assert.Equal(0, m.Y);
+    }
+
     [Fact]
     public void ColumnAtPlainAndTabs()
     {

@@ -21,6 +21,9 @@ release notes from the `Unreleased` section when a `v*` tag is pushed.
   per-command override, `null` unbinds, menu hints follow automatically.
 - Mouse v1 (SGR 1006): left-click positions the cursor in the active pane,
   wheel moves it ±3 lines; ignored over dialogs and menus.
+- Mouse on Windows via console input API (conhost/Windows Terminal):
+  `ReadKey` never delivers mouse events, so the queue is polled directly
+  (Unix keeps the SGR byte path).
 
 ### Fixed
 - Atomic save: content is written to a temp file in the same folder,

@@ -11,6 +11,18 @@ internal static class Terminal
     private const uint ENABLE_PROCESSED_INPUT = 0x0001;
     private const uint ENABLE_LINE_INPUT = 0x0002;
     private const uint ENABLE_ECHO_INPUT = 0x0004;
+    private const uint ENABLE_MOUSE_INPUT = 0x0010;
+    private const uint ENABLE_QUICK_EDIT_MODE = 0x0040;
+    private const uint ENABLE_EXTENDED_FLAGS = 0x0080;
+
+    internal const ushort KEY_EVENT = 0x0001;
+    internal const ushort MOUSE_EVENT = 0x0002;
+
+    private const uint FROM_LEFT_1ST_BUTTON_PRESSED = 0x0001;
+    private const uint MOUSE_MOVED = 0x0001;
+    private const uint MOUSE_WHEELED = 0x0004;
+
+    private const uint WAIT_FAILED = 0xFFFFFFFF;
 
     private static uint _stdinOldMode;
     private static bool _stdinModeSaved;
@@ -23,6 +35,52 @@ internal static class Terminal
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct Coord
+    {
+        public short X;
+        public short Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct KeyEventRecord
+    {
+        public int KeyDown; // BOOL
+        public ushort RepeatCount;
+        public ushort VirtualKeyCode;
+        public ushort VirtualScanCode;
+        public char UnicodeChar;
+        public uint ControlKeyState;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct MouseEventRecord
+    {
+        public Coord MousePosition;
+        public uint ButtonState;
+        public uint ControlKeyState;
+        public uint EventFlags;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    internal struct InputRecord
+    {
+        [FieldOffset(0)] public ushort EventType;
+        [FieldOffset(4)] public KeyEventRecord KeyEvent;
+        [FieldOffset(4)] public MouseEventRecord MouseEvent;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool PeekConsoleInput(IntPtr hConsoleInput,
+        [In, Out] InputRecord[] lpBuffer, uint nLength, out uint lpNumberOfEventsRead);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool ReadConsoleInput(IntPtr hConsoleInput,
+        [In, Out] InputRecord[] lpBuffer, uint nLength, out uint lpNumberOfEventsRead);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
 
     /// <summary>Включить обработку VT-последовательностей для вывода; на Unix VT есть изначально (кроме dumb-терминалов).</summary>
     public static bool TryEnableVirtualTerminal()
@@ -65,6 +123,10 @@ internal static class Terminal
             _stdinOldMode = mode;
             _stdinModeSaved = true;
             uint raw = mode & ~(ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
+            // Мышь conhost-API (.NET ReadKey её не отдаёт) + гасим QuickEdit,
+            // иначе клики уходят в выделение conhost. EXTENDED_FLAGS обязателен
+            // для смены QuickEdit. RestoreInput вернёт всё как было.
+            raw = (raw & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS | ENABLE_MOUSE_INPUT;
             return SetConsoleMode(h, raw);
         }
         catch
@@ -83,6 +145,87 @@ internal static class Terminal
     public static void DisableMouse()
     {
         try { Console.Write("\x1b[?1006l\x1b[?1000l"); } catch { }
+    }
+
+    /// <summary>
+    /// Подсмотреть первую запись очереди ввода, не съедая (только Windows).
+    /// </summary>
+    internal static bool TryPeek(out InputRecord rec)
+    {
+        rec = default;
+        if (!OperatingSystem.IsWindows())
+            return false;
+        try
+        {
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return false;
+            var buf = new InputRecord[1];
+            return PeekConsoleInput(h, buf, 1, out uint n) && n == 1 && (rec = buf[0]).EventType != 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Съесть одну запись спереди; событие мыши — транслировать (остальное — null).</summary>
+    internal static MouseInput? Take()
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+        try
+        {
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return null;
+            var buf = new InputRecord[1];
+            if (!ReadConsoleInput(h, buf, 1, out uint n) || n != 1)
+                return null;
+            return buf[0].EventType == MOUSE_EVENT ? TranslateMouse(buf[0].MouseEvent) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Спать до ввода (чтобы не крутить CPU в опросе очереди).</summary>
+    internal static bool WaitForInput(int milliseconds)
+    {
+        if (!OperatingSystem.IsWindows())
+            return true;
+        try
+        {
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return false;
+            return WaitForSingleObject(h, (uint)Math.Max(0, milliseconds)) != WAIT_FAILED;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>MOUSE_EVENT_RECORD — событие v1 (клик/колесо, координаты уже 0-based).</summary>
+    internal static MouseInput? TranslateMouse(MouseEventRecord r)
+    {
+        if ((r.EventFlags & MOUSE_WHEELED) != 0)
+        {
+            short delta = (short)((r.ButtonState >> 16) & 0xFFFF);
+            if (delta == 0)
+                return null;
+            int x = Math.Max(0, (int)r.MousePosition.X);
+            int y = Math.Max(0, (int)r.MousePosition.Y);
+            return new MouseInput(x, y, delta > 0 ? MouseAction.WheelUp : MouseAction.WheelDown);
+        }
+        if ((r.EventFlags & MOUSE_MOVED) != 0)
+            return null; // движение без ?1002 не отслеживаем (drag — позже)
+        if ((r.ButtonState & FROM_LEFT_1ST_BUTTON_PRESSED) == 0)
+            return null; // отпускание, средняя/правая
+        return new MouseInput(Math.Max(0, (int)r.MousePosition.X), Math.Max(0, (int)r.MousePosition.Y),
+            MouseAction.LeftPress);
     }
 
     /// <summary>Вернуть режим ввода консоли (вызывать при выходе).</summary>

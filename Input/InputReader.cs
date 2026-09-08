@@ -16,6 +16,33 @@ internal sealed class InputReader
 {
     public static InputEvent Read()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            // Очередь conhost разбираем сами: .NET ReadKey события мыши глотает,
+            // а в блокировке ждёт только клавиш. ReadKey зовём лишь когда спереди
+            // key-down — тогда он возвращается мгновенно, ничего не теряя.
+            while (true)
+            {
+                if (!Terminal.TryPeek(out Terminal.InputRecord rec))
+                {
+                    if (!Terminal.WaitForInput(50))
+                        break; // ошибка консоли — старый путь
+                    continue;
+                }
+                if (rec.EventType == Terminal.MOUSE_EVENT)
+                {
+                    if (Terminal.Take() is MouseInput mev)
+                        return mev;
+                    continue;
+                }
+                if (rec.EventType != Terminal.KEY_EVENT || rec.KeyEvent.KeyDown == 0)
+                {
+                    Terminal.Take(); // key-up, ресайз, фокус — мимо
+                    continue;
+                }
+                break; // спереди key-down
+            }
+        }
         ConsoleKeyInfo k = Console.ReadKey(intercept: true);
         if (k.Key != ConsoleKey.Escape || !Console.KeyAvailable)
             return new KeyInput(k);
