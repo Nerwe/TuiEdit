@@ -32,7 +32,7 @@ internal sealed class SettingsDialog : Dialog
             loc["settings.shownumbers"], loc["settings.wordwrap"], loc["settings.whitespace"],
             loc["settings.ruler"],
             loc["settings.backup"], loc["settings.guides"], loc["settings.session"],
-            loc["settings.mouse"]];
+            loc["settings.mouse"], loc["settings.copyselect"]];
         string langName = loc.Language == "en" ? "English" : "Русский";
         string themeName = ThemeCatalog.DisplayName(loc, _settings.Theme);
         string[] values = [themeName, langName,
@@ -41,7 +41,7 @@ internal sealed class SettingsDialog : Dialog
             _settings.RulerColumn == 0 ? loc["settings.off"] : _settings.RulerColumn.ToString(CultureInfo.InvariantCulture),
             OnOff(loc, _settings.BackupOnSave),
             OnOff(loc, _settings.ShowIndentGuides), OnOff(loc, _settings.RestoreSession),
-            MouseName(loc, _settings.Mouse)];
+            MouseName(loc, _settings.Mouse), OnOff(loc, _settings.CopyOnSelect)];
         return (labels, values, title);
     }
 
@@ -141,8 +141,11 @@ internal sealed class SettingsDialog : Dialog
             case 8:
                 _settings.RestoreSession = !_settings.RestoreSession;
                 break;
-            default:
+            case 9:
                 _settings.Mouse = (MouseLevel)SettingsDialogState.Cycle((int)_settings.Mouse, 4, dir);
+                break;
+            default:
+                _settings.CopyOnSelect = !_settings.CopyOnSelect;
                 break;
         }
         _store.Save(_settings);

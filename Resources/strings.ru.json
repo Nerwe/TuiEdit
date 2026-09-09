@@ -187,6 +187,7 @@
   "settings.mouse.basic": "Клики",
   "settings.mouse.drag": "Drag",
   "settings.mouse.motion": "Движение",
+  "settings.copyselect": "Копия при выделении",
   "settings.on": "Вкл",
   "settings.off": "Выкл",
   "settings.dark": "Тёмная",

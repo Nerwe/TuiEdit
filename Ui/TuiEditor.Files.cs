@@ -79,6 +79,7 @@ internal sealed partial class TuiEditor
     {
         if (_docs.Count == 0)
             return;
+        _mouseDrag = false; // фокус уехал — тяга стоп
         SaveTabState();
         _active = ((index % _docs.Count) + _docs.Count) % _docs.Count;
         LoadTabState();
@@ -158,6 +159,7 @@ internal sealed partial class TuiEditor
     {
         if (_panes.Count == 0)
             return;
+        _mouseDrag = false; // фокус уехал — тяга стоп
         SaveTabState();
         _pane = ((index % _panes.Count) + _panes.Count) % _panes.Count;
         LoadTabState();

@@ -187,6 +187,7 @@
   "settings.mouse.basic": "Basic",
   "settings.mouse.drag": "Drag",
   "settings.mouse.motion": "Motion",
+  "settings.copyselect": "Copy on select",
   "settings.on": "On",
   "settings.off": "Off",
   "settings.dark": "Dark",

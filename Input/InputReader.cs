@@ -119,9 +119,9 @@ internal sealed class InputReader
     {
         if (MouseInput.TryParse(s) is not MouseInput m)
             return new KeyInput(esc); // битый SGR — как раньше: Esc
-        if (m.Action is MouseAction.MiddlePress or MouseAction.RightPress)
+        if (m.Action == MouseAction.MiddlePress)
             return new KeyInput(esc); // потребителей нет — как раньше: Esc
-        return Coalesce(m);
+        return Coalesce(m); // RightPress — в HandleMouseAt (копия по выделению)
     }
 
     /// <summary>

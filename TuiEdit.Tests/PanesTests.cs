@@ -10,10 +10,10 @@ public sealed class PanesTests
     private static ConsoleKeyInfo K(char c, ConsoleKey k, bool shift = false, bool alt = false, bool ctrl = false)
         => new(c, k, shift, alt, ctrl);
 
-    private static TuiEditor NewEditor()
+    private static TuiEditor NewEditor(AppSettings? settings = null)
     {
         var buf = new TextBuffer(null);
-        return new TuiEditor(buf, new AppSettings(),
+        return new TuiEditor(buf, settings ?? new AppSettings(),
             new SettingsStore(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "tui_panecfg_" + Guid.NewGuid().ToString("N"), "s.json")));
     }
 
@@ -122,6 +122,18 @@ public sealed class PanesTests
     private static MouseInput WheelDown(int x, int y) =>
         new(x, y, MouseAction.WheelDown);
 
+    private static MouseInput DragTo(int x, int y) =>
+        new(x, y, MouseAction.Move, MouseButton.Left);
+
+    private static MouseInput Release(int x, int y) =>
+        new(x, y, MouseAction.Move);
+
+    private static List<string> ClipboardOf(TuiEditor ed) =>
+        (List<string>)Get(ed, "_clipboard")!;
+
+    private static TextSelection SelOf(TuiEditor ed) =>
+        (TextSelection)Get(ed, "_sel")!;
+
     [Fact]
     public void EditorLayoutSingleSource()
     {
@@ -217,6 +229,76 @@ public sealed class PanesTests
             ed.HandleMouseAt(Click(79, 23), 80, 24); // мимо бокса — как Esc
             Assert.Null(Get(ed, "_dialog"));
             Assert.Equal("x", ActiveBuf(ed).GetLine(0)); // вкладка жива, выхода нет
+        }
+        finally { InputReader.MouseLevel = MouseLevel.Off; }
+    }
+
+    [Fact]
+    public void DragSelectsAndCopiesOnRelease()
+    {
+        var ed = NewEditor();
+        ActiveBuf(ed).InsertText(0, 0, "aaa\nbbb\nccc");
+        InputReader.MouseLevel = MouseLevel.Basic;
+        try
+        {
+            ed.HandleMouseAt(Click(8, 1), 80, 24);
+            Assert.False(SelOf(ed).Active); // press сам выделения не создаёт
+            ed.HandleMouseAt(DragTo(10, 3), 80, 24);
+            Assert.True(SelOf(ed).HasSelection(2, 2));
+            ed.HandleMouseAt(Release(10, 3), 80, 24);
+            Assert.Equal(["aaa", "bbb", "cc"], ClipboardOf(ed));
+            Assert.False(SelOf(ed).Active); // копия ушла — гасим
+        }
+        finally { InputReader.MouseLevel = MouseLevel.Off; }
+    }
+
+    [Fact]
+    public void DragKeepsSelectionWithoutCopyOnSelect()
+    {
+        var ed = NewEditor(new AppSettings { CopyOnSelect = false });
+        ActiveBuf(ed).InsertText(0, 0, "aaa\nbbb\nccc");
+        InputReader.MouseLevel = MouseLevel.Basic;
+        try
+        {
+            ed.HandleMouseAt(Click(8, 1), 80, 24);
+            ed.HandleMouseAt(DragTo(10, 3), 80, 24);
+            ed.HandleMouseAt(Release(10, 3), 80, 24);
+            Assert.True(SelOf(ed).HasSelection(2, 2)); // осталась для клавиатуры
+            Assert.Empty(ClipboardOf(ed));
+        }
+        finally { InputReader.MouseLevel = MouseLevel.Off; }
+    }
+
+    [Fact]
+    public void RightClickCopiesSelection()
+    {
+        var ed = NewEditor(new AppSettings { CopyOnSelect = false });
+        ActiveBuf(ed).InsertText(0, 0, "aaa\nbbb\nccc");
+        InputReader.MouseLevel = MouseLevel.Basic;
+        try
+        {
+            ed.HandleMouseAt(Click(8, 1), 80, 24);
+            ed.HandleMouseAt(DragTo(10, 3), 80, 24);
+            ed.HandleMouseAt(Release(10, 3), 80, 24);
+            ed.HandleMouseAt(new MouseInput(10, 3, MouseAction.RightPress, MouseButton.Right), 80, 24);
+            Assert.Equal(["aaa", "bbb", "cc"], ClipboardOf(ed));
+            Assert.False(SelOf(ed).Active);
+        }
+        finally { InputReader.MouseLevel = MouseLevel.Off; }
+    }
+
+    [Fact]
+    public void ClickWithoutDragLeavesNoSelection()
+    {
+        var ed = NewEditor();
+        ActiveBuf(ed).InsertText(0, 0, "aaa\nbbb\nccc");
+        InputReader.MouseLevel = MouseLevel.Basic;
+        try
+        {
+            ed.HandleMouseAt(Click(8, 1), 80, 24);
+            ed.HandleMouseAt(Release(8, 1), 80, 24); // сразу отпустили — клик
+            Assert.False(SelOf(ed).Active);
+            Assert.Empty(ClipboardOf(ed));
         }
         finally { InputReader.MouseLevel = MouseLevel.Off; }
     }

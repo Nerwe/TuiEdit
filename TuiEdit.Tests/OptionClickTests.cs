@@ -45,8 +45,8 @@ public sealed class OptionClickTests
             bool before = settings.ShowLineNumbers; // строка 2
             List<(int X, int Y)> rows = ClickCells((x, y) =>
                 new SettingsDialog(new AppSettings(), store, () => { }).HandleClick(x, y, W, H, loc));
-            // Заголовок + 10 строк + низ: всё внутри бокса глотается, опции — средние 10.
-            Assert.Equal(12, rows.Count);
+            // Заголовок + 11 строк + низ: всё внутри бокса глотается, опции — средние 11.
+            Assert.Equal(13, rows.Count);
             dlg.HandleClick(rows[3].X, rows[3].Y, W, H, loc); // 3-я строка сверху = индекс 2
             Assert.Equal(!before, settings.ShowLineNumbers);
             Assert.True(changed);
@@ -68,14 +68,18 @@ public sealed class OptionClickTests
             var dlg = new SettingsDialog(settings, store, () => { changed = true; });
             List<(int X, int Y)> rows = ClickCells((x, y) =>
                 new SettingsDialog(new AppSettings(), store, () => { }).HandleClick(x, y, W, H, loc));
-            Assert.Equal(12, rows.Count);
-            (int X, int Y) last = rows[^2]; // последняя строка опций = индекс 9 (мышь)
+            Assert.Equal(13, rows.Count);
+            (int X, int Y) mouse = rows[^3]; // строка опций = индекс 9 (мышь)
             MouseLevel[] expected = [MouseLevel.Basic, MouseLevel.Drag, MouseLevel.Motion, MouseLevel.Off];
             foreach (MouseLevel level in expected)
             {
-                dlg.HandleClick(last.X, last.Y, W, H, loc);
+                dlg.HandleClick(mouse.X, mouse.Y, W, H, loc);
                 Assert.Equal(level, settings.Mouse);
             }
+            (int X, int Y) copy = rows[^2]; // последняя строка опций = индекс 10
+            Assert.True(settings.CopyOnSelect);
+            dlg.HandleClick(copy.X, copy.Y, W, H, loc);
+            Assert.False(settings.CopyOnSelect);
             Assert.True(changed);
         }
         finally { try { Directory.Delete(dir, true); } catch { } }

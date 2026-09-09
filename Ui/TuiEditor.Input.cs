@@ -35,6 +35,7 @@ internal sealed partial class TuiEditor
             return;
         }
         _mouseActive = false; // клавиатура/вставка — hover гаснет
+        _mouseDrag = false; // клавиша mid-drag — тяга стоп, выделение как есть
         if (input is KeyInput key)
             HandleKey(key.Key);
         // Будущие типы событий — игнор, а не каст (мышь уже роняла это место).
@@ -69,7 +70,17 @@ internal sealed partial class TuiEditor
         _mouseX = m.X;
         _mouseY = m.Y;
         if (m.Action == MouseAction.Move)
-            return; // hover подхватит Render
+        {
+            // hover — только позиция; тяга с зажатой левой — растянуть,
+            // отпускание (m) — завершить. Активации контролов на отпускании
+            // нет сознательно: срабатывание — всегда на press (см. ниже).
+            if (_mouseDrag && m.Button == MouseButton.Left)
+                ExtendMouseDrag(m, w, h);
+            else if (_mouseDrag)
+                EndMouseDrag(copy: true);
+            return;
+        }
+        _mouseDrag = false; // любое не-движение без viewport-press разоружает тягу
         if (_dialog is ModalDialog md)
         {
             if (m.Action is MouseAction.WheelUp or MouseAction.WheelDown)
@@ -92,6 +103,8 @@ internal sealed partial class TuiEditor
         }
         if (_dialog is not null)
             return; // RunDialog-диалоги (настройки, менеджер): мыши пока нет
+        if (m.Action == MouseAction.RightPress && _menu is not null)
+            return; // правая по меню — игнор, пункты жмут только левой
         if (_menu is not null && HandleMenuMouse(m))
             return;
         // Мимо меню (закрыли) — клик доезжает до текста, как клавиша в HandleMenuKey.
@@ -117,10 +130,12 @@ internal sealed partial class TuiEditor
             ScrollWheel(m.Action == MouseAction.WheelDown ? 1 : -1, m.Count);
             return;
         }
-        if (m.Action != MouseAction.LeftPress)
-            return; // средняя/правая — потребителей нет
+        if (m.Action is not (MouseAction.LeftPress or MouseAction.RightPress))
+            return; // средняя — потребителей нет
         if (layout.TabH == 1 && m.Y == 1)
         {
+            if (m.Action != MouseAction.LeftPress)
+                return;
             int tp = layout.PaneAt(m.X);
             if (tp < 0)
                 return;
@@ -141,20 +156,87 @@ internal sealed partial class TuiEditor
             return; // сайдбар: кликов нет
         if (pane != _pane)
             SwitchPane(pane); // клик в чужую панель — сначала фокус
-        int numWidth = Math.Max(4, _buf.Count.ToString(CultureInfo.InvariantCulture).Length);
-        int gutterWidth = _settings.ShowLineNumbers ? numWidth + 4 : 0;
-        int contentWidth = Math.Max(1, layout.PaneWs[pane] - gutterWidth);
-        int cx0 = layout.PaneXs[pane] + gutterWidth;
-        if (m.X < cx0 || m.X >= layout.PaneXs[pane] + layout.PaneWs[pane]
-            || m.Y < layout.Y0 || m.Y >= layout.Y0 + layout.TextHeight)
+        var g = TextGeom(layout);
+        if (m.X < g.cx0 || m.X >= g.x1 || m.Y < g.y0 || m.Y >= g.y1)
             return; // гуттер/разделитель/статусбар: кликов нет
+        if (m.Action == MouseAction.RightPress)
+        {
+            CopyMouseSelection(); // есть выделение — в буфер, нет — игнор
+            return;
+        }
         (int row, int col) = LocateClick(_buf.Lines, _docs[_active].Folds, _top, _topSeg,
-            _settings.WordWrap, contentWidth, _left, m.Y - layout.Y0, m.X - cx0);
+            _settings.WordWrap, g.cw, _left, m.Y - g.y0, m.X - g.cx0);
         _sel.Clear();
         _row = row;
         _col = col;
         ClampCursor();
         TrackCol();
+        _mouseDrag = true; // press в тексте: якорь для тяги
+        _mousePane = pane;
+        _mouseRow = _row;
+        _mouseCol = _col;
+    }
+
+    /// <summary>Геометрия текста активной панели (гуттер — по её буферу).</summary>
+    private (int cx0, int x1, int y0, int y1, int cw) TextGeom(EditorLayout layout)
+    {
+        int numWidth = Math.Max(4, _buf.Count.ToString(CultureInfo.InvariantCulture).Length);
+        int gutterWidth = _settings.ShowLineNumbers ? numWidth + 4 : 0;
+        int cw = Math.Max(1, layout.PaneWs[_pane] - gutterWidth);
+        int cx0 = layout.PaneXs[_pane] + gutterWidth;
+        return (cx0, layout.PaneXs[_pane] + layout.PaneWs[_pane], layout.Y0,
+            layout.Y0 + layout.TextHeight, cw);
+    }
+
+    /// <summary>Тяга: растянуть выделение от якоря press до позиции мыши.</summary>
+    private void ExtendMouseDrag(MouseInput m, int w, int h)
+    {
+        if (_mousePane < 0 || _mousePane >= _panes.Count || _mousePane != _pane)
+        {
+            _mouseDrag = false; // фокус mid-drag уехал клавишами — стоп
+            return;
+        }
+        EditorLayout layout = EditorLayout.Compute(
+            w, h, _sidebar is null ? 0 : SidebarState.Width,
+            _panes.Count, _panes.Any(p => p.Docs.Count > 1));
+        var g = TextGeom(layout);
+        int vx = Math.Clamp(m.Y - g.y0, 0, Math.Max(0, g.y1 - g.y0 - 1));
+        int vc = Math.Clamp(m.X - g.cx0, 0, Math.Max(0, g.x1 - g.cx0 - 1));
+        (int row, int col) = LocateClick(_buf.Lines, _docs[_active].Folds, _top, _topSeg,
+            _settings.WordWrap, g.cw, _left, vx, vc);
+        if (!_sel.Active)
+            _sel.Start(_mouseRow, _mouseCol); // первая подвижка — якорим press
+        _row = row;
+        _col = col;
+        ClampCursor();
+        TrackCol();
+    }
+
+    /// <summary>Отпускание после тяги: есть выделение — политика копии, нет — гасим.</summary>
+    private void EndMouseDrag(bool copy)
+    {
+        _mouseDrag = false;
+        if (!_sel.HasSelection(_row, _col))
+        {
+            _sel.Clear();
+            return;
+        }
+        if (copy && _settings.CopyOnSelect)
+            CopyMouseSelection(); // копирует и гасит
+        // Иначе выделение остаётся для клавиатурных операций.
+    }
+
+    /// <summary>Выделение — во внутренний буфер + OSC 52, с сообщением; пустое — игнор.</summary>
+    private void CopyMouseSelection()
+    {
+        if (!_sel.HasSelection(_row, _col))
+            return;
+        var (sr, sc, er, ec) = _sel.Normalize(_row, _col);
+        _clipboard.Clear();
+        _clipboard.AddRange(_buf.GetRangeText(sr, sc, er, ec));
+        SystemClipboard.TryExport(_clipboard);
+        SetMessage(_loc.Format("msg.copy.sel", SelectionLength(sr, sc, er, ec)));
+        _sel.Clear();
     }
 
     /// <summary>

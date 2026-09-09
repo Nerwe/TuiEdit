@@ -32,6 +32,11 @@ when a `v*` tag is pushed.
 - Click focuses panes and switches tabs; wheel outside modal/menu
   scrolls the active pane (gutter/sidebar/statusbar included);
   backdrop click cancels a modal like Esc.
+- Mouse text selection: press-drag-release in the viewport
+  (Drag/Motion levels); release copies to clipboard when
+  `CopyOnSelect` is set, otherwise the selection stays for keyboard
+  ops. Right-click copies a live selection; activation stays on
+  press, so a drag-release can never fire a control.
 
 ## [0.3.0] - 2026-09-08
 

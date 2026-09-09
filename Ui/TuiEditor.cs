@@ -53,6 +53,10 @@ internal sealed partial class TuiEditor
     private int _mouseX; // последняя позиция мыши (для hover)
     private int _mouseY;
     private bool _mouseActive; // мышь была последним вводом — hover вместо selection-подсветки
+    private bool _mouseDrag; // идёт тяга с зажатой левой (press был в тексте)
+    private int _mousePane; // панель начала тяги (фокус mid-drag не уезжает)
+    private int _mouseRow; // курсор в момент press (якорь будущей тяги)
+    private int _mouseCol;
     // Ввод читается через статический InputReader.Read (состояния нет).
     private readonly AppSettings _settings;
     private readonly SettingsStore _store;

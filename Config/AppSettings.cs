@@ -47,6 +47,9 @@ public sealed class AppSettings
     /// <summary>Мышь: уровень захвата (выкл по умолчанию — не все терминалы корректны).</summary>
     public MouseLevel Mouse { get; set; }
 
+    /// <summary>Копировать в буфер при отпускании мышиного выделения (по умолчанию да).</summary>
+    public bool CopyOnSelect { get; set; } = true;
+
     /// <summary>Старый флаг мыши (до уровней): только миграция в <see cref="Normalize"/>.</summary>
     public bool EnableMouse { get; set; }
 
