@@ -212,7 +212,7 @@
   "palette.cmd.listtabs": "Список вкладок",
   "palette.cmd.quickopen": "Быстро открыть файл",
   "palette.cmd.cmdline": "Командная строка",
-  "cmdline.title": "Команда",
+  "cmdline.title": "❯ ",
   "cmdline.unknown": "Неизвестная команда (попробуй: set, goto, find, save, quit)",
   "cmdline.set.done": "Применено: {0}.",
   "cmdline.set.unknown": "Неизвестная настройка (попробуй: theme, lang, numbers, wrap, whitespace, ruler, backup, guides, session, mouse, copyselect, pairs, gutter).",

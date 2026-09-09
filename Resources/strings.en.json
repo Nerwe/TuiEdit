@@ -212,7 +212,7 @@
   "palette.cmd.listtabs": "List tabs",
   "palette.cmd.quickopen": "Quick open file",
   "palette.cmd.cmdline": "Command line",
-  "cmdline.title": "Command",
+  "cmdline.title": "❯ ",
   "cmdline.unknown": "Unknown command (try: set, goto, find, save, quit)",
   "cmdline.set.done": "Set {0}.",
   "cmdline.set.unknown": "Unknown setting (try: theme, lang, numbers, wrap, whitespace, ruler, backup, guides, session, mouse, copyselect, pairs, gutter).",
