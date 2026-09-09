@@ -190,7 +190,7 @@
   "settings.copyselect": "Копия при выделении",
   "palette.title": "Палитра команд",
   "palette.filter": "Фильтр настроек…",
-  "palette.hint": "`↑↓` — выбор • `Enter` — применить • `Esc` — закрыть",
+  "palette.hint": "`↑↓` — выбор • `←→` — изменить • `Enter` — применить • `Esc` — закрыть",
   "palette.noresults": "Ничего не найдено",
   "palette.cmd.togglesidebar": "Переключить панель файлов",
   "palette.cmd.togglelinenumbers": "Переключить номера строк",

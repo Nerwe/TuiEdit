@@ -190,7 +190,7 @@
   "settings.copyselect": "Copy on select",
   "palette.title": "Command palette",
   "palette.filter": "Type to filter settings…",
-  "palette.hint": "`↑↓` — move • `Enter` — apply • `Esc` — close",
+  "palette.hint": "`↑↓` — move • `←→` — change • `Enter` — apply • `Esc` — close",
   "palette.noresults": "No matches",
   "palette.cmd.togglesidebar": "Toggle sidebar",
   "palette.cmd.togglelinenumbers": "Toggle line numbers",

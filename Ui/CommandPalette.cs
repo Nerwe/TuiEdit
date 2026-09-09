@@ -295,6 +295,12 @@ internal sealed class CommandPaletteDialog : Dialog
             case ConsoleKey.Enter:
                 Activate();
                 return;
+            case ConsoleKey.LeftArrow:
+                CycleSelected(-1); // настройка — назад, команда — игнор
+                return;
+            case ConsoleKey.RightArrow:
+                CycleSelected(1); // настройка — вперёд, команда — игнор
+                return;
             case ConsoleKey.UpArrow: _state.Move(-1, MaxListFallback()); break;
             case ConsoleKey.DownArrow: _state.Move(1, MaxListFallback()); break;
             case ConsoleKey.Home: _state.MoveTo(0, MaxListFallback()); break;
@@ -328,6 +334,21 @@ internal sealed class CommandPaletteDialog : Dialog
     /// <summary>Окно списка неизвестно без размеров экрана — оценка для клавиш (Draw доклампит).</summary>
     private static int MaxListFallback() => 60;
 
+    /// <summary>Шагнуть выбранную настройку (команды — игнор) и остаться открытым.</summary>
+    private void CycleSelected(int dir)
+    {
+        if (_state.View.Count == 0)
+            return;
+        _state.MoveTo(_state.Selected, MaxListFallback());
+        if (_state.View[_state.Selected] is not SettingEntry s)
+            return;
+        SettingsModel.Cycle(_settings, s.Row, dir);
+        _store.Save(_settings);
+        _onChanged();
+        if (_loc is not null)
+            Rebuild(_loc); // значения поменялись — курсор держим по записи
+    }
+
     /// <summary>Настройка — шагнуть и остаться, команда — закрыть и отдать редактору.</summary>
     private void Activate()
     {
@@ -335,13 +356,9 @@ internal sealed class CommandPaletteDialog : Dialog
             return;
         _state.MoveTo(_state.Selected, MaxListFallback());
         PaletteEntry e = _state.View[_state.Selected];
-        if (e is SettingEntry s)
+        if (e is SettingEntry)
         {
-            SettingsModel.Cycle(_settings, s.Row, 1);
-            _store.Save(_settings);
-            _onChanged();
-            if (_loc is not null)
-                Rebuild(_loc); // значения поменялись — курсор держим по записи
+            CycleSelected(1);
             return;
         }
         if (e is CommandEntry c)

@@ -545,6 +545,44 @@ public sealed class DialogTests : IDisposable
     }
 
     [Fact]
+    public void PaletteArrowsCycleSetting()
+    {
+        var settings = new AppSettings();
+        var store = new SettingsStore(Path.Combine(_cfgDir, "pal6.json"));
+        EditorCommand? picked = null;
+        var dlg = new CommandPaletteDialog(settings, store, () => { }, cmd => picked = cmd);
+        dlg.Paste("мышь");
+        var scr = new Screen();
+        scr.Resize(80, 24);
+        dlg.Draw(scr, _theme, _loc);
+        Assert.Equal(MouseLevel.Off, settings.Mouse);
+        dlg.HandleKey(K('\0', ConsoleKey.RightArrow));
+        Assert.Equal(MouseLevel.Basic, settings.Mouse);
+        Assert.False(dlg.Closed);
+        dlg.HandleKey(K('\0', ConsoleKey.LeftArrow));
+        Assert.Equal(MouseLevel.Off, settings.Mouse);
+        Assert.False(dlg.Closed);
+        Assert.Null(picked);
+    }
+
+    [Fact]
+    public void PaletteArrowsIgnoreCommands()
+    {
+        var settings = new AppSettings();
+        var store = new SettingsStore(Path.Combine(_cfgDir, "pal7.json"));
+        EditorCommand? picked = null;
+        var dlg = new CommandPaletteDialog(settings, store, () => { }, cmd => picked = cmd);
+        dlg.Paste("ctrl+p"); // команды без опций
+        var scr = new Screen();
+        scr.Resize(80, 24);
+        dlg.Draw(scr, _theme, _loc);
+        dlg.HandleKey(K('\0', ConsoleKey.LeftArrow));
+        dlg.HandleKey(K('\0', ConsoleKey.RightArrow));
+        Assert.Null(picked);
+        Assert.False(dlg.Closed);
+    }
+
+    [Fact]
     public void PaletteBoundToF5()
     {
         Assert.Equal(EditorCommand.CommandPalette,
