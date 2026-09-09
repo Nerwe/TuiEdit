@@ -60,6 +60,7 @@ internal sealed partial class TuiEditor
     // Ввод читается через статический InputReader.Read (состояния нет).
     private readonly AppSettings _settings;
     private readonly SettingsStore _store;
+    private readonly CommandDispatcher _dispatcher;
     private Loc _loc;
     private Theme _theme;
 
@@ -78,7 +79,11 @@ internal sealed partial class TuiEditor
         _backups = new BackupStore(BackupStore.DefaultDir(store.Path));
         _loc = Loc.Load(settings.Language);
         _theme = ThemeCatalog.Resolve(settings, settings.Theme);
+        _dispatcher = new CommandDispatcher(BuildCommandMap());
     }
+
+    /// <summary>Command dispatcher (every <see cref="EditorCommand"/> except None must resolve).</summary>
+    internal ICommandDispatcher Dispatcher => _dispatcher;
 
     private BackupStore? Backups => _settings.BackupOnSave ? _backups : null;
 

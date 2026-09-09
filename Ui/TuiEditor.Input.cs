@@ -384,176 +384,184 @@ internal sealed partial class TuiEditor
         _ => false,
     };
 
-    private void Execute(EditorCommand cmd, ConsoleKeyInfo k)
+    /// <summary>Command-to-handler map for the dispatcher (built once per editor).</summary>
+    private Dictionary<EditorCommand, Action<ConsoleKeyInfo>> BuildCommandMap() => new()
     {
-        switch (cmd)
+        [EditorCommand.ToggleMenu] = _ => OpenMenu(0),
+        [EditorCommand.OpenMenuFile] = _ => OpenMenu(0),
+        [EditorCommand.OpenMenuEdit] = _ => OpenMenu(1),
+        [EditorCommand.OpenMenuHelp] = _ => OpenMenu(2),
+        [EditorCommand.MoveLeft] = _ => MoveLeft(),
+        [EditorCommand.MoveRight] = _ => MoveRight(),
+        [EditorCommand.MoveUp] = _ => MoveUp(),
+        [EditorCommand.MoveDown] = _ => MoveDown(),
+        [EditorCommand.GoHome] = _ => GoHome(),
+        [EditorCommand.GoEnd] = _ => GoEnd(),
+        [EditorCommand.GoDocStart] = _ => GoDocStart(),
+        [EditorCommand.GoDocEnd] = _ => GoDocEnd(),
+        [EditorCommand.PageUp] = _ => MovePage(-1),
+        [EditorCommand.PageDown] = _ => MovePage(1),
+        [EditorCommand.WordLeft] = _ => MoveWordLeft(),
+        [EditorCommand.WordRight] = _ => MoveWordRight(),
+        [EditorCommand.DelWordBefore] = _ => DeleteWordBefore(),
+        [EditorCommand.DelWordAfter] = _ => DeleteWordAfter(),
+        [EditorCommand.Save] = _ => Save(),
+        [EditorCommand.Quit] = _ => TryQuit(),
+        [EditorCommand.NewFile] = _ => NewTab(),
+        [EditorCommand.OpenFile] = _ => DoOpen(),
+        [EditorCommand.OpenRecent] = _ => DoRecent(),
+        [EditorCommand.About] = _ => _dialog = new ModalDialog(ModalState.About(_loc, AppVersion), ApplyModalOutcome),
+        [EditorCommand.Help] = _ => RunDialog(new HelpDialog(_loc)),
+        [EditorCommand.ToggleLineNumbers] = _ =>
         {
-            case EditorCommand.ToggleMenu: OpenMenu(0); return;
-            case EditorCommand.OpenMenuFile: OpenMenu(0); return;
-            case EditorCommand.OpenMenuEdit: OpenMenu(1); return;
-            case EditorCommand.OpenMenuHelp: OpenMenu(2); return;
-            case EditorCommand.MoveLeft: MoveLeft(); return;
-            case EditorCommand.MoveRight: MoveRight(); return;
-            case EditorCommand.MoveUp: MoveUp(); return;
-            case EditorCommand.MoveDown: MoveDown(); return;
-            case EditorCommand.GoHome: GoHome(); return;
-            case EditorCommand.GoEnd: GoEnd(); return;
-            case EditorCommand.GoDocStart: GoDocStart(); return;
-            case EditorCommand.GoDocEnd: GoDocEnd(); return;
-            case EditorCommand.PageUp: MovePage(-1); return;
-            case EditorCommand.PageDown: MovePage(1); return;
-            case EditorCommand.WordLeft: MoveWordLeft(); return;
-            case EditorCommand.WordRight: MoveWordRight(); return;
-            case EditorCommand.DelWordBefore: DeleteWordBefore(); return;
-            case EditorCommand.DelWordAfter: DeleteWordAfter(); return;
-            case EditorCommand.Save: Save(); return;
-            case EditorCommand.Quit: TryQuit(); return;
-            case EditorCommand.NewFile: NewTab(); return;
-            case EditorCommand.OpenFile: DoOpen(); return;
-            case EditorCommand.OpenRecent: DoRecent(); return;
-            case EditorCommand.About: _dialog = new ModalDialog(ModalState.About(_loc, AppVersion), ApplyModalOutcome); return;
-            case EditorCommand.Help: RunDialog(new HelpDialog(_loc)); return;
-            case EditorCommand.ToggleLineNumbers:
-                _settings.ShowLineNumbers = !_settings.ShowLineNumbers;
-                _store.Save(_settings);
-                SetMessage($"{_loc["settings.shownumbers"]}: {OnOff(_settings.ShowLineNumbers)}");
-                return;
-            case EditorCommand.ToggleWrap:
-                _settings.WordWrap = !_settings.WordWrap;
-                _store.Save(_settings);
-                SetMessage($"{_loc["settings.wordwrap"]}: {OnOff(_settings.WordWrap)}");
-                return;
-            case EditorCommand.ToggleWhitespace:
-                _settings.ShowWhitespace = !_settings.ShowWhitespace;
-                _store.Save(_settings);
-                SetMessage($"{_loc["settings.whitespace"]}: {OnOff(_settings.ShowWhitespace)}");
-                return;
-            case EditorCommand.ToggleSidebar: ToggleSidebar(); return;
-            case EditorCommand.NewTab: NewTab(); return;
-            case EditorCommand.CloseTab: CloseTab(); return;
-            case EditorCommand.NextTab: SwitchTab(_active + 1); return;
-            case EditorCommand.PrevTab: SwitchTab(_active - 1); return;
-            case EditorCommand.GoTabNumber:
-                int tabN = k.Key switch
-                {
-                    >= ConsoleKey.D1 and <= ConsoleKey.D9 => (int)k.Key - (int)ConsoleKey.D0,
-                    ConsoleKey.D0 => 10,
-                    _ => -1,
-                };
-                if (tabN >= 1 && tabN <= _docs.Count)
-                    SwitchTab(tabN - 1);
-                return;
-            case EditorCommand.ListTabs: ListTabs(); return;
-            case EditorCommand.SplitPane: SplitPane(); return;
-            case EditorCommand.NextPane: SwitchPane(_pane + 1); return;
-            case EditorCommand.PrevPane: SwitchPane(_pane - 1); return;
-            case EditorCommand.GoPaneNumber:
-                int paneN = k.Key is >= ConsoleKey.D1 and <= ConsoleKey.D9
-                    ? (int)k.Key - (int)ConsoleKey.D0 : -1;
-                if (paneN >= 1 && paneN <= _panes.Count)
-                    SwitchPane(paneN - 1);
-                return;
-            case EditorCommand.Settings: RunSettings(); return;
-            case EditorCommand.CommandPalette:
-                EditorCommand? picked = null;
-                RunDialog(new CommandPaletteDialog(_settings, _store, ApplySettings, cmd => picked = cmd));
-                if (picked is { } pc)
-                    Execute(pc, k); // команда — после закрытия палитры (без вложенности)
-                return;
-            case EditorCommand.QuickOpen: QuickOpenFlow(); return;
-            case EditorCommand.CommandLine: CommandLineFlow(); return;
-            case EditorCommand.Find: Find(); return;
-            case EditorCommand.Grep: GrepFlow(); return;
-            case EditorCommand.FindNext: FindNext(); return;
-            case EditorCommand.FindPrev: FindPrev(); return;
-            case EditorCommand.Replace: Replace(); return;
-            case EditorCommand.GoToLine: GoToLine(); return;
-            case EditorCommand.DocStats:
-                var st = _buf.CountStats();
-                SetMessage(_loc.Format("msg.stats", st.Lines, st.Words, st.Chars));
-                return;
-            case EditorCommand.CutLine: CutLine(); return;
-            case EditorCommand.CopyLine: CopyLine(); return;
-            case EditorCommand.Paste: Paste(); return;
-            case EditorCommand.DuplicateLine: DuplicateBlock(); return;
-            case EditorCommand.ToggleComment: ToggleComment(); return;
-            case EditorCommand.ToggleBookmark: ToggleBookmark(); return;
-            case EditorCommand.NextBookmark: NextBookmark(); return;
-            case EditorCommand.ToggleFold: ToggleFold(); return;
-            case EditorCommand.CompleteWord: CompleteWord(); return;
-            case EditorCommand.SortLines: SortBlock(); return;
-            case EditorCommand.GoBracketMatch: JumpToBracket(); return;
-            case EditorCommand.MoveLineUp: MoveLineBlock(-1); return;
-            case EditorCommand.MoveLineDown: MoveLineBlock(1); return;
-            case EditorCommand.SaveAs: SaveAs(); return;
-            case EditorCommand.SaveAll: SaveAll(); return;
-            case EditorCommand.FileFormat: RunDialog(new FormatDialog(_buf)); return;
-            case EditorCommand.TrimTrailing:
-                int trimmed = _buf.TrimTrailingWhitespace();
-                ClampCursor(); TrackCol();
-                SetMessage(_loc.Format("msg.trimmed", trimmed));
-                return;
-            case EditorCommand.Undo: _buf.Undo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.undo"]); return;
-            case EditorCommand.Redo: _buf.Redo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.redo"]); return;
-            case EditorCommand.InsertEnter:
-                DeleteSelection(); // замена выделения
-                (_row, _col) = _buf.SplitLine(_row, _col);
-                _docs[_active].ShiftBookmarks(_row, 1);
-                _docs[_active].ShiftFolds(_row, 1);
+            _settings.ShowLineNumbers = !_settings.ShowLineNumbers;
+            _store.Save(_settings);
+            SetMessage($"{_loc["settings.shownumbers"]}: {OnOff(_settings.ShowLineNumbers)}");
+        },
+        [EditorCommand.ToggleWrap] = _ =>
+        {
+            _settings.WordWrap = !_settings.WordWrap;
+            _store.Save(_settings);
+            SetMessage($"{_loc["settings.wordwrap"]}: {OnOff(_settings.WordWrap)}");
+        },
+        [EditorCommand.ToggleWhitespace] = _ =>
+        {
+            _settings.ShowWhitespace = !_settings.ShowWhitespace;
+            _store.Save(_settings);
+            SetMessage($"{_loc["settings.whitespace"]}: {OnOff(_settings.ShowWhitespace)}");
+        },
+        [EditorCommand.ToggleSidebar] = _ => ToggleSidebar(),
+        [EditorCommand.NewTab] = _ => NewTab(),
+        [EditorCommand.CloseTab] = _ => CloseTab(),
+        [EditorCommand.NextTab] = _ => SwitchTab(_active + 1),
+        [EditorCommand.PrevTab] = _ => SwitchTab(_active - 1),
+        [EditorCommand.GoTabNumber] = k =>
+        {
+            int tabN = k.Key switch
+            {
+                >= ConsoleKey.D1 and <= ConsoleKey.D9 => (int)k.Key - (int)ConsoleKey.D0,
+                ConsoleKey.D0 => 10,
+                _ => -1,
+            };
+            if (tabN >= 1 && tabN <= _docs.Count)
+                SwitchTab(tabN - 1);
+        },
+        [EditorCommand.ListTabs] = _ => ListTabs(),
+        [EditorCommand.SplitPane] = _ => SplitPane(),
+        [EditorCommand.NextPane] = _ => SwitchPane(_pane + 1),
+        [EditorCommand.PrevPane] = _ => SwitchPane(_pane - 1),
+        [EditorCommand.GoPaneNumber] = k =>
+        {
+            int paneN = k.Key is >= ConsoleKey.D1 and <= ConsoleKey.D9
+                ? (int)k.Key - (int)ConsoleKey.D0 : -1;
+            if (paneN >= 1 && paneN <= _panes.Count)
+                SwitchPane(paneN - 1);
+        },
+        [EditorCommand.Settings] = _ => RunSettings(),
+        [EditorCommand.CommandPalette] = k =>
+        {
+            EditorCommand? picked = null;
+            RunDialog(new CommandPaletteDialog(_settings, _store, ApplySettings, cmd => picked = cmd));
+            if (picked is { } pc)
+                _dispatcher.Execute(pc, k); // команда — после закрытия палитры (без вложенности)
+        },
+        [EditorCommand.QuickOpen] = _ => QuickOpenFlow(),
+        [EditorCommand.CommandLine] = _ => CommandLineFlow(),
+        [EditorCommand.Find] = _ => Find(),
+        [EditorCommand.Grep] = _ => GrepFlow(),
+        [EditorCommand.FindNext] = _ => FindNext(),
+        [EditorCommand.FindPrev] = _ => FindPrev(),
+        [EditorCommand.Replace] = _ => Replace(),
+        [EditorCommand.GoToLine] = _ => GoToLine(),
+        [EditorCommand.DocStats] = _ =>
+        {
+            var st = _buf.CountStats();
+            SetMessage(_loc.Format("msg.stats", st.Lines, st.Words, st.Chars));
+        },
+        [EditorCommand.CutLine] = _ => CutLine(),
+        [EditorCommand.CopyLine] = _ => CopyLine(),
+        [EditorCommand.Paste] = _ => Paste(),
+        [EditorCommand.DuplicateLine] = _ => DuplicateBlock(),
+        [EditorCommand.ToggleComment] = _ => ToggleComment(),
+        [EditorCommand.ToggleBookmark] = _ => ToggleBookmark(),
+        [EditorCommand.NextBookmark] = _ => NextBookmark(),
+        [EditorCommand.ToggleFold] = _ => ToggleFold(),
+        [EditorCommand.CompleteWord] = _ => CompleteWord(),
+        [EditorCommand.SortLines] = _ => SortBlock(),
+        [EditorCommand.GoBracketMatch] = _ => JumpToBracket(),
+        [EditorCommand.MoveLineUp] = _ => MoveLineBlock(-1),
+        [EditorCommand.MoveLineDown] = _ => MoveLineBlock(1),
+        [EditorCommand.SaveAs] = _ => SaveAs(),
+        [EditorCommand.SaveAll] = _ => SaveAll(),
+        [EditorCommand.FileFormat] = _ => RunDialog(new FormatDialog(_buf)),
+        [EditorCommand.TrimTrailing] = _ =>
+        {
+            int trimmed = _buf.TrimTrailingWhitespace();
+            ClampCursor(); TrackCol();
+            SetMessage(_loc.Format("msg.trimmed", trimmed));
+        },
+        [EditorCommand.Undo] = _ => { _buf.Undo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.undo"]); },
+        [EditorCommand.Redo] = _ => { _buf.Redo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.redo"]); },
+        [EditorCommand.InsertEnter] = _ =>
+        {
+            DeleteSelection(); // замена выделения
+            (_row, _col) = _buf.SplitLine(_row, _col);
+            _docs[_active].ShiftBookmarks(_row, 1);
+            _docs[_active].ShiftFolds(_row, 1);
+            TrackCol();
+        },
+        [EditorCommand.InsertBackspace] = _ =>
+        {
+            if (DeleteSelection()) return; // стереть выделение вместо символа
+            if (_settings.AutoPairs && _buf.DeletePair(_row, _col) is (int ar, int ac))
+            {
+                (_row, _col) = (ar, ac);
                 TrackCol();
                 return;
-            case EditorCommand.InsertBackspace:
-                if (DeleteSelection()) return; // стереть выделение вместо символа
-                if (_settings.AutoPairs && _buf.DeletePair(_row, _col) is (int ar, int ac))
-                {
-                    (_row, _col) = (ar, ac);
-                    TrackCol();
-                    return;
-                }
-                {
-                    int br = _row, bc = _col;
-                    (_row, _col) = _buf.Backspace(_row, _col);
-                    if (br > 0 && bc == 0)
-                    {
-                        _docs[_active].ShiftBookmarks(br, -1);
-                        _docs[_active].ShiftFolds(br, -1);
-                    }
-                }
-                TrackCol();
+            }
+            int br = _row, bc = _col;
+            (_row, _col) = _buf.Backspace(_row, _col);
+            if (br > 0 && bc == 0)
+            {
+                _docs[_active].ShiftBookmarks(br, -1);
+                _docs[_active].ShiftFolds(br, -1);
+            }
+            TrackCol();
+        },
+        [EditorCommand.InsertDelete] = _ =>
+        {
+            if (DeleteSelection()) return; // стереть выделение вместо символа
+            int dr = _row, dc = _col, dl = _buf.GetLine(dr).Length, dn = _buf.Count;
+            (_row, _col) = _buf.Delete(_row, _col);
+            if (dc >= dl && dr + 1 < dn)
+            {
+                _docs[_active].ShiftBookmarks(dr + 1, -1);
+                _docs[_active].ShiftFolds(dr + 1, -1);
+            }
+            TrackCol();
+        },
+        [EditorCommand.InsertTab] = _ =>
+        {
+            if (_sel.HasSelection(_row, _col)) { IndentSelection(); return; }
+            _buf.InsertString(_row, _col, _buf.IndentString);
+            _col += _buf.IndentString.Length;
+            TrackCol();
+        },
+        [EditorCommand.Unindent] = _ => UnindentSelectionOrLine(),
+        [EditorCommand.SelectAll] = _ => SelectAll(),
+        [EditorCommand.InsertChar] = k =>
+        {
+            DeleteSelection(); // замена выделения вводом
+            if (_settings.AutoPairs && TryAutoPair(k.KeyChar))
                 return;
-            case EditorCommand.InsertDelete:
-                if (DeleteSelection()) return; // стереть выделение вместо символа
-                {
-                    int dr = _row, dc = _col, dl = _buf.GetLine(dr).Length, dn = _buf.Count;
-                    (_row, _col) = _buf.Delete(_row, _col);
-                    if (dc >= dl && dr + 1 < dn)
-                    {
-                        _docs[_active].ShiftBookmarks(dr + 1, -1);
-                        _docs[_active].ShiftFolds(dr + 1, -1);
-                    }
-                }
-                TrackCol();
-                return;
-            case EditorCommand.InsertTab:
-                if (_sel.HasSelection(_row, _col)) { IndentSelection(); return; }
-                _buf.InsertString(_row, _col, _buf.IndentString);
-                _col += _buf.IndentString.Length;
-                TrackCol();
-                return;
-            case EditorCommand.Unindent: UnindentSelectionOrLine(); return;
-            case EditorCommand.SelectAll: SelectAll(); return;
-            case EditorCommand.InsertChar:
-                DeleteSelection(); // замена выделения вводом
-                if (_settings.AutoPairs && TryAutoPair(k.KeyChar))
-                    return;
-                _buf.InsertChar(_row, _col, k.KeyChar);
-                _col++;
-                TrackCol();
-                return;
-            case EditorCommand.None:
-            default: return; // Esc вне диалога, Alt, неизвестные Ctrl-комбинации — ничего
-        }
-    }
+            _buf.InsertChar(_row, _col, k.KeyChar);
+            _col++;
+            TrackCol();
+        },
+        // EditorCommand.None — no entry: Esc outside dialogs, Alt, unknown Ctrl combos do nothing.
+    };
+
+    private void Execute(EditorCommand cmd, ConsoleKeyInfo k) => _dispatcher.Execute(cmd, k);
 
     /// <summary>Маршрут клавиши при открытом меню.</summary>
     private void HandleMenuKey(ConsoleKeyInfo k)
