@@ -52,7 +52,9 @@ internal sealed class CommandPaletteState
 
     /// <summary>
     /// Подменить видимый список: новый фильтр — курсор в начало,
-    /// тот же (значения поменялись) — держим запись, если жива.
+    /// тот же (значения поменялись) — держим запись и окно, если живы.
+    /// Top никогда не сбрасываем: иначе окно прыгает, а выделение
+    /// приклеивается к низу (MoveTo сам доклампит окно).
     /// </summary>
     public void ReplaceView(List<PaletteEntry> view, bool fresh)
     {
@@ -68,7 +70,7 @@ internal sealed class CommandPaletteState
         }
         int at = View.IndexOf(prev);
         Selected = at >= 0 ? at : 0;
-        Top = 0;
+        Top = View.Count == 0 ? 0 : Math.Clamp(Top, 0, View.Count - 1);
     }
 
     /// <summary>Двинуть курсор на delta (окно дотягивается).</summary>
@@ -104,8 +106,12 @@ internal sealed class CommandPaletteDialog : Dialog
     private readonly Action<EditorCommand> _onCommand;
     private Loc? _loc;
     private string _builtFilter = "\0"; // фильтр, под который собран View
+    private int _lastMaxList = 60; // окно из последней отрисовки/замера (клавишам нужен настоящий размер)
     private int _cursorX = -1;
     private int _cursorY = -1;
+
+    /// <summary>Состояние для тестов (курсор/окно/фильтр).</summary>
+    internal CommandPaletteState PaletteState => _state;
 
     public CommandPaletteDialog(
         AppSettings settings, SettingsStore store, Action onChanged, Action<EditorCommand> onCommand)
@@ -198,6 +204,7 @@ internal sealed class CommandPaletteDialog : Dialog
             Math.Max(SpanWidth(hint), GetTitle(loc).Length + 2));
         int boxW = Math.Min(Math.Max(inner + 2, 30), screenW);
         int maxList = MaxList(screenH);
+        _lastMaxList = maxList;
         int list = Math.Clamp(_state.View.Count, 1, maxList);
         int boxH = list + 4; // рамка + фильтр + список + хинт
         int x0 = Math.Max(0, (screenW - boxW) / 2);
@@ -212,6 +219,7 @@ internal sealed class CommandPaletteDialog : Dialog
         _loc = loc;
         Rebuild(loc);
         int maxList = MaxList(screen.Height);
+        _lastMaxList = maxList;
         _state.MoveTo(_state.Selected, maxList);
         int x0 = box.X0, y0 = box.Y0, inner = box.W - 2;
 
@@ -270,6 +278,7 @@ internal sealed class CommandPaletteDialog : Dialog
         if (x < b.X0 || x >= b.X0 + b.W || y < b.Y0 || y >= b.Y0 + b.H)
             return false;
         int maxList = MaxList(screenH);
+        _lastMaxList = maxList;
         int row = y - (b.Y0 + 2); // заголовок + фильтр
         int end = Math.Min(_state.View.Count, _state.Top + maxList);
         if (row < 0 || _state.Top + row >= end)
@@ -301,12 +310,12 @@ internal sealed class CommandPaletteDialog : Dialog
             case ConsoleKey.RightArrow:
                 CycleSelected(1); // настройка — вперёд, команда — игнор
                 return;
-            case ConsoleKey.UpArrow: _state.Move(-1, MaxListFallback()); break;
-            case ConsoleKey.DownArrow: _state.Move(1, MaxListFallback()); break;
-            case ConsoleKey.Home: _state.MoveTo(0, MaxListFallback()); break;
-            case ConsoleKey.End: _state.MoveTo(int.MaxValue, MaxListFallback()); break;
-            case ConsoleKey.PageUp: _state.Move(-5, MaxListFallback()); break;
-            case ConsoleKey.PageDown: _state.Move(5, MaxListFallback()); break;
+            case ConsoleKey.UpArrow: _state.Move(-1, _lastMaxList); break;
+            case ConsoleKey.DownArrow: _state.Move(1, _lastMaxList); break;
+            case ConsoleKey.Home: _state.MoveTo(0, _lastMaxList); break;
+            case ConsoleKey.End: _state.MoveTo(int.MaxValue, _lastMaxList); break;
+            case ConsoleKey.PageUp: _state.Move(-5, _lastMaxList); break;
+            case ConsoleKey.PageDown: _state.Move(5, _lastMaxList); break;
             case ConsoleKey.Backspace:
                 if (_state.Filter.Length > 0)
                     _state.SetFilter(_state.Filter[..^1]);
@@ -331,15 +340,12 @@ internal sealed class CommandPaletteDialog : Dialog
     private static int MaxList(int screenH) =>
         Math.Max(3, Math.Min(60, screenH - 10));
 
-    /// <summary>Окно списка неизвестно без размеров экрана — оценка для клавиш (Draw доклампит).</summary>
-    private static int MaxListFallback() => 60;
-
     /// <summary>Шагнуть выбранную настройку (команды — игнор) и остаться открытым.</summary>
     private void CycleSelected(int dir)
     {
         if (_state.View.Count == 0)
             return;
-        _state.MoveTo(_state.Selected, MaxListFallback());
+        _state.MoveTo(_state.Selected, _lastMaxList);
         if (_state.View[_state.Selected] is not SettingEntry s)
             return;
         SettingsModel.Cycle(_settings, s.Row, dir);
@@ -354,7 +360,7 @@ internal sealed class CommandPaletteDialog : Dialog
     {
         if (_state.View.Count == 0)
             return;
-        _state.MoveTo(_state.Selected, MaxListFallback());
+        _state.MoveTo(_state.Selected, _lastMaxList);
         PaletteEntry e = _state.View[_state.Selected];
         if (e is SettingEntry)
         {

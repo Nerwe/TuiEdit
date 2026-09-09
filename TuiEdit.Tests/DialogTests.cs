@@ -434,6 +434,45 @@ public sealed class DialogTests : IDisposable
     }
 
     [Fact]
+    public void PaletteReplaceViewKeepsWindow()
+    {
+        var view = new List<PaletteEntry>();
+        for (int i = 0; i < 20; i++)
+            view.Add(new CommandEntry(EditorCommand.Save, "Cmd" + i, null));
+        var st = new CommandPaletteState();
+        st.ReplaceView(view, fresh: true);
+        st.MoveTo(19, 5);
+        Assert.Equal(19, st.Selected);
+        Assert.Equal(15, st.Top);
+        st.ReplaceView(view, fresh: false); // перерисовка — окно стоит
+        Assert.Equal(19, st.Selected);
+        Assert.Equal(15, st.Top);
+    }
+
+    [Fact]
+    public void PaletteScrollMovesSelectionNotWindow()
+    {
+        var settings = new AppSettings();
+        var store = new SettingsStore(Path.Combine(_cfgDir, "pal8.json"));
+        var dlg = new CommandPaletteDialog(settings, store, () => { }, _ => { });
+        var scr = new Screen();
+        scr.Resize(80, 24); // окно списка — 14 строк
+        dlg.Draw(scr, _theme, _loc);
+        var st = dlg.PaletteState;
+        Assert.True(st.View.Count > 14);
+        for (int i = 0; i < 20; i++)
+            dlg.HandleKey(K('\0', ConsoleKey.DownArrow));
+        Assert.Equal(20, st.Selected);
+        Assert.Equal(7, st.Top);
+        dlg.HandleKey(K('\0', ConsoleKey.UpArrow));
+        Assert.Equal(19, st.Selected);
+        Assert.Equal(7, st.Top); // выделение поднялось, окно стоит
+        dlg.HandleKey(K('\0', ConsoleKey.DownArrow));
+        Assert.Equal(20, st.Selected);
+        Assert.Equal(7, st.Top);
+    }
+
+    [Fact]
     public void PaletteDialogFiltersAndApplies()
     {
         var settings = new AppSettings();

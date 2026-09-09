@@ -45,6 +45,9 @@ when a `v*` tag is pushed.
   and settings with shortcut hints; `Enter` runs the command or steps
   the setting in place. Settings rows now share one `SettingsModel`
   with the settings dialog.
+- Fixed palette scrolling: the window no longer jumps and glues the
+  highlight to the bottom edge — selection moves first, the list
+  scrolls only at the edge.
 
 ## [0.3.0] - 2026-09-08
 
