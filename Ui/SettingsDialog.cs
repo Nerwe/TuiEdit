@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace TuiEdit;
 
 /// <summary>Диалог настроек: значения применяются и сохраняются сразу при листании.</summary>
@@ -27,22 +25,14 @@ internal sealed class SettingsDialog : Dialog
 
     private (string[] labels, string[] values, string title) Rows(Loc loc)
     {
-        string title = loc["settings.title"];
-        string[] labels = [loc["settings.theme"], loc["settings.lang"],
-            loc["settings.shownumbers"], loc["settings.wordwrap"], loc["settings.whitespace"],
-            loc["settings.ruler"],
-            loc["settings.backup"], loc["settings.guides"], loc["settings.session"],
-            loc["settings.mouse"], loc["settings.copyselect"]];
-        string langName = loc.Language == "en" ? "English" : "Русский";
-        string themeName = ThemeCatalog.DisplayName(loc, _settings.Theme);
-        string[] values = [themeName, langName,
-            OnOff(loc, _settings.ShowLineNumbers), OnOff(loc, _settings.WordWrap),
-            OnOff(loc, _settings.ShowWhitespace),
-            _settings.RulerColumn == 0 ? loc["settings.off"] : _settings.RulerColumn.ToString(CultureInfo.InvariantCulture),
-            OnOff(loc, _settings.BackupOnSave),
-            OnOff(loc, _settings.ShowIndentGuides), OnOff(loc, _settings.RestoreSession),
-            MouseName(loc, _settings.Mouse), OnOff(loc, _settings.CopyOnSelect)];
-        return (labels, values, title);
+        string[] labels = new string[SettingsModel.Count];
+        string[] values = new string[SettingsModel.Count];
+        for (int i = 0; i < SettingsModel.Count; i++)
+        {
+            labels[i] = SettingsModel.Label(i, loc);
+            values[i] = SettingsModel.Value(i, _settings, loc);
+        }
+        return (labels, values, loc["settings.title"]);
     }
 
     protected override void DrawContent(Screen screen, Theme theme, Loc loc, Rgb fg, Rgb bg, DialogBox box)
@@ -50,16 +40,6 @@ internal sealed class SettingsDialog : Dialog
         var (labels, values, _) = Rows(loc);
         DrawOptionRows(screen, theme, box, labels, values, _state.Row);
     }
-
-    private static string OnOff(Loc loc, bool v) => v ? loc["settings.on"] : loc["settings.off"];
-
-    private static string MouseName(Loc loc, MouseLevel level) => level switch
-    {
-        MouseLevel.Basic => loc["settings.mouse.basic"],
-        MouseLevel.Drag => loc["settings.mouse.drag"],
-        MouseLevel.Motion => loc["settings.mouse.motion"],
-        _ => loc["settings.mouse.off"],
-    };
 
     /// <summary>Клик по строке: выбрать и шагнуть (+1), как стрелка вправо.</summary>
     public override bool HandleClick(int x, int y, int screenW, int screenH, Loc loc)
@@ -101,53 +81,7 @@ internal sealed class SettingsDialog : Dialog
 
     private void CycleSetting(int dir)
     {
-        switch (_state.Row)
-        {
-            case 0:
-                List<string> names = ThemeCatalog.Names(_settings);
-                int cur = names.FindIndex(n =>
-                    string.Equals(n, _settings.Theme, StringComparison.OrdinalIgnoreCase));
-                if (cur < 0)
-                    cur = 0;
-                _settings.Theme = names[SettingsDialogState.Cycle(cur, names.Count, dir)];
-                break;
-            case 1:
-                int li = SettingsDialogState.Cycle(
-                    Array.IndexOf(Loc.Supported, _settings.Language), Loc.Supported.Length, dir);
-                _settings.Language = Loc.Supported[li];
-                break;
-            case 2:
-                _settings.ShowLineNumbers = !_settings.ShowLineNumbers;
-                break;
-            case 3:
-                _settings.WordWrap = !_settings.WordWrap;
-                break;
-            case 4:
-                _settings.ShowWhitespace = !_settings.ShowWhitespace;
-                break;
-            case 5:
-                int[] steps = [0, 80, 100, 120];
-                int ri = Array.IndexOf(steps, _settings.RulerColumn);
-                if (ri < 0)
-                    ri = dir >= 0 ? -1 : 0;
-                _settings.RulerColumn = steps[SettingsDialogState.Cycle(ri, steps.Length, dir)];
-                break;
-            case 6:
-                _settings.BackupOnSave = !_settings.BackupOnSave;
-                break;
-            case 7:
-                _settings.ShowIndentGuides = !_settings.ShowIndentGuides;
-                break;
-            case 8:
-                _settings.RestoreSession = !_settings.RestoreSession;
-                break;
-            case 9:
-                _settings.Mouse = (MouseLevel)SettingsDialogState.Cycle((int)_settings.Mouse, 4, dir);
-                break;
-            default:
-                _settings.CopyOnSelect = !_settings.CopyOnSelect;
-                break;
-        }
+        SettingsModel.Cycle(_settings, _state.Row, dir);
         _store.Save(_settings);
         _onChanged();
     }

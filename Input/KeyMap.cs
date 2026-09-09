@@ -131,6 +131,7 @@ public static class KeyMap
         R(ConsoleKey.F4, EditorCommand.DocStats),
         R(ConsoleKey.F9, EditorCommand.FileFormat),
         R(ConsoleKey.F6, EditorCommand.NextPane),
+        R(ConsoleKey.F5, EditorCommand.CommandPalette),
         R(ConsoleKey.F10, EditorCommand.ToggleMenu),
         R(ConsoleKey.Escape, EditorCommand.None),
         R(ConsoleKey.Enter, EditorCommand.InsertEnter),

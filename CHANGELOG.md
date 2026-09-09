@@ -40,6 +40,9 @@ when a `v*` tag is pushed.
 - Dialog look: dimmed backdrop (truecolor only), top-weighted
   placement, `esc` hint in the title row. All MS Edit/nano
   references removed; standalone wording throughout.
+- Command palette (`F5`): live setting search with keyboard and mouse;
+  `Enter` applies the next value in place. Settings rows now share
+  one `SettingsModel` with the settings dialog.
 
 ## [0.3.0] - 2026-09-08
 

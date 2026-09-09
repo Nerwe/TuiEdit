@@ -389,6 +389,114 @@ public sealed class DialogTests : IDisposable
         Assert.Equal(new Rgb(100, 100, 100), BgAt(legacy, 0, 0)); // legacy — без затемнения
     }
 
+    [Fact]
+    public void PaletteFiltersRows()
+    {
+        var loc = Loc.Load("en");
+        var settings = new AppSettings();
+        var st = new CommandPaletteState();
+        st.Refilter(settings, loc);
+        Assert.Equal(SettingsModel.Count, st.View.Count);
+        st.SetFilter("mouse");
+        st.Refilter(settings, loc);
+        Assert.Equal([9], st.View);
+        st.SetFilter("copy");
+        st.Refilter(settings, loc);
+        Assert.Equal([10], st.View);
+        st.SetFilter("zzz");
+        st.Refilter(settings, loc);
+        Assert.Empty(st.View);
+    }
+
+    [Fact]
+    public void PaletteKeepsRowAndWindow()
+    {
+        var loc = Loc.Load("en");
+        var settings = new AppSettings();
+        var st = new CommandPaletteState();
+        st.Refilter(settings, loc);
+        st.MoveTo(5, 3);
+        Assert.Equal(5, st.Selected);
+        st.Refilter(settings, loc); // тот же фильтр — строка жива
+        Assert.Equal(5, st.Selected);
+        st.MoveTo(10, 3);
+        Assert.Equal(10, st.Selected);
+        Assert.Equal(8, st.Top); // окно дотянулось
+        st.Move(-1, 3);
+        Assert.Equal(9, st.Selected);
+        st.SetFilter("zzz");
+        st.Refilter(settings, loc);
+        st.MoveTo(4, 3); // пусто — безопасно
+        Assert.Equal(0, st.Selected);
+    }
+
+    [Fact]
+    public void PaletteDialogFiltersAndApplies()
+    {
+        var settings = new AppSettings();
+        var store = new SettingsStore(Path.Combine(_cfgDir, "pal.json"));
+        bool changed = false;
+        var dlg = new CommandPaletteDialog(settings, store, () => { changed = true; });
+        Assert.Equal(MouseLevel.Off, settings.Mouse);
+        dlg.Paste("мышь"); // ru-локаль фикстуры
+        var scr = new Screen();
+        scr.Resize(80, 24);
+        // Клик по первой видимой строке (заголовок + фильтр → +2).
+        var box = (DialogBox?)typeof(Dialog)
+            .GetMethod("Measure", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(dlg, [80, 24, _loc]);
+        Assert.NotNull(box);
+        dlg.HandleClick(box.Value.X0 + 2, box.Value.Y0 + 2, 80, 24, _loc);
+        Assert.Equal(MouseLevel.Basic, settings.Mouse);
+        Assert.True(changed);
+        Assert.True(File.Exists(Path.Combine(_cfgDir, "pal.json")));
+    }
+
+    [Fact]
+    public void PaletteEscClearsFilterThenCloses()
+    {
+        var settings = new AppSettings();
+        var store = new SettingsStore(Path.Combine(_cfgDir, "pal2.json"));
+        var dlg = new CommandPaletteDialog(settings, store, () => { });
+        dlg.Paste("мышь");
+        dlg.HandleKey(K('\x1B', ConsoleKey.Escape));
+        Assert.False(dlg.Closed); // первый Esc — чистит фильтр
+        dlg.HandleKey(K('a', ConsoleKey.A));
+        Assert.False(dlg.Closed);
+        dlg.HandleKey(K('\x1B', ConsoleKey.Escape));
+        Assert.False(dlg.Closed); // снова чистит
+        dlg.HandleKey(K('\x1B', ConsoleKey.Escape));
+        Assert.True(dlg.Closed); // пустой фильтр — закрыть
+    }
+
+    [Fact]
+    public void PaletteCursorFollowsFilter()
+    {
+        var settings = new AppSettings();
+        var store = new SettingsStore(Path.Combine(_cfgDir, "pal3.json"));
+        var dlg = new CommandPaletteDialog(settings, store, () => { });
+        var scr = new Screen();
+        scr.Resize(80, 24);
+        dlg.Paste("мышь"); // 4 символа, одна строка
+        var probe = new CommandPaletteDialog(settings, store, () => { });
+        probe.Paste("zzz"); // 3 символа, ноль строк — та же высота бокса
+        var scr2 = new Screen();
+        scr2.Resize(80, 24);
+        dlg.Draw(scr, _theme, _loc);
+        probe.Draw(scr2, _theme, _loc);
+        Assert.NotNull(dlg.Cursor);
+        Assert.NotNull(probe.Cursor);
+        Assert.Equal(probe.Cursor.Value.x + 1, dlg.Cursor.Value.x); // +разница фильтров
+        Assert.Equal(probe.Cursor.Value.y, dlg.Cursor.Value.y);
+    }
+
+    [Fact]
+    public void PaletteBoundToF5()
+    {
+        Assert.Equal(EditorCommand.CommandPalette,
+            KeyMap.Map(new ConsoleKeyInfo('\0', ConsoleKey.F5, false, false, false)));
+    }
+
     private sealed class ProbeDialog : Dialog
     {
         public int WantW = 10, WantH = 4;

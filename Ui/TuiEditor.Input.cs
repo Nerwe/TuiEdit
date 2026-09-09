@@ -454,6 +454,9 @@ internal sealed partial class TuiEditor
                     SwitchPane(paneN - 1);
                 return;
             case EditorCommand.Settings: RunSettings(); return;
+            case EditorCommand.CommandPalette:
+                RunDialog(new CommandPaletteDialog(_settings, _store, ApplySettings));
+                return;
             case EditorCommand.Find: Find(); return;
             case EditorCommand.Grep: GrepFlow(); return;
             case EditorCommand.FindNext: FindNext(); return;

@@ -35,7 +35,7 @@ arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Alt+up/down — move line
 Enter — new line, Tab — indent, Shift+Tab — unindent
 F10 or Alt+F/E/H — menu (arrows/Enter/Esc, letter hotkey)
 F1 — help   Alt+N — line numbers   Alt+Z — word wrap   Ctrl+B — file panel
-F9 — file format (encoding / line endings)   F4 — document stats
+F9 — file format (encoding / line endings)   F4 — document stats   F5 — command palette (setting search)
 F2 — bookmark   Shift+F2 — next bookmark   Alt+- — fold   Ctrl+Space — complete
 Ctrl+PgDn — next tab   Ctrl+PgUp — prev (Ctrl+Tab where the terminal passes it)
 Ctrl+T — new tab   Ctrl+W — close tab
