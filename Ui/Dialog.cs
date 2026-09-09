@@ -142,8 +142,12 @@ internal abstract class Dialog
         return new DialogBox(x0, y0, boxW, boxH);
     }
 
-    /// <summary>Строки опций: маркер ● у выбранной, значения в одной колонке акцентным цветом.</summary>
-    internal static void DrawOptionRows(Screen screen, Theme theme, DialogBox box, string[] labels, string[] values, int selected)
+    /// <summary>
+    /// Строки опций: маркер ● у выбранной, значения в одной колонке акцентным цветом.
+    /// Переключаемые — в стрелках (&lt; &gt;), plain — голым текстом (команды без опций).
+    /// </summary>
+    internal static void DrawOptionRows(Screen screen, Theme theme, DialogBox box,
+        string[] labels, string[] values, int selected, bool[]? plain = null)
     {
         int labelW = 0;
         foreach (string l in labels)
@@ -155,7 +159,7 @@ internal abstract class Dialog
             var (fg, bg) = sel
                 ? (theme.ButtonSelFg, theme.ButtonSelBg)
                 : (theme.ModalFg, theme.ModalBg);
-            string val = $"< {values[i]} >";
+            string val = FormatOptionValue(values[i], plain is not null && i < plain.Length && plain[i]);
             string cell = " " + (sel ? "● " : "  ") + labels[i].PadRight(labelW) + "  " + val;
             if (cell.Length > inner)
                 cell = cell[..inner];
@@ -173,6 +177,10 @@ internal abstract class Dialog
             screen.Text(box.X0 + box.W - 1, y, "│", fg, bg);
         }
     }
+
+    /// <summary>Значение строки опций: переключаемое — в стрелках, plain/пустое — как есть.</summary>
+    internal static string FormatOptionValue(string value, bool plain) =>
+        plain || value.Length == 0 ? value : $"< {value} >";
 
     /// <summary>Центрировать текст (обрезается до ширины).</summary>
     internal static string CenterPad(string s, int width)

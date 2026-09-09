@@ -516,6 +516,35 @@ public sealed class DialogTests : IDisposable
     }
 
     [Fact]
+    public void OptionValueArrowsOnlyWhenCyclable()
+    {
+        Assert.Equal("< On >", Dialog.FormatOptionValue("On", plain: false));
+        Assert.Equal("^C", Dialog.FormatOptionValue("^C", plain: true));
+        Assert.Equal("", Dialog.FormatOptionValue("", plain: false));
+    }
+
+    [Fact]
+    public void PaletteCommandsHaveNoArrows()
+    {
+        var settings = new AppSettings();
+        var store = new SettingsStore(Path.Combine(_cfgDir, "pal5.json"));
+        var dlg = new CommandPaletteDialog(settings, store, () => { }, _ => { });
+        var scr = new Screen();
+        scr.Resize(100, 30);
+        dlg.Draw(scr, _theme, _loc);
+        string text = string.Concat(scr.ComputeDiff().Select(o => o.Text));
+        Assert.Contains("Ctrl+T", text); // шорткат команды виден
+        Assert.DoesNotContain("< Ctrl+T >", text); // но не в стрелках
+
+        dlg.Paste("мышь");
+        var scr2 = new Screen();
+        scr2.Resize(100, 30);
+        dlg.Draw(scr2, _theme, _loc);
+        string filtered = string.Concat(scr2.ComputeDiff().Select(o => o.Text));
+        Assert.Contains("< Выкл >", filtered); // настройка — переключаемая
+    }
+
+    [Fact]
     public void PaletteBoundToF5()
     {
         Assert.Equal(EditorCommand.CommandPalette,

@@ -228,23 +228,27 @@ internal sealed class CommandPaletteDialog : Dialog
         _cursorX = ncx >= x0 + 1 && ncx < x0 + box.W - 1 ? ncx : -1;
         _cursorY = y0 + 1;
 
-        // Видимые строки — теми же option-рядами, что настройки.
+        // Видимые строки — теми же option-рядами, что настройки,
+        // но команды (без опций) — без стрелок.
         var labels = new List<string>();
         var values = new List<string>();
+        var plain = new List<bool>();
         int end = Math.Min(_state.View.Count, _state.Top + maxList);
         for (int i = _state.Top; i < end; i++)
         {
             labels.Add(_state.View[i].Label(_settings, loc));
             values.Add(_state.View[i].Value(_settings, loc));
+            plain.Add(_state.View[i] is CommandEntry);
         }
         if (labels.Count == 0)
         {
             labels.Add(loc["palette.noresults"]);
             values.Add(string.Empty);
+            plain.Add(true);
         }
         int selVis = _state.View.Count == 0 ? 0 : _state.Selected - _state.Top;
         var rowsBox = new DialogBox(x0, y0 + 1, box.W, box.H - 1);
-        DrawOptionRows(screen, theme, rowsBox, [.. labels], [.. values], selVis);
+        DrawOptionRows(screen, theme, rowsBox, [.. labels], [.. values], selVis, [.. plain]);
 
         // Хинт снизу по центру.
         string hint = loc["palette.hint"];
