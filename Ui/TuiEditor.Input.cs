@@ -460,6 +460,7 @@ internal sealed partial class TuiEditor
                 if (picked is { } pc)
                     Execute(pc, k); // команда — после закрытия палитры (без вложенности)
                 return;
+            case EditorCommand.QuickOpen: QuickOpenFlow(); return;
             case EditorCommand.Find: Find(); return;
             case EditorCommand.Grep: GrepFlow(); return;
             case EditorCommand.FindNext: FindNext(); return;

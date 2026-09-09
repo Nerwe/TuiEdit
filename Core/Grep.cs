@@ -79,7 +79,7 @@ internal static class Grep
         return hits;
     }
 
-    private static bool IsHiddenUnder(string file, string root)
+    internal static bool IsHiddenUnder(string file, string root)
     {
         try
         {

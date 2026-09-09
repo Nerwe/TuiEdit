@@ -29,6 +29,14 @@ internal sealed record CommandEntry(EditorCommand Command, string LabelText, str
         KeyMap.HintFor(Command) ?? Shortcut ?? string.Empty;
 }
 
+/// <summary>Строка файла (quick-open): подпись — относительный путь.</summary>
+internal sealed record FileEntry(string Path, string Display) : PaletteEntry
+{
+    public override string Label(AppSettings settings, Loc loc) => Display;
+
+    public override string Value(AppSettings settings, Loc loc) => string.Empty;
+}
+
 /// <summary>
 /// Состояние палитры: фильтр + видимые записи + курсор. Чистое, без консоли.
 /// </summary>
@@ -104,6 +112,8 @@ internal sealed class CommandPaletteDialog : Dialog
     private readonly SettingsStore _store;
     private readonly Action _onChanged;
     private readonly Action<EditorCommand> _onCommand;
+    private readonly Func<Loc, List<PaletteEntry>>? _source;
+    private readonly Action<string>? _onFile;
     private Loc? _loc;
     private string _builtFilter = "\0"; // фильтр, под который собран View
     private int _lastMaxList = 60; // окно из последней отрисовки/замера (клавишам нужен настоящий размер)
@@ -114,13 +124,19 @@ internal sealed class CommandPaletteDialog : Dialog
     internal CommandPaletteState PaletteState => _state;
 
     public CommandPaletteDialog(
-        AppSettings settings, SettingsStore store, Action onChanged, Action<EditorCommand> onCommand)
+        AppSettings settings, SettingsStore store, Action onChanged, Action<EditorCommand> onCommand,
+        Func<Loc, List<PaletteEntry>>? source = null, Action<string>? onFile = null)
     {
         _settings = settings;
         _store = store;
         _onChanged = onChanged;
         _onCommand = onCommand;
+        _source = source;
+        _onFile = onFile;
     }
+
+    private List<PaletteEntry> BuildAll(Loc loc) =>
+        _source is not null ? _source(loc) : AllEntries(_settings, loc);
 
     /// <summary>
     /// Полный список записей: меню (подписи и шорткаты уже локализованы),
@@ -152,6 +168,7 @@ internal sealed class CommandPaletteDialog : Dialog
         all.Add(new CommandEntry(EditorCommand.FindNext, loc["palette.cmd.findnext"], "F3"));
         all.Add(new CommandEntry(EditorCommand.FindPrev, loc["palette.cmd.findprev"], "Shift+F3"));
         all.Add(new CommandEntry(EditorCommand.ListTabs, loc["palette.cmd.listtabs"], "Ctrl+P"));
+        all.Add(new CommandEntry(EditorCommand.QuickOpen, loc["palette.cmd.quickopen"], "Alt+O"));
         all.Add(new CommandEntry(EditorCommand.NextTab, loc["palette.cmd.nexttab"], "Ctrl+PgDn"));
         all.Add(new CommandEntry(EditorCommand.PrevTab, loc["palette.cmd.prevtab"], "Ctrl+PgUp"));
         all.Add(new CommandEntry(EditorCommand.SplitPane, loc["palette.cmd.splitpane"], "Alt+S"));
@@ -180,12 +197,15 @@ internal sealed class CommandPaletteDialog : Dialog
     private void Rebuild(Loc loc)
     {
         bool fresh = _builtFilter != _state.Filter;
-        List<PaletteEntry> view = ApplyFilter(AllEntries(_settings, loc), _state.Filter, _settings, loc);
+        List<PaletteEntry> view = ApplyFilter(BuildAll(loc), _state.Filter, _settings, loc);
         _builtFilter = _state.Filter;
         _state.ReplaceView(view, fresh);
     }
 
-    protected override string GetTitle(Loc loc) => loc["palette.title"];
+    protected override string GetTitle(Loc loc) =>
+        loc[_source is null ? "palette.title" : "palette.files.title"];
+
+    private string FilterKey => _source is null ? "palette.filter" : "palette.files.filter";
 
     protected override DialogBox? Measure(int screenW, int screenH, Loc loc)
     {
@@ -194,7 +214,7 @@ internal sealed class CommandPaletteDialog : Dialog
         _loc = loc;
         Rebuild(loc);
         int labelW = 0, valW = 0;
-        foreach (PaletteEntry e in AllEntries(_settings, loc))
+        foreach (PaletteEntry e in BuildAll(loc))
         {
             labelW = Math.Max(labelW, e.Label(_settings, loc).Length);
             valW = Math.Max(valW, e.Value(_settings, loc).Length);
@@ -226,7 +246,7 @@ internal sealed class CommandPaletteDialog : Dialog
         // Строка фильтра.
         string prompt = "❯ ";
         bool empty = _state.Filter.Length == 0;
-        string shown = empty ? loc["palette.filter"] : _state.Filter;
+        string shown = empty ? loc[FilterKey] : _state.Filter;
         Rgb promptFg = empty ? theme.ModalHintFg : fg;
         string cell = (prompt + shown).PadRight(inner)[..Math.Max(0, inner)];
         screen.Text(x0, y0 + 1, "│", fg, bg);
@@ -246,7 +266,7 @@ internal sealed class CommandPaletteDialog : Dialog
         {
             labels.Add(_state.View[i].Label(_settings, loc));
             values.Add(_state.View[i].Value(_settings, loc));
-            plain.Add(_state.View[i] is CommandEntry);
+            plain.Add(_state.View[i] is not SettingEntry);
         }
         if (labels.Count == 0)
         {
@@ -371,6 +391,11 @@ internal sealed class CommandPaletteDialog : Dialog
         {
             Closed = true;
             _onCommand(c.Command);
+        }
+        if (e is FileEntry f && _onFile is not null)
+        {
+            Closed = true;
+            _onFile(f.Path);
         }
     }
 }

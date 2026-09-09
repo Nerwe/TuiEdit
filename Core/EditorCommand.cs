@@ -28,6 +28,7 @@ public enum EditorCommand
     Help,
     Settings,
     CommandPalette,
+    QuickOpen,
     ToggleMenu,
     OpenMenuFile, OpenMenuEdit, OpenMenuHelp,
     Find,

@@ -110,6 +110,7 @@ public static class KeyMap
         R(ConsoleKey.D9, EditorCommand.GoTabNumber, alt: true),
         R(ConsoleKey.D0, EditorCommand.GoTabNumber, alt: true), // десятая вкладка
         R(ConsoleKey.S, EditorCommand.SplitPane, alt: true), // разделить вид
+        R(ConsoleKey.O, EditorCommand.QuickOpen, alt: true), // быстрый переход к файлу
         R(ConsoleKey.Oem6, EditorCommand.GoBracketMatch, alt: true), // Alt+] — парная скобка
         // Shift+F-клавиши (точный шифт).
         // Shift+F3 — поиск назад, Shift+F6 — предыдущая панель, Shift+F2 — закладка.

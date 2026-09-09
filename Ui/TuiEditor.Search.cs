@@ -58,6 +58,36 @@ internal sealed partial class TuiEditor
         _dialog = new ModalDialog(ModalState.Grep(_loc, _grepHits), ApplyModalOutcome);
     }
 
+    /// <summary>Быстрый переход к файлу проекта (фильтр по имени).</summary>
+    private void QuickOpenFlow()
+    {
+        string root = StartDir();
+        List<string> files = FileIndex.EnumerateFiles(root);
+        if (files.Count == 0)
+        {
+            SetMessage(_loc.Format("msg.search.miss", "*"));
+            return;
+        }
+        string? pickedPath = null;
+        RunDialog(new CommandPaletteDialog(_settings, _store, ApplySettings, _ => { },
+            loc => files.Select(f => (PaletteEntry)new FileEntry(f, RelativeToRoot(root, f))).ToList(),
+            path => pickedPath = path));
+        if (pickedPath is not null)
+            OpenPicked(pickedPath);
+    }
+
+    private static string RelativeToRoot(string root, string file)
+    {
+        try
+        {
+            return Path.GetRelativePath(root, file);
+        }
+        catch
+        {
+            return file;
+        }
+    }
+
     private void OpenGrepHit(int index)
     {
         if (index < 0 || index >= _grepHits.Count)

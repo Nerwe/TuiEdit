@@ -637,6 +637,59 @@ public sealed class DialogTests : IDisposable
     }
 
     [Fact]
+    public void FileIndexSkipsHiddenAndSortsNaturally()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "tui_idx_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(dir, "sub"));
+            File.WriteAllText(Path.Combine(dir, "file10.txt"), "x");
+            File.WriteAllText(Path.Combine(dir, "file2.txt"), "x");
+            File.WriteAllText(Path.Combine(dir, "sub", "a.cs"), "x");
+            File.WriteAllText(Path.Combine(dir, ".hidden"), "x");
+            Directory.CreateDirectory(Path.Combine(dir, ".git"));
+            File.WriteAllText(Path.Combine(dir, ".git", "objects"), "x");
+            List<string> files = FileIndex.EnumerateFiles(dir);
+            Assert.Equal(3, files.Count);
+            Assert.Equal(
+                ["file2.txt", "file10.txt", Path.Combine("sub", "a.cs")],
+                files.Select(f => Path.GetRelativePath(dir, f)).ToList());
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
+    public void PaletteFilePickCloses()
+    {
+        var settings = new AppSettings();
+        var store = new SettingsStore(Path.Combine(_cfgDir, "pal9.json"));
+        string? picked = null;
+        var entries = new List<PaletteEntry>
+            { new FileEntry("/r/b.txt", "b.txt"), new FileEntry("/r/a.txt", "a.txt") };
+        var dlg = new CommandPaletteDialog(settings, store, () => { }, _ => { },
+            _ => entries, path => picked = path);
+        dlg.Paste("a.txt");
+        var scr = new Screen();
+        scr.Resize(80, 24);
+        var box = (DialogBox?)typeof(Dialog)
+            .GetMethod("Measure", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(dlg, [80, 24, _loc]);
+        Assert.NotNull(box);
+        Assert.Equal("Быстрый переход", GetPaletteTitle(dlg));
+        dlg.HandleClick(box.Value.X0 + 2, box.Value.Y0 + 2, 80, 24, _loc);
+        Assert.Equal("/r/a.txt", picked);
+        Assert.True(dlg.Closed);
+    }
+
+    private static string GetPaletteTitle(CommandPaletteDialog dlg)
+    {
+        var m = typeof(Dialog).GetMethod("GetTitle",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        return (string)m.Invoke(dlg, [Loc.Load("ru")])!;
+    }
+
+    [Fact]
     public void PaletteBoundToF5()
     {
         Assert.Equal(EditorCommand.CommandPalette,
