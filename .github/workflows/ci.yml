@@ -37,4 +37,37 @@ jobs:
       - run: dotnet build --no-restore --nologo
       - run: dotnet format TuiEdit.csproj --verify-no-changes --no-restore --verbosity minimal
       - run: dotnet format TuiEdit.Tests/TuiEdit.Tests.csproj --verify-no-changes --no-restore --verbosity minimal
-      - run: dotnet test TuiEdit.Tests --nologo
+      - run: dotnet format TuiEdit.Bench/TuiEdit.Bench.csproj --verify-no-changes --no-restore --verbosity minimal
+      - run: dotnet test TuiEdit.Tests --nologo --filter 'Category!=Integration'
+      - run: dotnet test TuiEdit.Tests --nologo --collect:"XPlat Code Coverage" --results-directory TestResults
+      - name: Coverage gate (line-rate >= 60%)
+        shell: pwsh
+        run: |
+          $cov = Get-ChildItem TestResults -Recurse -Filter coverage.cobertura.xml | Select-Object -First 1 -ExpandProperty FullName
+          [xml]$x = Get-Content -LiteralPath $cov -Raw
+          $rate = [double]$x.coverage.'line-rate' * 100
+          "line-rate=$([math]::Round($rate, 1))%" >> $env:GITHUB_STEP_SUMMARY
+          if ($rate -lt 60) { throw "Coverage $rate% is below the 60% gate." }
+      - uses: actions/upload-artifact@v5
+        with:
+          name: coverage-${{ matrix.os }}
+          path: TestResults/**/coverage.cobertura.xml
+
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Cache NuGet
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - run: dotnet run -c Release --project TuiEdit.Bench -- --exporters json html --artifacts bench-results
+      - uses: actions/upload-artifact@v5
+        with:
+          name: bench-results
+          path: bench-results/
