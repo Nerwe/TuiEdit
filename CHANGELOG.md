@@ -20,6 +20,14 @@ when a `v*` tag is pushed.
 - ANSI motion events are coalesced to the latest position (same
   backpressure the Windows path already had).
 
+### Added
+- Mouse levels instead of a single toggle: Off (native terminal
+  selection), Basic (clicks+wheel), Drag (+button-held motion),
+  Motion (all motion). The old `EnableMouse` flag migrates to Basic.
+- Focus tracking with DEC-mode restore: on focus-in the active mouse,
+  focus and bracketed-paste modes are re-emitted (Windows Terminal /
+  ConPTY silently reset them).
+
 ## [0.3.0] - 2026-09-08
 
 ### Added

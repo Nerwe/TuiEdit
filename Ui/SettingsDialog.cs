@@ -41,7 +41,7 @@ internal sealed class SettingsDialog : Dialog
             _settings.RulerColumn == 0 ? loc["settings.off"] : _settings.RulerColumn.ToString(CultureInfo.InvariantCulture),
             OnOff(loc, _settings.BackupOnSave),
             OnOff(loc, _settings.ShowIndentGuides), OnOff(loc, _settings.RestoreSession),
-            OnOff(loc, _settings.EnableMouse)];
+            MouseName(loc, _settings.Mouse)];
         return (labels, values, title);
     }
 
@@ -52,6 +52,14 @@ internal sealed class SettingsDialog : Dialog
     }
 
     private static string OnOff(Loc loc, bool v) => v ? loc["settings.on"] : loc["settings.off"];
+
+    private static string MouseName(Loc loc, MouseLevel level) => level switch
+    {
+        MouseLevel.Basic => loc["settings.mouse.basic"],
+        MouseLevel.Drag => loc["settings.mouse.drag"],
+        MouseLevel.Motion => loc["settings.mouse.motion"],
+        _ => loc["settings.mouse.off"],
+    };
 
     /// <summary>Клик по строке: выбрать и шагнуть (+1), как стрелка вправо.</summary>
     public override bool HandleClick(int x, int y, int screenW, int screenH, Loc loc)
@@ -134,7 +142,7 @@ internal sealed class SettingsDialog : Dialog
                 _settings.RestoreSession = !_settings.RestoreSession;
                 break;
             default:
-                _settings.EnableMouse = !_settings.EnableMouse;
+                _settings.Mouse = (MouseLevel)SettingsDialogState.Cycle((int)_settings.Mouse, 4, dir);
                 break;
         }
         _store.Save(_settings);

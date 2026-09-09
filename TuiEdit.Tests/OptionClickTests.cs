@@ -56,11 +56,11 @@ public sealed class OptionClickTests
     }
 
     [Fact]
-    public void SettingsClickTogglesMouse()
+    public void SettingsClickCyclesMouseLevels()
     {
         var loc = En();
         var settings = new AppSettings();
-        Assert.False(settings.EnableMouse);
+        Assert.Equal(MouseLevel.Off, settings.Mouse);
         var store = TmpStore(out string dir);
         try
         {
@@ -70,8 +70,12 @@ public sealed class OptionClickTests
                 new SettingsDialog(new AppSettings(), store, () => { }).HandleClick(x, y, W, H, loc));
             Assert.Equal(12, rows.Count);
             (int X, int Y) last = rows[^2]; // последняя строка опций = индекс 9 (мышь)
-            dlg.HandleClick(last.X, last.Y, W, H, loc);
-            Assert.True(settings.EnableMouse);
+            MouseLevel[] expected = [MouseLevel.Basic, MouseLevel.Drag, MouseLevel.Motion, MouseLevel.Off];
+            foreach (MouseLevel level in expected)
+            {
+                dlg.HandleClick(last.X, last.Y, W, H, loc);
+                Assert.Equal(level, settings.Mouse);
+            }
             Assert.True(changed);
         }
         finally { try { Directory.Delete(dir, true); } catch { } }
@@ -80,8 +84,31 @@ public sealed class OptionClickTests
     [Fact]
     public void MouseDisabledByDefault()
     {
-        Assert.False(new AppSettings().EnableMouse);
+        Assert.Equal(MouseLevel.Off, new AppSettings().Mouse);
         Assert.False(InputReader.MouseEnabled);
+    }
+
+    [Fact]
+    public void MouseSequencesPerLevel()
+    {
+        Assert.Equal("", Terminal.MouseEnableSequence(MouseLevel.Off));
+        Assert.Equal("\x1b[?1002l\x1b[?1003l\x1b[?1000h\x1b[?1006h",
+            Terminal.MouseEnableSequence(MouseLevel.Basic));
+        Assert.Equal("\x1b[?1003l\x1b[?1000h\x1b[?1002h\x1b[?1006h",
+            Terminal.MouseEnableSequence(MouseLevel.Drag));
+        Assert.Equal("\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h",
+            Terminal.MouseEnableSequence(MouseLevel.Motion));
+        Assert.Equal("\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?1000l",
+            Terminal.MouseDisableSequence());
+    }
+
+    [Fact]
+    public void MouseMigratesFromLegacyFlag()
+    {
+        var s = new AppSettings { EnableMouse = true };
+        s.Normalize();
+        Assert.Equal(MouseLevel.Basic, s.Mouse);
+        Assert.False(s.EnableMouse);
     }
 
     [Fact]

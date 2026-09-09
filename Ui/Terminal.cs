@@ -138,16 +138,75 @@ internal static class Terminal
         }
     }
 
-    /// <summary>Включить отчёты мыши (клики+колесо) и SGR-расширение; терминалы без поддержки игнорят.</summary>
-    public static void TryEnableMouse()
+    /// <summary>
+    /// SGR-последовательность включения мыши по уровню (чистая функция для тестов).
+    /// Старшие режимы гасятся первыми: часть терминалов считает ?1000/?1002/?1003
+    /// одним семейством, где побеждает последняя последовательность.
+    /// </summary>
+    internal static string MouseEnableSequence(MouseLevel level) => level switch
     {
-        try { Console.Write("\x1b[?1000h\x1b[?1006h"); } catch { }
+        MouseLevel.Basic => "\x1b[?1002l\x1b[?1003l\x1b[?1000h\x1b[?1006h",
+        MouseLevel.Drag => "\x1b[?1003l\x1b[?1000h\x1b[?1002h\x1b[?1006h",
+        MouseLevel.Motion => "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h",
+        _ => "",
+    };
+
+    /// <summary>Выключение всех мышиных режимов разом.</summary>
+    internal static string MouseDisableSequence() => "\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?1000l";
+
+    /// <summary>Включить отчёты мыши (клики+колесо) и SGR-расширение; терминалы без поддержки игнорят.</summary>
+    public static void TryEnableMouse() => SetMouseLevel(MouseLevel.Basic);
+
+    /// <summary>Включить отчёты мыши заданного уровня.</summary>
+    public static void SetMouseLevel(MouseLevel level)
+    {
+        try
+        {
+            if (level == MouseLevel.Off)
+                DisableMouse();
+            else
+                Console.Write(MouseEnableSequence(level));
+        }
+        catch
+        {
+        }
     }
 
     /// <summary>Выключить отчёты мыши (вызывать при выходе и в crash handler).</summary>
     public static void DisableMouse()
     {
-        try { Console.Write("\x1b[?1006l\x1b[?1000l"); } catch { }
+        try { Console.Write(MouseDisableSequence()); } catch { }
+    }
+
+    /// <summary>Включить отчёты фокуса окна (?1004: ESC[I / ESC[O).</summary>
+    public static void TryEnableFocusTracking()
+    {
+        try { Console.Write("\x1b[?1004h"); } catch { }
+    }
+
+    /// <summary>Выключить отчёты фокуса (выход, crash handler).</summary>
+    public static void DisableFocusTracking()
+    {
+        try { Console.Write("\x1b[?1004l"); } catch { }
+    }
+
+    /// <summary>
+    /// Переотправить активные режимы: Windows Terminal/ConPTY молча сбрасывает
+    /// DEC-режимы при потере фокуса. Вызывать по focus-in (ESC[I).
+    /// </summary>
+    public static void RestoreModes(MouseLevel level)
+    {
+        if (level == MouseLevel.Off)
+            return;
+        try
+        {
+            Console.Write(MouseEnableSequence(level));
+            Console.Write("\x1b[?1004h"); // фокус-трекинг тоже могли сбросить
+            Console.Write("\x1b[?2004h"); // bracketed paste — туда же
+        }
+        catch
+        {
+        }
     }
 
     /// <summary>

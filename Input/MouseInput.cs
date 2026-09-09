@@ -31,6 +31,19 @@ internal enum MouseModifiers
     Ctrl = 4,
 }
 
+/// <summary>
+/// Уровень захвата мыши (какие отчёты просим у терминала).
+/// Off — нативное выделение терминала; Basic — клики+колесо (?1000);
+/// Drag — плюс движение с зажатой кнопкой (?1002); Motion — всё движение (?1003).
+/// </summary>
+public enum MouseLevel
+{
+    Off,
+    Basic,
+    Drag,
+    Motion,
+}
+
 /// <summary>Событие мыши; координаты 0-based (терминал шлёт 1-based).</summary>
 internal sealed record MouseInput(
     int X,

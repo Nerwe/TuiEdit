@@ -108,7 +108,7 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
         return (loc, 1, null);
     }
 
-    InputReader.MouseEnabled = settings.EnableMouse; // мышь выкл по умолчанию
+    InputReader.MouseLevel = settings.Mouse; // мышь выкл по умолчанию
     var buffer = new TextBuffer(file);
     var editor = new TuiEditor(buffer, settings, store);
     if (file is null)
@@ -123,6 +123,7 @@ static void RestoreTerminal()
 {
     try { Console.Write("\x1b[?2004l"); } catch { }
     try { Terminal.DisableMouse(); } catch { }
+    try { Terminal.DisableFocusTracking(); } catch { }
     try { Terminal.RestoreInput(); } catch { }
     try { Console.ResetColor(); } catch { }
     try { Console.CursorVisible = true; } catch { }

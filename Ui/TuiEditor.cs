@@ -119,15 +119,21 @@ internal sealed partial class TuiEditor
         ApplyMouseSetting();
     }
 
-    /// <summary>Применить EnableMouse живьём: ввод, SGR и флаги консоли.</summary>
+    /// <summary>Применить уровень мыши живьём: ввод, SGR, фокус и флаги консоли.</summary>
     private void ApplyMouseSetting()
     {
-        InputReader.MouseEnabled = _settings.EnableMouse;
-        if (_settings.EnableMouse)
-            Terminal.TryEnableMouse();
-        else
+        InputReader.MouseLevel = _settings.Mouse;
+        if (_settings.Mouse == MouseLevel.Off)
+        {
             Terminal.DisableMouse();
-        Terminal.ApplyMouseInput(_settings.EnableMouse);
+            Terminal.DisableFocusTracking();
+        }
+        else
+        {
+            Terminal.SetMouseLevel(_settings.Mouse);
+            Terminal.TryEnableFocusTracking(); // нужен restore DEC-режимов по focus-in
+        }
+        Terminal.ApplyMouseInput(_settings.Mouse != MouseLevel.Off);
     }
 
     private string DisplayError(Exception ex) => ex switch
@@ -173,6 +179,7 @@ internal sealed partial class TuiEditor
         {
             try { Console.Write("\x1b[?2004l"); } catch (IOException) { }
             Terminal.DisableMouse();
+            Terminal.DisableFocusTracking();
             Terminal.RestoreInput();
             Console.ResetColor();
             Console.Clear();

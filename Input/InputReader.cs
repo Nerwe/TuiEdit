@@ -12,10 +12,16 @@ internal sealed record KeyInput(ConsoleKeyInfo Key) : InputEvent;
 /// </summary>
 internal sealed record PasteInput(string Text) : InputEvent;
 
+/// <summary>Фокус окна терминала (?1004): true — focus-in (ESC[I), false — focus-out.</summary>
+internal sealed record FocusInput(bool GotFocus) : InputEvent;
+
 internal sealed class InputReader
 {
-    /// <summary>Мышь включена (AppSettings.EnableMouse, выкл по умолчанию).</summary>
-    public static bool MouseEnabled { get; set; }
+    /// <summary>Уровень захвата мыши (AppSettings.Mouse, выкл по умолчанию).</summary>
+    public static MouseLevel MouseLevel { get; set; } = MouseLevel.Off;
+
+    /// <summary>Мышь включена (любой уровень кроме Off).</summary>
+    public static bool MouseEnabled => MouseLevel != MouseLevel.Off;
 
     /// <summary>Максимум символов хвоста после ESC (SGR-мышь реально короче).</summary>
     private const int MaxBurst = 24;
@@ -86,6 +92,13 @@ internal sealed class InputReader
                 return new PasteInput(ReadBracketedPaste(s[5..]));
             if ("[200~".StartsWith(s, StringComparison.Ordinal))
                 continue; // строгий префикс маркера вставки — ждём хвост
+            if (s is "[I" or "[O")
+            {
+                var focus = new FocusInput(s == "[I");
+                if (focus.GotFocus && MouseLevel != MouseLevel.Off)
+                    Terminal.RestoreModes(MouseLevel); // ConPTY мог сбросить DEC-режимы
+                return focus;
+            }
             if (MouseEnabled && s.Length >= 2 && s[0] == '[' && s[1] == '<')
             {
                 if (s[^1] is 'M' or 'm')

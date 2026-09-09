@@ -44,7 +44,10 @@ public sealed class AppSettings
     /// <summary>Открывать при старте вкладки прошлой сессии.</summary>
     public bool RestoreSession { get; set; }
 
-    /// <summary>Мышь: клики, колесо, hover (выкл по умолчанию — не все терминалы корректны).</summary>
+    /// <summary>Мышь: уровень захвата (выкл по умолчанию — не все терминалы корректны).</summary>
+    public MouseLevel Mouse { get; set; }
+
+    /// <summary>Старый флаг мыши (до уровней): только миграция в <see cref="Normalize"/>.</summary>
     public bool EnableMouse { get; set; }
 
     /// <summary>Вкладки прошлой сессии (путь + курсор).</summary>
@@ -98,6 +101,11 @@ public sealed class AppSettings
         if (string.IsNullOrWhiteSpace(Grammar))
             Grammar = "auto";
         Language = Loc.Normalize(Language);
+        if (!Enum.IsDefined(Mouse))
+            Mouse = MouseLevel.Off;
+        if (EnableMouse && Mouse == MouseLevel.Off)
+            Mouse = MouseLevel.Basic; // миграция со старого флага
+        EnableMouse = false;
     }
 }
 
