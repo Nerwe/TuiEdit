@@ -8,8 +8,7 @@ public enum CharClass
 }
 
 /// <summary>
-/// Word-навигация в стиле VS Code / MS Edit
-/// (<c>word_forward / word_backward</c> в <c>buffer/navigation.rs</c> репозитория microsoft/edit):
+/// Word-навигация в стиле VS Code:
 /// пропуск пробелов, затем одно слово или сепаратор
 /// (после одиночного сепаратора — ещё и следующее слово).
 /// </summary>

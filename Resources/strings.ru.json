@@ -49,7 +49,7 @@
   "msg.recent.empty": "Нет недавних файлов",
   "modal.about.title": "О программе",
   "modal.about.l1": "TuiEdit {0}",
-  "modal.about.l2": "Простой TUI-редактор в стиле MS Edit / nano.",
+  "modal.about.l2": "Простой TUI-редактор с упором на клавиатуру.",
   "modal.about.date": "Дата выпуска: сентябрь 2026",
   "modal.about.author": "Автор: Yar",
   "modal.about.license": "Лицензия: MIT",
@@ -136,7 +136,7 @@
   "error.interactive": "TuiEdit требует интерактивную консоль (ввод/вывод перенаправлен).",
   "error.crash": "Непредвиденная ошибка. Несохранённые изменения сброшены в черновики ({0}).",
 
-  "help.title": "TuiEdit — простой TUI текстовый редактор (стиль Microsoft Edit / nano).",
+  "help.title": "TuiEdit — простой TUI-редактор с упором на клавиатуру.",
   "help.usage": "Использование:",
   "help.usage.line": "  tui-edit [файл[:строка]]",
   "help.keys": "Горячие клавиши:",

@@ -49,7 +49,7 @@
   "msg.recent.empty": "No recent files",
   "modal.about.title": "About",
   "modal.about.l1": "TuiEdit {0}",
-  "modal.about.l2": "A simple TUI editor in the style of MS Edit / nano.",
+  "modal.about.l2": "A simple keyboard-first TUI editor.",
   "modal.about.date": "Release date: September 2026",
   "modal.about.author": "Author: Yar",
   "modal.about.license": "License: MIT",
@@ -136,7 +136,7 @@
   "error.interactive": "TuiEdit needs an interactive console (input/output redirected).",
   "error.crash": "Unexpected error. Unsaved changes were dumped to drafts ({0}).",
 
-  "help.title": "TuiEdit — a simple TUI text editor (MS Edit / nano style).",
+  "help.title": "TuiEdit — a simple keyboard-first TUI text editor.",
   "help.usage": "Usage:",
   "help.usage.line": "  tui-edit [file[:line]]",
   "help.keys": "Hotkeys:",

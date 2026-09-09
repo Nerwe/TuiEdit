@@ -115,7 +115,7 @@ internal static class Terminal
         }
     }
 
-    /// <summary>Пригасить обработку ввода (как MS Edit, но без VT_INPUT): снимаем LINE/ECHO/PROCESSED, иначе conhost перехватывает Ctrl+S как паузу вывода (XOFF); VIRTUAL_TERMINAL_INPUT намеренно не ставим — с ним стрелки/F-клавиши/Alt-комбинации приходят ESC-последовательностями, а .NET ReadKey их не собирает; WINDOW_INPUT не нужен (ресайз виден по WindowWidth/Height); на Unix ничего не делаем.</summary>
+    /// <summary>Пригасить обработку ввода (без VT_INPUT): снимаем LINE/ECHO/PROCESSED, иначе conhost перехватывает Ctrl+S как паузу вывода (XOFF); VIRTUAL_TERMINAL_INPUT намеренно не ставим — с ним стрелки/F-клавиши/Alt-комбинации приходят ESC-последовательностями, а .NET ReadKey их не собирает; WINDOW_INPUT не нужен (ресайз виден по WindowWidth/Height); на Unix ничего не делаем.</summary>
     public static bool TryEnableRawInput()
     {
         if (!OperatingSystem.IsWindows())

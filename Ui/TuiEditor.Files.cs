@@ -280,7 +280,7 @@ internal sealed partial class TuiEditor
             _quitRequested = true;
             return;
         }
-        // Красный попап Save / Don't save / Cancel, как unsaved-changes в MS Edit.
+        // Красный попап Save / Don't save / Cancel.
         _pending = PendingOp.Quit;
         _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc, DirtyLabel()), ApplyModalOutcome);
     }

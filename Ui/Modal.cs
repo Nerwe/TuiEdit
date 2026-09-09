@@ -3,7 +3,7 @@ namespace TuiEdit;
 /// <summary>Тип модального попапа (влияет на цвета).</summary>
 public enum ModalKind
 {
-    /// <summary>Несохранённые изменения / подтверждение (красный, как в MS Edit).</summary>
+    /// <summary>Несохранённые изменения / подтверждение (красный — опасность).</summary>
     UnsavedQuit,
     /// <summary>О программе (синий).</summary>
     About,
@@ -41,7 +41,7 @@ public readonly record struct ModalKeyOutcome(bool Done, bool Cancelled, int But
     public static ModalKeyOutcome Press(int index) => new(true, false, index);
 }
 
-/// <summary>Центрированный модальный попап в стиле MS Edit (<c>modal_begin/modal_end</c> в <c>tui.rs</c>): рамка с заголовком, фокус-ловушка (весь ввод глотается), Esc — отмена, кнопки — Enter, стрелки и одноклавишные хоткеи.</summary>
+/// <summary>Модальный попап: рамка с заголовком, фокус-ловушка (весь ввод глотается), Esc — отмена, кнопки — Enter, стрелки и одноклавишные хоткеи.</summary>
 public sealed class ModalState
 {
     public ModalKind Kind { get; }

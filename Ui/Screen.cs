@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>Кадр экрана: ячейки (символ + цвета) с diff-выводом; идея как framebuffer.rs в MS Edit — каждый кадр рисуется в память, а в консоль уходят только изменившиеся runs, поэтому нет мигания.</summary>
+/// <summary>Кадр экрана: ячейки (символ + цвета) с diff-выводом; каждый кадр рисуется в память, а в консоль уходят только изменившиеся runs, поэтому нет мигания.</summary>
 public sealed class Screen
 {
     public readonly record struct Cell(char Ch, Rgb Fg, Rgb Bg);

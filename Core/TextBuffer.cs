@@ -238,7 +238,7 @@ internal sealed class TextBuffer
         };
         // Атомарно: tmp в ТОЙ ЖЕ папке (иначе move не атомарен) + переименование.
         // Обрыв посреди записи оставляет старый файл целым, а не обрезанным.
-        // Нюанс: у заменённого файла слетят нестандартные ACL (как у MS Edit).
+        // Нюанс: у заменённого файла слетят нестандартные ACL (переименование, а не запись на месте).
         string dir = Path.GetDirectoryName(Path.GetFullPath(target)) ?? ".";
         string tmp = Path.Combine(dir, ".tui-edit-" + Path.GetRandomFileName() + ".tmp");
         try
@@ -653,7 +653,7 @@ internal sealed class TextBuffer
     /// <summary>
     /// Поиск вперёд от (startRow, startCol): вхождения, начинающиеся на позиции
     /// с индексом &gt;= startCol в стартовой строке. При wrap=true зацикливает
-    /// с начала файла (как в nano), флаг wrapped отличает оборот.
+    /// с начала файла (зацикливание), флаг wrapped отличает оборот.
     /// </summary>
     public (int row, int col)? FindNext(string term, int startRow, int startCol) =>
         FindNext(term, startRow, startCol, matchCase: true, wholeWord: false) is { } h
@@ -836,7 +836,7 @@ internal sealed class TextBuffer
 
     /// <summary>
     /// Заменяет все вхождения от позиции до конца документа за один шаг undo.
-    /// В regex-режиме в replacement работают группы $1 (как в MS Edit).
+    /// В regex-режиме в replacement работают группы $1 (стандарт .NET Regex).
     /// </summary>
     public int ReplaceAll(string term, string replacement,
         int fromRow, int fromCol, bool matchCase, bool wholeWord, bool useRegex = false)
@@ -880,7 +880,7 @@ internal sealed class TextBuffer
 
     /// <summary>
     /// Regex-замена: сначала собираем совпадения (таймаут — до любых правок),
-    /// затем применяем. Пустые совпадения поглощают один символ (как в MS Edit).
+    /// затем применяем. Пустые совпадения поглощают один символ (защита от зацикливания).
     /// </summary>
     private int ReplaceAllRegex(string term, string replacement,
         int fromRow, int fromCol, bool matchCase, bool wholeWord)

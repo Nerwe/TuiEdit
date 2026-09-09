@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>Файловый менеджер модальным окном (как file-picker в MS Edit): исход — <see cref="Result"/> (выбранный путь или null).</summary>
+/// <summary>Файловый менеджер модальным окном: исход — <see cref="Result"/> (выбранный путь или null).</summary>
 internal sealed class FileDialog : Dialog
 {
     private readonly FilePickerState _state;

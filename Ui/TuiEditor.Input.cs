@@ -325,7 +325,7 @@ internal sealed partial class TuiEditor
 
     private void HandleKey(ConsoleKeyInfo k)
     {
-        // Открытый диалог глотает весь ввод (как modal_end в MS Edit).
+        // Открытый диалог глотает весь ввод.
         if (_dialog is not null)
         {
             Dialog d = _dialog;
@@ -335,7 +335,7 @@ internal sealed partial class TuiEditor
             return;
         }
 
-        // Открытое меню перехватывает ввод (см. menubar_menu_end в MS Edit).
+        // Открытое меню перехватывает ввод.
         if (_menu is not null)
         {
             HandleMenuKey(k);
@@ -594,7 +594,7 @@ internal sealed partial class TuiEditor
         _menu.Open(index);
     }
 
-    /// <summary>Меню-бар: File / Edit / Help (состав — как draw_menubar.rs в MS Edit).</summary>
+    /// <summary>Меню-бар: File / Edit / Help.</summary>
     /// <summary>Подсказка меню: оверрайд биндинга или дефолтный литерал.</summary>
     private static string? Hint(string? literal, EditorCommand cmd) =>
         KeyMap.HintFor(cmd) ?? literal;

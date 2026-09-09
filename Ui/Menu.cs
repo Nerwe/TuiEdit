@@ -1,8 +1,7 @@
 namespace TuiEdit;
 
 /// <summary>Пункт выпадающего меню: подпись, хоткей (одиночная буква без Enter), текст глобального шортката справа и команда.</summary>
-/// <remarks>Устройство повторяет MS Edit: пункт срабатывает по клику, хоткею
-/// или глобальному шорткату (<c>draw_menubar.rs</c> в microsoft/edit).</remarks>
+/// <remarks>Пункт срабатывает по клику, хоткею или глобальному шорткату.</remarks>
 public sealed record MenuItem(string Label, char Hotkey, string? Shortcut, EditorCommand Command)
 {
     public static MenuItem Separator => new(string.Empty, '\0', null, EditorCommand.None);

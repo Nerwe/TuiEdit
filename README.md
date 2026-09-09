@@ -1,6 +1,6 @@
 # TuiEdit
 
-A simple TUI text editor in the style of Microsoft Edit / nano.
+A fast keyboard-first TUI text editor.
 Pure `System.Console`, no third-party libraries. .NET 10.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
@@ -100,10 +100,13 @@ Editable from the settings dialog in the File menu, applied and saved immediatel
 
 ## Mouse
 
-Off by default (`EnableMouse` in settings or settings.json): terminals
+Off by default (`Mouse` in settings or settings.json): terminals
 handle mouse reporting inconsistently, and a flood of motion events used
-to starve keyboard input. When on: left-click positions the cursor,
-wheel moves it a few lines, buttons/menus/dialogs/list rows highlight
+to starve keyboard input. Levels: `Off` (native terminal selection),
+`Basic` (clicks + wheel), `Drag` (button-held motion), `Motion` (all motion).
+When on: left-click positions the cursor, drag selects text (copies on
+release when `CopyOnSelect` is set, right-click copies a live selection),
+wheel scrolls, buttons/menus/dialogs/list rows highlight
 on hover and activate on click, wheel scrolls scrollable lists.
 
 ## Keybindings

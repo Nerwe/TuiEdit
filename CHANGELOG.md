@@ -100,7 +100,7 @@ when a `v*` tag is pushed.
 
 ## [0.2.0] - 2026-09-08
 
-Simple TUI text editor in the style of MS Edit / nano.
+Simple keyboard-first TUI text editor.
 Pure `System.Console`, no third-party libraries, .NET 10.
 
 - Tabs, split view, file panel, file manager (mkdir/delete, hidden files, sizes).

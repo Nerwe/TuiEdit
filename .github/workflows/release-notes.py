@@ -21,7 +21,7 @@ def section(header):
 
 body = section(version) or section("Unreleased") or "See CHANGELOG.md."
 
-header = """Simple TUI text editor in the style of MS Edit / nano. Pure System.Console, no third-party libraries, .NET 10.
+header = """Simple keyboard-first TUI text editor. Pure System.Console, no third-party libraries, .NET 10.
 
 Requires the .NET 10 runtime (https://dotnet.microsoft.com/download/dotnet/10.0). Unzip and run tui-edit (on Linux chmod +x first).
 
