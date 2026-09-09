@@ -234,7 +234,7 @@ internal sealed partial class TuiEditor
         var (sr, sc, er, ec) = _sel.Normalize(_row, _col);
         _clipboard.Clear();
         _clipboard.AddRange(_buf.GetRangeText(sr, sc, er, ec));
-        SystemClipboard.TryExport(_clipboard);
+        _clipboardSvc.Export(_clipboard);
         SetMessage(_loc.Format("msg.copy.sel", SelectionLength(sr, sc, er, ec)));
         _sel.Clear();
     }
@@ -356,7 +356,7 @@ internal sealed partial class TuiEditor
             return;
         }
 
-        EditorCommand cmd = KeyMap.Map(k);
+        EditorCommand cmd = _keys.Map(k);
 
         if (IsMovement(cmd))
         {
@@ -603,7 +603,7 @@ internal sealed partial class TuiEditor
             return;
         }
         _menu = null;
-        Execute(KeyMap.Map(k), k);
+        Execute(_keys.Map(k), k);
     }
 
     private void ActivateMenuItem(MenuItem item)

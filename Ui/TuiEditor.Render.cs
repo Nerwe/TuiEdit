@@ -260,7 +260,7 @@ internal sealed partial class TuiEditor
             file += " " + _loc["status.readonly"];
         string right = StatusBar.BuildRight(
             _buf.EncodingLabel, _buf.EndingLabel, _buf.IndentLabel, file,
-            GitStatus.ForFile(_buf.FilePath), _active, _docs.Count, _pane, _panes.Count);
+            _git.StatusSegment(_buf.FilePath), _active, _docs.Count, _pane, _panes.Count);
         _screen.Text(0, h - 1, StatusBar.Build(left, right, w), _theme.StatusFg, _theme.StatusBg);
 
         // Поверх текста: раскрытое меню и активное диалоговое окно.
@@ -342,7 +342,7 @@ internal sealed partial class TuiEditor
 
     private void DrawText(int x0, int y0, int w, int textHeight, int contentWidth, int gutterWidth, int numWidth, bool wrap)
     {
-        var gitMarks = _settings.GitGutter ? GitDiff.MarksFor(_buf.FilePath) : default((IReadOnlySet<int>, IReadOnlySet<int>)?);
+        var gitMarks = _settings.GitGutter ? _git.DiffMarks(_buf.FilePath) : default((IReadOnlySet<int>, IReadOnlySet<int>)?);
         int y = y0;
         int fileLine = _top;
         int firstSeg = _topSeg;

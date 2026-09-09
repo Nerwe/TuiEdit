@@ -453,7 +453,7 @@ internal sealed partial class TuiEditor
             _clipboard.AddRange(_buf.GetRangeText(sr, sc, er, ec));
             int n = SelectionLength(sr, sc, er, ec);
             DeleteSelection();
-            SystemClipboard.TryExport(_clipboard);
+            _clipboardSvc.Export(_clipboard);
             SetMessage(_loc.Format("msg.cut.sel", n));
             return;
         }
@@ -480,12 +480,12 @@ internal sealed partial class TuiEditor
         {
             var (sr, sc, er, ec) = _sel.Normalize(_row, _col);
             _clipboard.AddRange(_buf.GetRangeText(sr, sc, er, ec));
-            SystemClipboard.TryExport(_clipboard);
+            _clipboardSvc.Export(_clipboard);
             SetMessage(_loc.Format("msg.copy.sel", SelectionLength(sr, sc, er, ec)));
             return;
         }
         _clipboard.Add(_buf.GetLine(_row));
-        SystemClipboard.TryExport(_clipboard);
+        _clipboardSvc.Export(_clipboard);
         SetMessage(_loc["msg.copy.line"]);
     }
 

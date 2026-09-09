@@ -61,6 +61,9 @@ internal sealed partial class TuiEditor
     private readonly AppSettings _settings;
     private readonly SettingsStore _store;
     private readonly CommandDispatcher _dispatcher;
+    private readonly IGitService _git;
+    private readonly ISystemClipboard _clipboardSvc;
+    private readonly KeyBindingTable _keys;
     private Loc _loc;
     private Theme _theme;
 
@@ -71,11 +74,20 @@ internal sealed partial class TuiEditor
     /// <summary>Отложенное действие после диалога «несохранённые изменения».</summary>
     private enum PendingOp { None, Quit, Open, CloseTab }
 
-    public TuiEditor(TextBuffer buf, AppSettings settings, SettingsStore store)
+    public TuiEditor(
+        TextBuffer buf,
+        AppSettings settings,
+        SettingsStore store,
+        IGitService? git = null,
+        ISystemClipboard? clipboard = null,
+        KeyBindingTable? keys = null)
     {
         _panes.Add(new Pane(new DocTab(buf)));
         _settings = settings;
         _store = store;
+        _git = git ?? GitService.Shared;
+        _clipboardSvc = clipboard ?? SystemClipboardService.Shared;
+        _keys = keys ?? KeyMap.Current;
         _backups = new BackupStore(BackupStore.DefaultDir(store.Path));
         _loc = Loc.Load(settings.Language);
         _theme = ThemeCatalog.Resolve(settings, settings.Theme);

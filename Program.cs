@@ -122,7 +122,10 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
     InputReader.MouseLevel = settings.Mouse; // мышь выкл по умолчанию
     string? firstPath = files.Count > 0 ? files[0].path : null;
     var buffer = new TextBuffer(firstPath);
-    var editor = new TuiEditor(buffer, settings, store);
+    // Composition root: services are wired explicitly (no container — single-file app).
+    // Overrides are compiled into KeyMap.Current above, so the editor's table matches menu hints.
+    var editor = new TuiEditor(buffer, settings, store,
+        GitService.Shared, SystemClipboardService.Shared, KeyMap.Current);
     if (firstPath is null)
     {
         editor.RestoreSessionTabs();
