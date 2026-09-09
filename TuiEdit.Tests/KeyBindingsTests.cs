@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Нотация хоткеев: парсер, форматтер, загрузка, сид.</summary>
+/// <summary>Hotkey notation: parser, formatter, loading, seeding.</summary>
 public sealed class KeyBindingsTests
 {
     [Theory]
@@ -29,11 +29,11 @@ public sealed class KeyBindingsTests
     [InlineData("Ctrl+")]
     [InlineData("Win+S")]
     [InlineData("Ctrl+Nope")]
-    [InlineData("S")] // голая буква — защита набора
-    [InlineData("Space")] // голый пробел — защита набора
+    [InlineData("S")] // bare letter — typing protection
+    [InlineData("Space")] // bare space — typing protection
     [InlineData("Enter")]
-    [InlineData("OemMinus")] // голый минус — защита набора
-    [InlineData("Ctrl+Alt")] // нет клавиши
+    [InlineData("OemMinus")] // bare minus — typing protection
+    [InlineData("Ctrl+Alt")] // no key
     public void ParseInvalid(string? notation)
     {
         Assert.Null(KeyBindings.Parse(notation));
@@ -79,10 +79,11 @@ public sealed class KeyBindingsTests
             string p = Path.Combine(dir, "keybindings.json");
             KeyBindings.SeedExample(p);
             Assert.True(File.Exists(p));
-            Assert.Empty(KeyBindings.Load(p)); // всё закомментировано — пусто
+            Assert.Empty(KeyBindings.Load(p)); // all commented out — empty
             File.WriteAllText(p, "{\"Save\": \"Ctrl+S\"}");
             KeyBindings.SeedExample(p);
-            Assert.Equal("Ctrl+S", KeyBindings.Load(p)["Save"]); // чужое не трогаем
+            Assert.Equal("Ctrl+S", KeyBindings.Load(p)["Save"]); // do not touch foreign entries
+
         }
         finally { try { Directory.Delete(dir, true); } catch { } }
     }

@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace TuiEdit;
 
-/// <summary>Локализация UI: строки из встроенных JSON-ресурсов (<c>Resources/strings.{lang}.json</c>).</summary>
+/// <summary>Provides UI localization: strings from embedded JSON resources (<c>Resources/strings.{lang}.json</c>).</summary>
 public sealed class Loc
 {
     public static readonly string[] Supported = ["en", "ru"];
@@ -19,7 +19,7 @@ public sealed class Loc
         _map = map;
     }
 
-    /// <summary>Нормализация кода языка (неизвестный — en).</summary>
+    /// <summary>Normalizes the language code (unknown becomes en).</summary>
     public static string Normalize(string? language) => language switch
     {
         "ru" => "ru",
@@ -27,7 +27,7 @@ public sealed class Loc
         _ => "en",
     };
 
-    /// <summary>Загрузить строки языка (fallback — сам ключ).</summary>
+    /// <summary>Loads language strings (falls back to the key itself).</summary>
     public static Loc Load(string? language)
     {
         string lang = Normalize(language);
@@ -45,7 +45,7 @@ public sealed class Loc
         return new Loc(lang, map);
     }
 
-    /// <summary>Строка по ключу (нет — сам ключ).</summary>
+    /// <summary>Gets the string for a key (missing keys return the key itself).</summary>
     public string this[string key] =>
         _map.TryGetValue(key, out string? v) ? v : key;
 

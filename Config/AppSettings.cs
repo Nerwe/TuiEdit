@@ -1,80 +1,80 @@
 namespace TuiEdit;
 
 /// <summary>
-/// Пользовательские настройки (хранятся в JSON, см. <see cref="SettingsStore"/>).
+/// Represents user settings (stored in JSON, see <see cref="SettingsStore"/>).
 /// </summary>
 public sealed class AppSettings
 {
-    /// <summary>Тема: dark | light | своя из Themes.</summary>
+    /// <summary>Gets or sets the theme: dark | light | a custom one from Themes.</summary>
     public string Theme { get; set; } = "dark";
 
-    /// <summary>Грамматика подсветки: auto (по расширению) или имя языка.</summary>
+    /// <summary>Gets or sets the highlighting grammar: auto (by extension) or a language name.</summary>
     public string Grammar { get; set; } = "auto";
 
-    /// <summary>Язык: en | ru.</summary>
+    /// <summary>Gets or sets the language: en | ru.</summary>
     public string Language { get; set; } = "en";
 
-    /// <summary>Поиск/замена: учитывать регистр.</summary>
+    /// <summary>Gets or sets a value that indicates whether search/replace respects case.</summary>
     public bool SearchMatchCase { get; set; } = true;
 
-    /// <summary>Поиск/замена: только целые слова.</summary>
+    /// <summary>Gets or sets a value that indicates whether search/replace matches whole words only.</summary>
     public bool SearchWholeWord { get; set; }
 
-    /// <summary>Поиск/замена: регулярное выражение.</summary>
+    /// <summary>Gets or sets a value that indicates whether search/replace uses a regular expression.</summary>
     public bool SearchUseRegex { get; set; }
 
-    /// <summary>Показывать номера строк (гуттер).</summary>
+    /// <summary>Gets or sets a value that indicates whether line numbers (gutter) are shown.</summary>
     public bool ShowLineNumbers { get; set; } = true;
 
-    /// <summary>Вертикальные направляющие на уровнях отступа.</summary>
+    /// <summary>Gets or sets a value that indicates whether vertical guides show at indent levels.</summary>
     public bool ShowIndentGuides { get; set; } = true;
 
-    /// <summary>Показывать пробелы и табы точками и стрелками.</summary>
+    /// <summary>Gets or sets a value that indicates whether whitespace and tabs show as dots and arrows.</summary>
     public bool ShowWhitespace { get; set; }
 
-    /// <summary>Подсвечиваемая колонка-ограничитель (0 — выкл).</summary>
+    /// <summary>Gets or sets the highlighted ruler column (0 disables it).</summary>
     public int RulerColumn { get; set; }
 
-    /// <summary>Мягкий перенос длинных строк.</summary>
+    /// <summary>Gets or sets a value that indicates whether long lines wrap softly.</summary>
     public bool WordWrap { get; set; }
 
-    /// <summary>Копия .bak при сохранении.</summary>
+    /// <summary>Gets or sets a value that indicates whether a .bak copy is created on save.</summary>
     public bool BackupOnSave { get; set; }
 
-    /// <summary>Открывать при старте вкладки прошлой сессии.</summary>
+    /// <summary>Gets or sets a value that indicates whether tabs from the previous session open at startup.</summary>
     public bool RestoreSession { get; set; }
 
-    /// <summary>Мышь: уровень захвата (выкл по умолчанию — не все терминалы корректны).</summary>
+    /// <summary>Gets or sets the mouse capture level (off by default — not all terminals behave correctly).</summary>
     public MouseLevel Mouse { get; set; }
 
-    /// <summary>Копировать в буфер при отпускании мышиного выделения (по умолчанию да).</summary>
+    /// <summary>Gets or sets a value that indicates whether mouse selection copies to the buffer on release.</summary>
     public bool CopyOnSelect { get; set; } = true;
 
-    /// <summary>Автопары скобок и кавычек при вводе (по умолчанию да).</summary>
+    /// <summary>Gets or sets a value that indicates whether brackets and quotes auto-pair while typing.</summary>
     public bool AutoPairs { get; set; } = true;
 
-    /// <summary>Git-метки в гуттере (добавлено/изменено, по умолчанию да).</summary>
+    /// <summary>Gets or sets a value that indicates whether Git marks appear in the gutter (added/modified).</summary>
     public bool GitGutter { get; set; } = true;
 
-    /// <summary>Старый флаг мыши (до уровней): только миграция в <see cref="Normalize"/>.</summary>
+    /// <summary>Gets or sets the legacy mouse flag (pre-levels): for migration in <see cref="Normalize"/> only.</summary>
     public bool EnableMouse { get; set; }
 
-    /// <summary>Вкладки прошлой сессии (путь + курсор).</summary>
+    /// <summary>Gets or sets the previous session tabs (path plus cursor).</summary>
     public List<SessionTab> SessionTabs { get; set; } = new();
 
-    /// <summary>Недавние файлы (новые сверху).</summary>
+    /// <summary>Gets or sets recent files (newest first).</summary>
     public List<string> RecentFiles { get; set; } = new();
 
-    /// <summary>Пользовательские темы (см. ThemeScheme).</summary>
+    /// <summary>Gets or sets custom themes (see ThemeScheme).</summary>
     public List<ThemeScheme> Themes { get; set; } = new();
 
-    /// <summary>Максимум недавних файлов.</summary>
+    /// <summary>Specifies the maximum number of recent files.</summary>
     public const int MaxRecentFiles = 20;
 
-    /// <summary>Максимум вкладок сессии.</summary>
+    /// <summary>Specifies the maximum number of session tabs.</summary>
     public const int MaxSessionTabs = 20;
 
-    /// <summary>Отметить файл недавним (вверх, без дублей, с обрезкой).</summary>
+    /// <summary>Marks a file as recent (moves to top, removes duplicates, trims).</summary>
     public void TouchRecent(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -97,9 +97,9 @@ public sealed class AppSettings
             RecentFiles.RemoveRange(MaxRecentFiles, RecentFiles.Count - MaxRecentFiles);
     }
 
-    /// <summary>Убрать из недавних несуществующие файлы.</summary>
+    /// <summary>Removes nonexistent files from the recent list.</summary>
     public void PruneRecent() => RecentFiles.RemoveAll(p => !File.Exists(p));
-    /// <summary>Привести к допустимым значениям.</summary>
+    /// <summary>Normalizes settings to valid values.</summary>
     public void Normalize()
     {
         if (!ThemeCatalog.Contains(this, Theme))
@@ -113,10 +113,10 @@ public sealed class AppSettings
         if (!Enum.IsDefined(Mouse))
             Mouse = MouseLevel.Off;
         if (EnableMouse && Mouse == MouseLevel.Off)
-            Mouse = MouseLevel.Basic; // миграция со старого флага
+            Mouse = MouseLevel.Basic; // Migrates from the legacy flag
         EnableMouse = false;
     }
 }
 
-/// <summary>Вкладка прошлой сессии: путь и позиция курсора.</summary>
+/// <summary>Represents a previous session tab: path and cursor position.</summary>
 public sealed record SessionTab(string Path, int Row, int Col);

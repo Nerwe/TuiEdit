@@ -1,15 +1,15 @@
 namespace TuiEdit;
 
-/// <summary>Команда мини-языка командной строки (после разбора — чистая структура).</summary>
+/// <summary>Represents a mini-language command-line command (a plain structure after parsing).</summary>
 internal abstract record CommandLineOp
 {
-    /// <summary>Установить настройку (value null — переключить).</summary>
+    /// <summary>Sets a setting (a null value toggles it).</summary>
     public sealed record Set(string Key, string? Value) : CommandLineOp;
 
-    /// <summary>Прыжок на строку[:колонку].</summary>
+    /// <summary>Jumps to a line[:column].</summary>
     public sealed record Goto(int Line, int Col) : CommandLineOp;
 
-    /// <summary>Найти термин дальше по файлу.</summary>
+    /// <summary>Finds a term further down the file.</summary>
     public sealed record Find(string Term) : CommandLineOp;
 
     public sealed record Save : CommandLineOp;
@@ -18,12 +18,12 @@ internal abstract record CommandLineOp
 }
 
 /// <summary>
-/// Мини-язык командной строки: `set key [value]`, `goto line[:col]`,
-/// `find term`, `save`, `quit`. Чистый парсер, применение — в редакторе.
+/// Provides the command-line mini-language: `set key [value]`, `goto line[:col]`,
+/// `find term`, `save`, `quit`. Implements a pure parser; the editor applies the result.
 /// </summary>
 internal static class CommandLine
 {
-    /// <summary>Разобрать строку (null — пусто/мусор).</summary>
+    /// <summary>Parses a line (returns null for empty/garbage input).</summary>
     public static CommandLineOp? Parse(string text)
     {
         string[] parts = text.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
@@ -50,8 +50,8 @@ internal static class CommandLine
     }
 
     /// <summary>
-    /// Применить `set`: разбирает ключ и значение, мутирует настройки.
-    /// Возвращает null при успехе, иначе ключ локализованной ошибки.
+    /// Applies `set`: parses the key and value and mutates settings.
+    /// Returns null on success, otherwise a localized error key.
     /// </summary>
     public static string? ApplySet(AppSettings settings, string key, string? value)
     {
@@ -96,7 +96,7 @@ internal static class CommandLine
         }
     }
 
-    /// <summary>Bool-опция: без значения — переключить.</summary>
+    /// <summary>Applies a bool option: toggles it when no value is given.</summary>
     private static string? SetBool(string? value, Func<bool> get, Action<bool> set)
     {
         if (value is null)

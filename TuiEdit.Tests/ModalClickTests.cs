@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Клики по модалкам: кнопки срабатывают, мимо — игнор без закрытия.</summary>
+/// <summary>Clicks on modals: buttons fire, misses are ignored without closing.</summary>
 public sealed class ModalClickTests
 {
     private const int W = 80;
@@ -11,7 +11,7 @@ public sealed class ModalClickTests
 
     private static Loc En() => Loc.Load("en");
 
-    /// <summary>Прогнать клик по каждой клетке; вернуть нажатые индексы.</summary>
+    /// <summary>Run a click over every cell; return the pressed indexes.</summary>
     private static HashSet<int> ScanFires(ModalState state)
     {
         var fired = new HashSet<int>();
@@ -54,7 +54,7 @@ public sealed class ModalClickTests
         for (int i = 0; i < 7; i++)
             scroller.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false));
         HashSet<int> fired = ScanFires(st);
-        Assert.Equal(5, fired.Count); // окно из 5 видимых
+        Assert.Equal(5, fired.Count); // window of 5 visible
         Assert.Equal(4, fired.Max() - fired.Min());
     }
 
@@ -86,7 +86,7 @@ public sealed class ModalClickTests
         Assert.Equal(3, st.Selected);
         dlg.ScrollList(-1);
         Assert.Equal(2, st.Selected);
-        Assert.False(dlg.Closed); // стрелки не закрывают
+        Assert.False(dlg.Closed); // arrows do not close
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public sealed class ModalClickTests
         dlg.HoverActive = true;
         dlg.HoverButton = null;
         dlg.Draw(scr, theme, loc);
-        // Выбор (кнопка 0) виден — свежеоткрытая модалка не слепая.
+        // Selection (button 0) is visible — a freshly opened modal is not blind.
         Assert.Contains(scr.ComputeDiff(), o =>
             o.Fg.Equals(theme.ButtonSelFg) && o.Bg.Equals(theme.ButtonSelBg));
     }
@@ -138,7 +138,7 @@ public sealed class ModalClickTests
         ModalKeyOutcome? seen = null;
         var dlg = new ModalDialog(ModalState.Overwrite(loc, "a.txt"),
             (_, o) => { seen = o; });
-        // Ищем первую клетку-кнопку сканом (true бывает и мимо кнопок — глушение) и жмём.
+        // Find the first button cell by scan (true also happens off buttons — muting) and press it.
         int fx = -1, fy = -1;
         for (int y = 0; y < H && fx < 0; y++)
             for (int x = 0; x < W && fx < 0; x++)

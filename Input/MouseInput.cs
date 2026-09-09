@@ -1,18 +1,18 @@
 namespace TuiEdit;
 
-/// <summary>Действие мыши (SGR 1006 + conhost API).</summary>
+/// <summary>Mouse action (SGR 1006 + conhost API).</summary>
 internal enum MouseAction
 {
     LeftPress,
     WheelUp,
     WheelDown,
-    /// <summary>Движение (hover/drag): только позиция, без действий.</summary>
+    /// <summary>Motion (hover/drag): position only, no actions.</summary>
     Move,
     MiddlePress,
     RightPress,
 }
 
-/// <summary>Какая кнопка участвует в событии (release/motion без кнопки — None).</summary>
+/// <summary>Which button participates in the event (release/motion without a button — None).</summary>
 internal enum MouseButton
 {
     None,
@@ -21,7 +21,7 @@ internal enum MouseButton
     Right,
 }
 
-/// <summary>Модификаторы, зажатые во время события (биты SGR cb / ControlKeyState).</summary>
+/// <summary>Modifiers held during the event (SGR cb bits / ControlKeyState).</summary>
 [Flags]
 internal enum MouseModifiers
 {
@@ -32,9 +32,9 @@ internal enum MouseModifiers
 }
 
 /// <summary>
-/// Уровень захвата мыши (какие отчёты просим у терминала).
-/// Off — нативное выделение терминала; Basic — клики+колесо (?1000);
-/// Drag — плюс движение с зажатой кнопкой (?1002); Motion — всё движение (?1003).
+/// Mouse capture level (which reports we request from the terminal).
+/// Off — native terminal selection; Basic — clicks+wheel (?1000);
+/// Drag — plus motion with a held button (?1002); Motion — all motion (?1003).
 /// </summary>
 public enum MouseLevel
 {
@@ -44,7 +44,7 @@ public enum MouseLevel
     Motion,
 }
 
-/// <summary>Событие мыши; координаты 0-based (терминал шлёт 1-based).</summary>
+/// <summary>Mouse event; 0-based coordinates (the terminal sends 1-based).</summary>
 internal sealed record MouseInput(
     int X,
     int Y,
@@ -54,8 +54,8 @@ internal sealed record MouseInput(
     int Count = 1) : InputEvent
 {
     /// <summary>
-    /// Разобрать хвост пачки после ESC («[&lt;Cb;Cx;CyM/m»).
-    /// Кнопки и модификаторы сохраняются в событии; мусор — null (игнор).
+    /// Parse the burst tail after ESC ("[&lt;Cb;Cx;CyM/m").
+    /// Buttons and modifiers are kept in the event; garbage — null (ignore).
     /// </summary>
     public static MouseInput? TryParse(string burst)
     {
@@ -73,22 +73,22 @@ internal sealed record MouseInput(
         int x = Math.Max(0, cx - 1), y = Math.Max(0, cy - 1);
         MouseModifiers mods = ModifiersOf(cb);
         if (kind == 'm')
-            return new MouseInput(x, y, MouseAction.Move); // отпускание: только позиция hover
+            return new MouseInput(x, y, MouseAction.Move); // release: hover position only
         if ((cb & 64) != 0)
             return new MouseInput(x, y, (cb & 1) != 0 ? MouseAction.WheelDown : MouseAction.WheelUp,
                 MouseButton.None, mods);
         if ((cb & 32) != 0)
-            return new MouseInput(x, y, MouseAction.Move, ButtonOf(cb & 3), mods); // движение (?1002)
+            return new MouseInput(x, y, MouseAction.Move, ButtonOf(cb & 3), mods); // motion (?1002)
         return (cb & 3) switch
         {
             0 => new MouseInput(x, y, MouseAction.LeftPress, MouseButton.Left, mods),
             1 => new MouseInput(x, y, MouseAction.MiddlePress, MouseButton.Middle, mods),
             2 => new MouseInput(x, y, MouseAction.RightPress, MouseButton.Right, mods),
-            _ => new MouseInput(x, y, MouseAction.Move), // cb=3 без motion — отпускание
+            _ => new MouseInput(x, y, MouseAction.Move), // cb=3 without motion — release
         };
     }
 
-    /// <summary>Модификаторы из SGR-кода кнопки (биты 2/3/4).</summary>
+    /// <summary>Modifiers from the SGR button code (bits 2/3/4).</summary>
     internal static MouseModifiers ModifiersOf(int cb)
     {
         MouseModifiers mods = MouseModifiers.None;

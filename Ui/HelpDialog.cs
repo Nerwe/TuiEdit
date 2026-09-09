@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>Справка диалоговым окном: строки разделов переиспользуют те же ключи help.k*, что и консольный --help.</summary>
+/// <summary>Provides help as a dialog window: section rows reuse the same help.k* keys as console --help.</summary>
 internal sealed class HelpDialog : Dialog
 {
     private readonly List<(string title, List<string> rows)> _sections;
@@ -56,7 +56,7 @@ internal sealed class HelpDialog : Dialog
         return new DialogBox(x0, y0, boxW, boxH);
     }
 
-    /// <summary>Сколько строк контента видно (для скролла и тестов).</summary>
+    /// <summary>Computes how many content rows are visible (for scrolling and tests).</summary>
     public static int VisibleRows(int boxH) => Math.Max(1, boxH - 3);
 
     protected override void DrawContent(Screen screen, Theme theme, Loc loc, Rgb fg, Rgb bg, DialogBox box)
@@ -78,7 +78,7 @@ internal sealed class HelpDialog : Dialog
             int y = box.Y0 + 1 + vi;
             if (header)
             {
-                // Заголовок раздела: dim-линейка, сам заголовок — акцентом.
+                // Section header: dim rule, header itself in accent.
                 string rule = "── " + text + " " + new string('─', Math.Max(0, inner - text.Length - 5));
                 rule = rule[..Math.Min(rule.Length, inner)];
                 screen.Text(box.X0, y, "│", fg, bg);
@@ -105,7 +105,7 @@ internal sealed class HelpDialog : Dialog
     public override void HandleKey(ConsoleKeyInfo key)
     {
         if ((key.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) != 0)
-            return; // Ctrl/Alt глотаем, справку не закрываем
+            return; // Swallows Ctrl/Alt, keeps help open
         switch (key.Key)
         {
             case ConsoleKey.Escape:

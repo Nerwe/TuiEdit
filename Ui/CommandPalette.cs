@@ -1,18 +1,18 @@
 namespace TuiEdit;
 
-/// <summary>Строка палитры: настройка (со значением) или команда (с шорткатом).</summary>
+/// <summary>Represents a palette row: a setting (with a value) or a command (with a shortcut).</summary>
 internal abstract record PaletteEntry
 {
     public abstract string Label(AppSettings settings, Loc loc);
 
     public abstract string Value(AppSettings settings, Loc loc);
 
-    /// <summary>Текст для фильтра: подпись + значение/шорткат.</summary>
+    /// <summary>Gets the filter text: label plus value/shortcut.</summary>
     public string MatchText(AppSettings settings, Loc loc) =>
         Label(settings, loc) + " " + Value(settings, loc);
 }
 
-/// <summary>Строка настройки (индекс — как в <see cref="SettingsModel"/>).</summary>
+/// <summary>Represents a setting row (index matches <see cref="SettingsModel"/>).</summary>
 internal sealed record SettingEntry(int Row) : PaletteEntry
 {
     public override string Label(AppSettings settings, Loc loc) => SettingsModel.Label(Row, loc);
@@ -20,7 +20,7 @@ internal sealed record SettingEntry(int Row) : PaletteEntry
     public override string Value(AppSettings settings, Loc loc) => SettingsModel.Value(Row, settings, loc);
 }
 
-/// <summary>Строка команды (подпись и шорткат уже локализованы вызывающим).</summary>
+/// <summary>Represents a command row (label and shortcut are already localized by the caller).</summary>
 internal sealed record CommandEntry(EditorCommand Command, string LabelText, string? Shortcut) : PaletteEntry
 {
     public override string Label(AppSettings settings, Loc loc) => LabelText;
@@ -29,7 +29,7 @@ internal sealed record CommandEntry(EditorCommand Command, string LabelText, str
         KeyMap.HintFor(Command) ?? Shortcut ?? string.Empty;
 }
 
-/// <summary>Строка файла (quick-open): подпись — относительный путь.</summary>
+/// <summary>Represents a file row (quick-open): label is the relative path.</summary>
 internal sealed record FileEntry(string Path, string Display) : PaletteEntry
 {
     public override string Label(AppSettings settings, Loc loc) => Display;
@@ -38,19 +38,19 @@ internal sealed record FileEntry(string Path, string Display) : PaletteEntry
 }
 
 /// <summary>
-/// Состояние палитры: фильтр + видимые записи + курсор. Чистое, без консоли.
+/// Holds palette state: filter plus visible entries plus cursor. Pure, with no console access.
 /// </summary>
 internal sealed class CommandPaletteState
 {
     public string Filter { get; private set; } = string.Empty;
 
-    /// <summary>Записи под фильтром (порядок — как в полном списке).</summary>
+    /// <summary>Gets the filtered entries (ordered as in the full list).</summary>
     public List<PaletteEntry> View { get; private set; } = [];
 
-    /// <summary>Курсор (индекс в <see cref="View"/>).</summary>
+    /// <summary>Gets the cursor (an index into <see cref="View"/>).</summary>
     public int Selected { get; private set; }
 
-    /// <summary>Начало видимого окна.</summary>
+    /// <summary>Gets the start of the visible window.</summary>
     public int Top { get; private set; }
 
     public void SetFilter(string filter)
@@ -59,10 +59,10 @@ internal sealed class CommandPaletteState
     }
 
     /// <summary>
-    /// Подменить видимый список: новый фильтр — курсор в начало,
-    /// тот же (значения поменялись) — держим запись и окно, если живы.
-    /// Top никогда не сбрасываем: иначе окно прыгает, а выделение
-    /// приклеивается к низу (MoveTo сам доклампит окно).
+    /// Replaces the visible list: resets the cursor to the start for a new filter,
+    /// keeps the entry and window for the same filter when values change, if still valid.
+    /// Never resets Top: otherwise the window jumps and the selection
+    /// sticks to the bottom (MoveTo clamps the window itself).
     /// </summary>
     public void ReplaceView(List<PaletteEntry> view, bool fresh)
     {
@@ -81,7 +81,7 @@ internal sealed class CommandPaletteState
         Top = View.Count == 0 ? 0 : Math.Clamp(Top, 0, View.Count - 1);
     }
 
-    /// <summary>Двинуть курсор на delta (окно дотягивается).</summary>
+    /// <summary>Moves the cursor by delta (the window follows).</summary>
     public void Move(int delta, int maxList) => MoveTo(Selected + delta, maxList);
 
     public void MoveTo(int index, int maxList)
@@ -102,8 +102,8 @@ internal sealed class CommandPaletteState
 }
 
 /// <summary>
-/// Палитра команд: строка фильтра + единый список (меню, команды, настройки).
-/// Настройка — шагнуть и остаться, команда — закрыть и выполнить.
+/// Provides the command palette: a filter row plus a unified list (menus, commands, settings).
+/// Steps a setting and stays open, closes and runs a command.
 /// </summary>
 internal sealed class CommandPaletteDialog : Dialog
 {
@@ -115,12 +115,12 @@ internal sealed class CommandPaletteDialog : Dialog
     private readonly Func<Loc, List<PaletteEntry>>? _source;
     private readonly Action<string>? _onFile;
     private Loc? _loc;
-    private string _builtFilter = "\0"; // фильтр, под который собран View
-    private int _lastMaxList = 60; // окно из последней отрисовки/замера (клавишам нужен настоящий размер)
+    private string _builtFilter = "\0"; // Filter that View was built for
+    private int _lastMaxList = 60; // Window from the last render/measure (keys need the real size)
     private int _cursorX = -1;
     private int _cursorY = -1;
 
-    /// <summary>Состояние для тестов (курсор/окно/фильтр).</summary>
+    /// <summary>Gets the state for tests (cursor/window/filter).</summary>
     internal CommandPaletteState PaletteState => _state;
 
     public CommandPaletteDialog(
@@ -139,8 +139,8 @@ internal sealed class CommandPaletteDialog : Dialog
         _source is not null ? _source(loc) : AllEntries(_settings, loc);
 
     /// <summary>
-    /// Полный список записей: меню (подписи и шорткаты уже локализованы),
-    /// затем команды без меню, затем настройки.
+    /// Builds the full entry list: menus (labels and shortcuts already localized),
+    /// then commands without menus, then settings.
     /// </summary>
     internal static List<PaletteEntry> AllEntries(AppSettings settings, Loc loc)
     {
@@ -180,7 +180,7 @@ internal sealed class CommandPaletteDialog : Dialog
         return all;
     }
 
-    /// <summary>Чистый фильтр записей (подстрока по подписи и значению/шорткату).</summary>
+    /// <summary>Filters entries purely (substring over label and value/shortcut).</summary>
     internal static List<PaletteEntry> ApplyFilter(
         IReadOnlyList<PaletteEntry> all, string filter, AppSettings settings, Loc loc)
     {
@@ -194,7 +194,7 @@ internal sealed class CommandPaletteDialog : Dialog
         return view;
     }
 
-    /// <summary>Пересобрать View под текущий фильтр (держит курсор при том же фильтре).</summary>
+    /// <summary>Rebuilds View for the current filter (keeps the cursor for the same filter).</summary>
     private void Rebuild(Loc loc)
     {
         bool fresh = _builtFilter != _state.Filter;
@@ -227,7 +227,7 @@ internal sealed class CommandPaletteDialog : Dialog
         int maxList = MaxList(screenH);
         _lastMaxList = maxList;
         int list = Math.Clamp(_state.View.Count, 1, maxList);
-        int boxH = list + 4; // рамка + фильтр + список + хинт
+        int boxH = list + 4; // Frame plus filter plus list plus hint
         int x0 = Math.Max(0, (screenW - boxW) / 2);
         int y0 = TopY(screenH, boxH);
         if (y0 + boxH > screenH)
@@ -244,7 +244,7 @@ internal sealed class CommandPaletteDialog : Dialog
         _state.MoveTo(_state.Selected, maxList);
         int x0 = box.X0, y0 = box.Y0, inner = box.W - 2;
 
-        // Строка фильтра.
+        // Filter row.
         string prompt = "❯ ";
         bool empty = _state.Filter.Length == 0;
         string shown = empty ? loc[FilterKey] : _state.Filter;
@@ -257,8 +257,8 @@ internal sealed class CommandPaletteDialog : Dialog
         _cursorX = ncx >= x0 + 1 && ncx < x0 + box.W - 1 ? ncx : -1;
         _cursorY = y0 + 1;
 
-        // Видимые строки — теми же option-рядами, что настройки,
-        // но команды (без опций) — без стрелок.
+        // Renders visible rows with the same option rows as settings,
+        // but commands (without options) get no arrows.
         var labels = new List<string>();
         var values = new List<string>();
         var plain = new List<bool>();
@@ -279,7 +279,7 @@ internal sealed class CommandPaletteDialog : Dialog
         var rowsBox = new DialogBox(x0, y0 + 1, box.W, box.H - 1);
         DrawOptionRows(screen, theme, rowsBox, [.. labels], [.. values], selVis, [.. plain]);
 
-        // Хинт снизу по центру.
+        // Centers the hint at the bottom.
         string hint = loc["palette.hint"];
         int visLen = Math.Min(SpanWidth(hint), inner);
         int hx = x0 + 1 + Math.Max(0, (inner - visLen) / 2);
@@ -300,10 +300,10 @@ internal sealed class CommandPaletteDialog : Dialog
             return false;
         int maxList = MaxList(screenH);
         _lastMaxList = maxList;
-        int row = y - (b.Y0 + 2); // заголовок + фильтр
+        int row = y - (b.Y0 + 2); // Header plus filter
         int end = Math.Min(_state.View.Count, _state.Top + maxList);
         if (row < 0 || _state.Top + row >= end)
-            return true; // фильтр/хинт/пусто — глушим
+            return true; // Swallows filter/hint/empty clicks
         _state.MoveTo(_state.Top + row, maxList);
         Activate();
         return true;
@@ -318,7 +318,7 @@ internal sealed class CommandPaletteDialog : Dialog
         {
             case ConsoleKey.Escape:
                 if (_state.Filter.Length > 0)
-                    _state.SetFilter(string.Empty); // сначала чистим фильтр
+                    _state.SetFilter(string.Empty); // Clears the filter first
                 else
                     Closed = true;
                 return;
@@ -326,10 +326,10 @@ internal sealed class CommandPaletteDialog : Dialog
                 Activate();
                 return;
             case ConsoleKey.LeftArrow:
-                CycleSelected(-1); // настройка — назад, команда — игнор
+                CycleSelected(-1); // Steps a setting back, ignores a command
                 return;
             case ConsoleKey.RightArrow:
-                CycleSelected(1); // настройка — вперёд, команда — игнор
+                CycleSelected(1); // Steps a setting forward, ignores a command
                 return;
             case ConsoleKey.UpArrow: _state.Move(-1, _lastMaxList); break;
             case ConsoleKey.DownArrow: _state.Move(1, _lastMaxList); break;
@@ -361,7 +361,7 @@ internal sealed class CommandPaletteDialog : Dialog
     private static int MaxList(int screenH) =>
         Math.Max(3, Math.Min(60, screenH - 10));
 
-    /// <summary>Шагнуть выбранную настройку (команды — игнор) и остаться открытым.</summary>
+    /// <summary>Steps the selected setting (ignores commands) and stays open.</summary>
     private void CycleSelected(int dir)
     {
         if (_state.View.Count == 0)
@@ -373,10 +373,10 @@ internal sealed class CommandPaletteDialog : Dialog
         _store.Save(_settings);
         _onChanged();
         if (_loc is not null)
-            Rebuild(_loc); // значения поменялись — курсор держим по записи
+            Rebuild(_loc); // Values changed - keeps the cursor on the entry
     }
 
-    /// <summary>Настройка — шагнуть и остаться, команда — закрыть и отдать редактору.</summary>
+    /// <summary>Activates the selection: steps a setting and stays open, closes and hands a command to the editor.</summary>
     private void Activate()
     {
         if (_state.View.Count == 0)

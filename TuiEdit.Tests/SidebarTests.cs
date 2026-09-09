@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Панель файлов: модель, Ctrl+B, фокус и открытие (ширина фиксирована).</summary>
+/// <summary>File panel: model, Ctrl+B, focus and opening (fixed width).</summary>
 public sealed class SidebarTests : IDisposable
 {
     private readonly string _root;
@@ -34,7 +34,7 @@ public sealed class SidebarTests : IDisposable
     [Fact]
     public void SidebarClearsTabRow()
     {
-        // Строка вкладок над панелью не должна светить старым текстом.
+        // The tab row above the panel must not leak stale text.
         var ed = NewEditor();
         HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true));
         var scr = (Screen)typeof(TuiEditor)
@@ -93,9 +93,9 @@ public sealed class SidebarTests : IDisposable
             Assert.Equal(theme.PickerExeFg, TuiEditor.EntryFg(theme, new SidebarEntry("run.bat", false, IsExe: true)));
             Assert.Equal(theme.PickerDirFg, TuiEditor.EntryFg(theme, new SidebarEntry("sub", true)));
             Assert.Equal(theme.EditorFg, TuiEditor.EntryFg(theme, new SidebarEntry("a.txt", false)));
-            // Скрытость важнее типа.
+            // Hiddenness outranks type.
             Assert.Equal(theme.PickerHiddenFg, TuiEditor.EntryFg(theme, new SidebarEntry(".h", true, IsHidden: true)));
-            // Цвета типов различимы между собой.
+            // Type colors are distinguishable from each other.
             Assert.NotEqual(theme.PickerDirFg, theme.PickerExeFg);
             Assert.NotEqual(theme.PickerDirFg, theme.EditorFg);
         }
@@ -117,13 +117,13 @@ public sealed class SidebarTests : IDisposable
     public void ModelEnterAndScroll()
     {
         var sb = new SidebarState(_root);
-        // Вниз до файла: Enter по файлу — false (открывает редактор).
+        // Down to the file: Enter on a file is false (opens the editor).
         while (!sb.Entries[sb.Selected].Name.Equals("a.txt", StringComparison.Ordinal))
             sb.MoveHighlight(1, 10);
         Assert.False(sb.EnterSelected());
         Assert.EndsWith("a.txt", sb.SelectedPath);
 
-        // Enter по папке — зайти.
+        // Enter on a folder — enter it.
         var sb2 = new SidebarState(_root);
         while (!sb2.Entries[sb2.Selected].Name.Equals("sub", StringComparison.Ordinal))
             sb2.MoveHighlight(1, 10);
@@ -131,7 +131,7 @@ public sealed class SidebarTests : IDisposable
         Assert.EndsWith("sub", sb2.CurrentDir);
         Assert.Equal(0, sb2.Selected);
 
-        // Скролл окном 2.
+        // Scroll with a window of 2.
         var sb3 = new SidebarState(_root);
         sb3.MoveHighlight(3, 2);
         Assert.Equal(3, sb3.Selected);
@@ -176,16 +176,16 @@ public sealed class SidebarTests : IDisposable
     {
         var ed = NewEditor();
         Assert.Null(Field(ed, "_sidebar"));
-        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // открыть + фокус
+        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // open + focus
         Assert.NotNull(Field(ed, "_sidebar"));
         Assert.True((bool)Field(ed, "_sidebarFocus")!);
-        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // в фокусе — закрыть
+        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // focused — close
         Assert.Null(Field(ed, "_sidebar"));
         HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true));
-        HandleKey(ed, K('\x1B', ConsoleKey.Escape)); // Esc — фокус в текст, панель жива
+        HandleKey(ed, K('\x1B', ConsoleKey.Escape)); // Esc — focus to text, panel stays alive
         Assert.NotNull(Field(ed, "_sidebar"));
         Assert.False((bool)Field(ed, "_sidebarFocus")!);
-        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // без фокуса — вернуть фокус
+        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // unfocused — restore focus
         Assert.True((bool)Field(ed, "_sidebarFocus")!);
     }
 
@@ -193,19 +193,19 @@ public sealed class SidebarTests : IDisposable
     public void EnterOpensFile()
     {
         var ed = NewEditor();
-        // Корень панели — cwd; переходим в тестовую папку напрямую через модель.
+        // Panel root is cwd; jump to the test folder directly via the model.
         HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true));
         var sb = (SidebarState)Field(ed, "_sidebar")!;
         sb.NavigateTo(_root);
         while (!sb.Entries[sb.Selected].Name.Equals("b.txt", StringComparison.Ordinal))
             sb.MoveHighlight(1, 10);
         HandleKey(ed, K('\0', ConsoleKey.Enter));
-        // _buf — свойство активной вкладки (не поле).
+        // _buf is the active tab property (not a field).
         var buf = (TextBuffer)typeof(TuiEditor)
             .GetProperty("_buf", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
         Assert.Equal(Path.Combine(_root, "b.txt"), buf.FilePath);
         Assert.False((bool)Field(ed, "_sidebarFocus")!);
-        Assert.NotNull(Field(ed, "_sidebar")); // панель осталась открытой
+        Assert.NotNull(Field(ed, "_sidebar")); // panel stayed open
     }
 
     [Fact]
@@ -217,6 +217,6 @@ public sealed class SidebarTests : IDisposable
             .GetProperty("_buf", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
         int before = buf.Count;
         HandleKey(ed, K('x', ConsoleKey.X));
-        Assert.Equal(before, buf.Count); // печать в фокусе панели глотается
+        Assert.Equal(before, buf.Count); // typing with panel focus is swallowed
     }
 }

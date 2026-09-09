@@ -86,7 +86,7 @@ public sealed class SessionTests : IDisposable
         ed.SaveSessionTabs();
         Assert.Single(s.SessionTabs);
         Assert.Equal(p1, s.SessionTabs[0].Path);
-        Assert.Equal(3, s.SessionTabs[0].Row); // 3 строки + пустой хвост от трейлинг-перевода
+        Assert.Equal(3, s.SessionTabs[0].Row); // 3 lines + empty tail from the trailing newline
         Assert.Contains("SessionTabs", File.ReadAllText(Path.Combine(_dir, "settings.json")));
         var s2 = new AppSettings { RestoreSession = true, SessionTabs = s.SessionTabs };
         var ed2 = NewEditor(s2);

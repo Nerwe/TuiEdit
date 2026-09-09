@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Сторож больших файлов: confirm-диалог поверх лимита.</summary>
+/// <summary>Large-file guard: confirm dialog over the limit.</summary>
 public sealed class LargeFileTests : IDisposable
 {
     private readonly string _dir;
@@ -19,7 +19,7 @@ public sealed class LargeFileTests : IDisposable
         File.WriteAllText(_small, "hi\n");
         _big = Path.Combine(_dir, "big.bin");
         using (FileStream fs = File.Create(_big))
-            fs.SetLength(TuiEditor.LargeFileBytes + 1); // разреженный, мгновенно
+            fs.SetLength(TuiEditor.LargeFileBytes + 1); // sparse, instant
     }
 
     public void Dispose()
@@ -75,12 +75,12 @@ public sealed class LargeFileTests : IDisposable
         LoadFile(ed, _big);
         Assert.NotNull(Get(ed, "_dialog"));
         Assert.Equal(ModalKind.LargeFile, DialogKind(ed));
-        Assert.Null(ActiveBuf(ed).FilePath); // ещё не открыт
-        // Дефолт — «Нет»: Enter отклоняет.
+        Assert.Null(ActiveBuf(ed).FilePath); // not open yet
+        // Default — "No": Enter rejects.
         HandleKey(ed, K('\0', ConsoleKey.Enter));
         Assert.Null(Get(ed, "_dialog"));
         Assert.Null(ActiveBuf(ed).FilePath);
-        // Второй заход + хоткей Y — открывает.
+        // Second attempt + Y hotkey — opens.
         LoadFile(ed, _big);
         Assert.Equal(ModalKind.LargeFile, DialogKind(ed));
         HandleKey(ed, K('y', ConsoleKey.Y));

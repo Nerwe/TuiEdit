@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Regex-поиск и замена.</summary>
+/// <summary>Regex search and replace.</summary>
 public sealed class RegexTests
 {
     private static TextBuffer Buf(params string[] lines)

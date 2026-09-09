@@ -6,12 +6,12 @@ internal sealed partial class TuiEditor
     private string CurLine => _buf.GetLine(_row);
 
     /// <summary>
-    /// Запоминает визуальную колонку курсора для Up/Down
-    /// (в символах нельзя — табы разной ширины).
+    /// Remembers the visual cursor column for Up/Down
+    /// (character offsets fail - tabs vary in width).
     /// </summary>
     private void TrackCol() => _desiredCol = TabStops.VisualWidth(_buf.GetLine(_row), _col);
 
-    /// <summary>Удаляет выделение (если есть), курсор — в его начало.</summary>
+    /// <summary>Deletes the selection (if any), moving the cursor to its start.</summary>
     private bool DeleteSelection()
     {
         if (!_sel.HasSelection(_row, _col))
@@ -43,7 +43,7 @@ internal sealed partial class TuiEditor
         return n;
     }
 
-    /// <summary>Строки, затронутые выделением (строка с ec==0 не включается).</summary>
+    /// <summary>Gets the lines affected by the selection (a row with ec==0 is excluded).</summary>
     private (int First, int Last) SelectionLineRange()
     {
         var (sr, _, er, ec) = _sel.Normalize(_row, _col);
@@ -236,8 +236,8 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>
-    /// Ввод с автопарами: закрывающий поверх своего — шаг вправо,
-    /// открывающий — вставить пару. True — обработано.
+    /// Handles input with auto-pairs: types over its own closer by stepping right,
+    /// inserts a pair for an opener. Returns <see langword="true"/> if handled; otherwise, <see langword="false"/>.
     /// </summary>
     private bool TryAutoPair(char c)
     {

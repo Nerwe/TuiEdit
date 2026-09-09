@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Клики по строкам опций (настройки/формат) и тоглам промпта.</summary>
+/// <summary>Clicks on option rows (settings/format) and prompt toggles.</summary>
 public sealed class OptionClickTests
 {
     private const int W = 80;
@@ -18,7 +18,7 @@ public sealed class OptionClickTests
         return new SettingsStore(Path.Combine(dir, "s.json"));
     }
 
-    /// <summary>Первая кликабельная клетка каждой строки, сверху вниз.</summary>
+    /// <summary>First clickable cell of each row, top to bottom.</summary>
     private static List<(int X, int Y)> ClickCells(Func<int, int, bool> click)
     {
         var cells = new List<(int X, int Y)>();
@@ -42,15 +42,15 @@ public sealed class OptionClickTests
         {
             bool changed = false;
             var dlg = new SettingsDialog(settings, store, () => { changed = true; });
-            bool before = settings.ShowLineNumbers; // строка 2
+            bool before = settings.ShowLineNumbers; // row 2
             List<(int X, int Y)> rows = ClickCells((x, y) =>
                 new SettingsDialog(new AppSettings(), store, () => { }).HandleClick(x, y, W, H, loc));
-            // Заголовок + 13 строк + низ: всё внутри бокса глотается, опции — средние 13.
+            // Header + 13 rows + bottom: everything inside the box is swallowed, the middle 13 are options.
             Assert.Equal(15, rows.Count);
-            dlg.HandleClick(rows[3].X, rows[3].Y, W, H, loc); // 3-я строка сверху = индекс 2
+            dlg.HandleClick(rows[3].X, rows[3].Y, W, H, loc); // 3rd row from the top = index 2
             Assert.Equal(!before, settings.ShowLineNumbers);
             Assert.True(changed);
-            Assert.False(dlg.Closed); // опции не закрывают диалог
+            Assert.False(dlg.Closed); // options do not close the dialog
         }
         finally { try { Directory.Delete(dir, true); } catch { } }
     }
@@ -69,14 +69,14 @@ public sealed class OptionClickTests
             List<(int X, int Y)> rows = ClickCells((x, y) =>
                 new SettingsDialog(new AppSettings(), store, () => { }).HandleClick(x, y, W, H, loc));
             Assert.Equal(15, rows.Count);
-            (int X, int Y) mouse = rows[^5]; // строка опций = индекс 9 (мышь)
+            (int X, int Y) mouse = rows[^5]; // option row = index 9 (mouse)
             MouseLevel[] expected = [MouseLevel.Basic, MouseLevel.Drag, MouseLevel.Motion, MouseLevel.Off];
             foreach (MouseLevel level in expected)
             {
                 dlg.HandleClick(mouse.X, mouse.Y, W, H, loc);
                 Assert.Equal(level, settings.Mouse);
             }
-            (int X, int Y) copy = rows[^4]; // строка опций = индекс 10 (копия)
+            (int X, int Y) copy = rows[^4]; // option row = index 10 (copy)
             Assert.True(settings.CopyOnSelect);
             dlg.HandleClick(copy.X, copy.Y, W, H, loc);
             Assert.False(settings.CopyOnSelect);
@@ -118,8 +118,8 @@ public sealed class OptionClickTests
     [Fact]
     public void ConsoleQueueApiNeverThrows()
     {
-        // В CI stdin перенаправлен: graceful degradation, без исключений.
-        // Локально за консолью — тоже безопасно (только peek/wait(0), без Take).
+        // In CI stdin is redirected: graceful degradation, no exceptions.
+        // Locally at the console — also safe (only peek/wait(0), no Take).
         var ex = Record.Exception(() =>
         {
             Terminal.TryPeek(out _);
@@ -154,8 +154,8 @@ public sealed class OptionClickTests
         string before = buf.EndingLabel;
         List<(int X, int Y)> rows = ClickCells((x, y) =>
             new FormatDialog(new TextBuffer(null)).HandleClick(x, y, W, H, loc));
-        Assert.Equal(5, rows.Count); // заголовок + 3 строки + низ
-        dlg.HandleClick(rows[2].X, rows[2].Y, W, H, loc); // 2-я строка сверху = индекс 1 (переводы)
+        Assert.Equal(5, rows.Count); // header + 3 rows + bottom
+        dlg.HandleClick(rows[2].X, rows[2].Y, W, H, loc); // 2nd row from the top = index 1 (line endings)
         Assert.NotEqual(before, buf.EndingLabel);
         Assert.False(dlg.Closed);
     }
@@ -167,13 +167,13 @@ public sealed class OptionClickTests
     [InlineData(50, 'R')]
     public void PromptOptionHitMapsSegments(int x, char want)
     {
-        // Зеркало DrawPrompt: "[x] Match case (Alt+C)  [ ] Whole words (Alt+W)  [ ] Regex (Alt+R)".
+        // Mirror of DrawPrompt: "[x] Match case (Alt+C)  [ ] Whole words (Alt+W)  [ ] Regex (Alt+R)".
         char? got = TuiEditor.PromptOptionHit(x, "Match case", "Whole words", "Regex");
         Assert.Equal(want, got);
     }
 
     [Theory]
-    [InlineData(22)] // пробел-разделитель
+    [InlineData(22)] // space separator
     [InlineData(200)]
     public void PromptOptionHitMiss(int x)
     {

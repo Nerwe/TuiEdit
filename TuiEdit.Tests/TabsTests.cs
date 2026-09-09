@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Вкладки: модель, переключение с состоянием, закрытие, клавиши.</summary>
+/// <summary>Tabs: model, stateful switching, closing, keys.</summary>
 public sealed class TabsTests : IDisposable
 {
     private readonly string _dir;
@@ -55,16 +55,16 @@ public sealed class TabsTests : IDisposable
     {
         Assert.Equal(EditorCommand.NextTab, KeyMap.Map(K('\t', ConsoleKey.Tab, ctrl: true)));
         Assert.Equal(EditorCommand.PrevTab, KeyMap.Map(new ConsoleKeyInfo('\t', ConsoleKey.Tab, true, false, true)));
-        // Основной путь — Ctrl+PgDn/PgUp (Ctrl+Tab перехватывает Windows Terminal).
+        // Main path is Ctrl+PgDn/PgUp (Ctrl+Tab is intercepted by Windows Terminal).
         Assert.Equal(EditorCommand.NextTab, KeyMap.Map(K('\0', ConsoleKey.PageDown, ctrl: true)));
         Assert.Equal(EditorCommand.PrevTab, KeyMap.Map(K('\0', ConsoleKey.PageUp, ctrl: true)));
-        // Голые PgUp/PgDn по-прежнему листают.
+        // Bare PgUp/PgDn still page.
         Assert.Equal(EditorCommand.PageDown, KeyMap.Map(K('\0', ConsoleKey.PageDown)));
         Assert.Equal(EditorCommand.PageUp, KeyMap.Map(K('\0', ConsoleKey.PageUp)));
         Assert.Equal(EditorCommand.NewTab, KeyMap.Map(K('\x14', ConsoleKey.T, ctrl: true)));
         Assert.Equal(EditorCommand.CloseTab, KeyMap.Map(K('\x17', ConsoleKey.W, ctrl: true)));
         Assert.Equal(EditorCommand.GoTabNumber, KeyMap.Map(K('1', ConsoleKey.D1, alt: true)));
-        // Голый Tab по-прежнему вставляет.
+        // Bare Tab still inserts.
         Assert.Equal(EditorCommand.InsertTab, KeyMap.Map(K('\t', ConsoleKey.Tab)));
     }
 
@@ -99,11 +99,11 @@ public sealed class TabsTests : IDisposable
         Assert.Equal(2, Get(ed, "_row"));
         Assert.Equal(1, Get(ed, "_col"));
         Assert.True(sel.HasSelection(2, 1));
-        ed.SwitchTab(5); // по кругу
+        ed.SwitchTab(5); // wraps around
         Assert.Equal(1, ed.ActiveTab);
-        ed.SwitchTab(-1); // последняя
+        ed.SwitchTab(-1); // last one
         Assert.Equal(1, ed.ActiveTab);
-        ed.SwitchTab(-2); // по кругу назад
+        ed.SwitchTab(-2); // wraps back
         Assert.Equal(0, ed.ActiveTab);
     }
 
@@ -129,7 +129,7 @@ public sealed class TabsTests : IDisposable
         ed.CloseTab();
         Assert.Equal(1, ed.TabCount);
         Assert.Equal(0, ed.ActiveTab);
-        ed.CloseTabNow(); // последняя — очищается, не закрывается
+        ed.CloseTabNow(); // last one — cleared, not closed
         Assert.Equal(1, ed.TabCount);
         Assert.Equal("", ActiveBuf(ed).GetLine(0));
     }
@@ -159,21 +159,21 @@ public sealed class TabsTests : IDisposable
         Assert.Equal(1, ed.ActiveTab);
         HandleKey(ed, K('\0', ConsoleKey.PageUp, ctrl: true));
         Assert.Equal(0, ed.ActiveTab);
-        HandleKey(ed, K('9', ConsoleKey.D9, alt: true)); // нет такой — стоим
+        HandleKey(ed, K('9', ConsoleKey.D9, alt: true)); // no such tab — staying put
         Assert.Equal(0, ed.ActiveTab);
     }
 
     [Fact]
     public void TabWindowScroll()
     {
-        // Три вкладки по 10 колонок, экран 25: влезают две.
+        // Three tabs of 10 columns, screen 25: two fit.
         var widths = new List<int> { 10, 10, 10 };
         Assert.Equal(0, TuiEditor.TabWindowStart(widths, 0, 0, 25));
         Assert.Equal(0, TuiEditor.TabWindowStart(widths, 1, 0, 25));
         Assert.Equal(1, TuiEditor.TabWindowStart(widths, 2, 0, 25));
         Assert.Equal(1, TuiEditor.TabWindowStart(widths, 2, 1, 25));
-        Assert.Equal(0, TuiEditor.TabWindowStart(widths, 0, 1, 25)); // назад — окно едет
-        Assert.Equal(0, TuiEditor.TabWindowStart(widths, 0, 0, 100)); // всё влезает
+        Assert.Equal(0, TuiEditor.TabWindowStart(widths, 0, 1, 25)); // backwards — window moves
+        Assert.Equal(0, TuiEditor.TabWindowStart(widths, 0, 0, 100)); // everything fits
         Assert.Equal(0, TuiEditor.TabWindowStart(new List<int>(), 0, 0, 25));
     }
 
@@ -192,7 +192,7 @@ public sealed class TabsTests : IDisposable
         Assert.Equal(5, m.MaxVisibleButtons);
         Assert.StartsWith("[1]", m.Buttons[0].Label);
         Assert.Throws<ArgumentException>(() => ModalState.Tabs(loc, new List<string>()));
-        // Хоткей и Enter выбирают вкладку.
+        // Hotkey and Enter select the tab.
         Assert.Equal(9, m.HandleKey(new ConsoleKeyInfo('0', ConsoleKey.D0, false, false, false)).Button);
     }
 
@@ -205,7 +205,7 @@ public sealed class TabsTests : IDisposable
         ActiveBuf(ed).InsertChar(0, 0, 'y');
         HandleKey(ed, K('\x10', ConsoleKey.P, ctrl: true));
         Assert.NotNull(Get(ed, "_dialog"));
-        // Выбираем вторую кнопку (вкладку 1) Enter'ом после стрелки вниз.
+        // Pick the second button (tab 1) with Enter after Down arrow.
         HandleKey(ed, K('\0', ConsoleKey.DownArrow));
         HandleKey(ed, K('\0', ConsoleKey.Enter));
         Assert.Equal(1, ed.ActiveTab);
@@ -251,17 +251,17 @@ public sealed class TabsTests : IDisposable
     [Fact]
     public void DiscardAllQuits()
     {
-        // Две грязные вкладки: «Не сохранять» дважды — выходим, а не ходим по кругу.
+        // Two dirty tabs: "Don't save" twice — quitting, not cycling.
         var ed = NewEditor();
         ActiveBuf(ed).InsertChar(0, 0, 'x');
         ed.NewTab();
         ActiveBuf(ed).InsertChar(0, 0, 'y');
         HandleKey(ed, K('\x11', ConsoleKey.Q, ctrl: true));
         Assert.NotNull(Get(ed, "_dialog"));
-        Assert.Contains("Untitled.txt", ModalLine(ed)); // видно, что спрашиваем
-        HandleKey(ed, K('n', ConsoleKey.N)); // «Не сохранять» по вкладке 2
-        Assert.NotNull(Get(ed, "_dialog")); // модалка по вкладке 1
-        HandleKey(ed, K('n', ConsoleKey.N)); // «Не сохранять» по вкладке 1
+        Assert.Contains("Untitled.txt", ModalLine(ed)); // visible that we are prompting
+        HandleKey(ed, K('n', ConsoleKey.N)); // "Don't save" for tab 2
+        Assert.NotNull(Get(ed, "_dialog")); // modal for tab 1
+        HandleKey(ed, K('n', ConsoleKey.N)); // "Don't save" for tab 1
         Assert.Null(Get(ed, "_dialog"));
         Assert.True((bool)Get(ed, "_quitRequested")!);
     }
@@ -275,7 +275,7 @@ public sealed class TabsTests : IDisposable
         ed.SwitchTab(0);
         HandleKey(ed, K('\x17', ConsoleKey.W, ctrl: true));
         Assert.NotNull(Get(ed, "_dialog"));
-        HandleKey(ed, K('n', ConsoleKey.N)); // «Не сохранять»
+        HandleKey(ed, K('n', ConsoleKey.N)); // "Don't save"
         Assert.Null(Get(ed, "_dialog"));
         Assert.Equal(1, ed.TabCount);
         Assert.Equal("", ActiveBuf(ed).GetLine(0));

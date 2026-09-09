@@ -2,12 +2,12 @@ using System.Text.Json;
 
 namespace TuiEdit;
 
-/// <summary>Комбинация: клавиша + модификаторы (строгое совпадение в таблице).</summary>
+/// <summary>Combination: key + modifiers (strict match in the table).</summary>
 internal readonly record struct KeyStroke(ConsoleKey Key, bool Alt, bool Ctrl, bool Shift);
 
 /// <summary>
-/// Пользовательские биндинги (<c>keybindings.json</c> рядом с настройками):
-/// команда — нотация («Ctrl+Shift+S») или null (отвязать).
+/// Custom bindings (<c>keybindings.json</c> next to settings):
+/// command — notation ("Ctrl+Shift+S") or null (unbind).
 /// </summary>
 internal static class KeyBindings
 {
@@ -21,7 +21,7 @@ internal static class KeyBindings
     public static string DefaultPath(string? settingsDir) =>
         Path.Combine(settingsDir ?? Directory.GetCurrentDirectory(), "keybindings.json");
 
-    /// <summary>Пример-шаблон (всё закомментировано — дефолты не меняет).</summary>
+    /// <summary>Example template (all commented out — defaults unchanged).</summary>
     public static void SeedExample(string path)
     {
         try
@@ -45,7 +45,7 @@ internal static class KeyBindings
         }
     }
 
-    /// <summary>Сырые записи «команда — нотация/null»; битый файл — пусто (дефолты).</summary>
+    /// <summary>Raw "command — notation/null" entries; broken file — empty (defaults).</summary>
     public static Dictionary<string, string?> Load(string path)
     {
         try
@@ -96,7 +96,7 @@ internal static class KeyBindings
         ["="] = ConsoleKey.OemPlus,
     };
 
-    /// <summary>Разобрать нотацию; null — мусор, охрана печати или голая служебная.</summary>
+    /// <summary>Parse the notation; null — garbage, printable guard, or bare utility key.</summary>
     public static KeyStroke? Parse(string? notation)
     {
         if (string.IsNullOrWhiteSpace(notation))
@@ -119,7 +119,7 @@ internal static class KeyBindings
         if (key == ConsoleKey.NoName)
             return null;
         if (!ctrl && !alt && !IsBareAllowed(key))
-            return null; // голая печатаемая/слуюжебная — защита набора
+            return null; // bare printable/utility key — typing protection
         return new KeyStroke(key, alt, ctrl, shift);
     }
 
@@ -129,7 +129,7 @@ internal static class KeyBindings
             return a;
         if (token.Length == 1)
         {
-            // Раньше Enum.TryParse: "5" парсится в числовое значение, а не D5.
+            // Previously Enum.TryParse: "5" parses to a numeric value, not D5.
             char c = token[0];
             if (c is >= '0' and <= '9')
                 return Enum.Parse<ConsoleKey>("D" + c);
@@ -141,7 +141,7 @@ internal static class KeyBindings
         return ConsoleKey.NoName;
     }
 
-    /// <summary>Голыми (без Ctrl/Alt) разрешены только непечатаемые.</summary>
+    /// <summary>Bare (without Ctrl/Alt) only non-printable keys are allowed.</summary>
     private static bool IsBareAllowed(ConsoleKey key) => key is
         >= ConsoleKey.F1 and <= ConsoleKey.F24
         or ConsoleKey.UpArrow or ConsoleKey.DownArrow
@@ -149,7 +149,7 @@ internal static class KeyBindings
         or ConsoleKey.Home or ConsoleKey.End
         or ConsoleKey.PageUp or ConsoleKey.PageDown;
 
-    /// <summary>Обратно в строку для подсказок меню («^S», «Alt+/», «F9», «Ctrl+Shift+S»).</summary>
+    /// <summary>Back to string for menu hints ("^S", "Alt+/", "F9", "Ctrl+Shift+S").</summary>
     public static string Format(KeyStroke s)
     {
         string key = s.Key switch
@@ -171,7 +171,7 @@ internal static class KeyBindings
             ConsoleKey.Delete => "Delete",
             ConsoleKey.Insert => "Insert",
             >= ConsoleKey.D0 and <= ConsoleKey.D9 => ((char)('0' + (s.Key - ConsoleKey.D0))).ToString(),
-            _ => s.Key.ToString(), // буквы — как есть («S»); Oem обратно не маппим
+            _ => s.Key.ToString(), // letters — as-is ("S"); Oem keys are not mapped back
         };
         if (s is { Alt: false, Ctrl: true, Shift: false } && key.Length == 1 && char.IsLetter(key[0]))
             return "^" + key;

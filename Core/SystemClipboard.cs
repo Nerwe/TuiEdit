@@ -3,16 +3,16 @@ using System.Text;
 namespace TuiEdit;
 
 /// <summary>
-/// Экспорт внутреннего буфера обмена в системный через OSC 52
+/// Exports the internal clipboard to the system clipboard via OSC 52
 /// (<c>"\x1b]52;c;" + base64 + "\x1b\\"</c>).
-/// Без этого Ctrl+V терминала вставляет системный буфер,
-/// о котором редактор ничего не знает, и копия «теряется».
+/// Without this, terminal Ctrl+V pastes the system clipboard,
+/// which the editor does not track, so the copy is "lost".
 /// </summary>
 public static class SystemClipboard
 {
-    private const int MaxSyncChars = 128 * 1024; // как LARGE_CLIPBOARD_THRESHOLD в Edit
+    private const int MaxSyncChars = 128 * 1024; // Mirrors LARGE_CLIPBOARD_THRESHOLD in Edit
 
-    /// <summary>OSC 52-последовательность для строк (null — пусто/слишком велико).</summary>
+    /// <summary>Builds the OSC 52 sequence for lines (returns null when empty/too large).</summary>
     public static string? BuildOsc52(IEnumerable<string> lines)
     {
         ArgumentNullException.ThrowIfNull(lines);
@@ -23,8 +23,8 @@ public static class SystemClipboard
     }
 
     /// <summary>
-    /// Best-effort синхронизация (тихо). Только Windows Terminal
-    /// (<c>WT_SESSION</c>): conhost OSC 52 не понимает, мусорить в вывод нельзя.
+    /// Attempts best-effort sync (quietly). Targets Windows Terminal only
+    /// (<c>WT_SESSION</c>): conhost does not understand OSC 52, so it must not pollute output.
     /// </summary>
     public static void TryExport(IEnumerable<string> lines)
     {

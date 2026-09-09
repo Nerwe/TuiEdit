@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>Состояние диалога настроек: выбранная строка (значения живут в <see cref="AppSettings"/>); строка 0 — тема, 1 — язык, 2 — номера строк, 3 — перенос строк, 4 — пробелы, 5 — линейка, 6 — копия .bak, 7 — направляющие, 8 — сессия, 9 — мышь.</summary>
+/// <summary>Holds settings dialog state: the selected row (values live in <see cref="AppSettings"/>); row 0 is theme, 1 language, 2 line numbers, 3 word wrap, 4 whitespace, 5 ruler, 6 .bak backup, 7 guides, 8 session, 9 mouse.</summary>
 public sealed class SettingsDialogState
 {
     public const int RowCount = 13;
@@ -11,7 +11,7 @@ public sealed class SettingsDialogState
 
     public void MoveTo(int row) => Row = Math.Clamp(row, 0, RowCount - 1);
 
-    /// <summary>Листание значения по кругу.</summary>
+    /// <summary>Cycles a value around.</summary>
     public static int Cycle(int index, int count, int dir) =>
         count <= 0 ? 0 : ((index + dir) % count + count) % count;
 }

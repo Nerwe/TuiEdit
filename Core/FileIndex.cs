@@ -1,8 +1,8 @@
 namespace TuiEdit;
 
 /// <summary>
-/// Список файлов проекта для quick-open: рекурсивно, скрытое пропускаем,
-/// содержимое не читаем (только имена — быстро). Сортировка натуральная.
+/// Lists project files for quick-open: recurses, skips hidden entries,
+/// reads names only (not contents) for speed. Uses natural sorting.
 /// </summary>
 internal static class FileIndex
 {

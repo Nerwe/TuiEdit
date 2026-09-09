@@ -1,9 +1,8 @@
 namespace TuiEdit;
 
 /// <summary>
-/// Панель сплит-вида: свой список вкладок, активная вкладка и скролл
-/// строки вкладок. Состояние вида вкладок живёт в <see cref="DocTab"/>;
-/// поля редактора — кэш активной вкладки активной панели.
+/// Represents a split-view pane: its own tab list, active tab, and tab-strip scroll.
+/// Tab view state lives in <see cref="DocTab"/>; editor fields cache the active tab of the active pane.
 /// </summary>
 internal sealed class Pane
 {

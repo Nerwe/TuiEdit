@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Статусбар: компоновка строки и правого блока.</summary>
+/// <summary>Status bar: line layout and right block.</summary>
 public sealed class StatusBarTests
 {
     [Fact]
@@ -23,7 +23,7 @@ public sealed class StatusBarTests
     [Fact]
     public void BuildKeepsRightTailOnOverflow()
     {
-        // Правый блок виден всегда: при переполнении — его хвост.
+        // The right block is always visible: on overflow — its tail.
         string right = StatusBar.BuildRight("UTF-8", "LF", "4sp", "a.txt", "⎇ main*", 0, 1, 0, 1);
         string line = StatusBar.Build(" 1,1", right, 20);
         Assert.Equal(20, line.Length);

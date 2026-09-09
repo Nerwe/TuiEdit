@@ -1,8 +1,8 @@
 namespace TuiEdit;
 
 /// <summary>
-/// Геометрия экрана редактора: единый источник для Render и мыши.
-/// Правило: ни Render, ни HandleMouse не считают раскладку руками.
+/// Describes the editor screen geometry: the single source for Render and mouse handling.
+/// Rule: neither Render nor HandleMouse computes layout by hand.
 /// </summary>
 internal sealed record EditorLayout(
     int W,
@@ -14,7 +14,7 @@ internal sealed record EditorLayout(
     int Y0,
     int TextHeight)
 {
-    /// <summary>Посчитать раскладку (зеркало бывшего ручного кода в Render).</summary>
+    /// <summary>Computes the layout (mirrors the former hand-rolled code in Render).</summary>
     public static EditorLayout Compute(int w, int h, int sideW, int paneCount, bool multiTab)
     {
         int[] paneWs = TuiEditor.PaneWidths(w - sideW, paneCount);
@@ -28,7 +28,7 @@ internal sealed record EditorLayout(
         return new EditorLayout(w, h, sideW, paneXs, paneWs, tabH, 1 + tabH, h - 2 - tabH);
     }
 
-    /// <summary>Панель под координатой X или -1 (сайдбар/мимо).</summary>
+    /// <summary>Gets the pane under X, or -1 (sidebar/miss).</summary>
     public int PaneAt(int x)
     {
         for (int i = 0; i < PaneXs.Length; i++)

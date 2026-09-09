@@ -3,10 +3,10 @@ using System.Text.RegularExpressions;
 
 namespace TuiEdit;
 
-/// <summary>Совпадение поиска по файлам (публично для фабрики модалки).</summary>
+/// <summary>Represents a file search match (public for the modal factory).</summary>
 public sealed record GrepHit(string File, int Row, int Col, string Text);
 
-/// <summary>Поиск по файлам: рекурсивно, скрытое пропускаем, бинарное и большое — тоже.</summary>
+/// <summary>Searches files: recurses, skips hidden entries, and also skips binary and large files.</summary>
 internal static class Grep
 {
     public const int MaxHits = 500;

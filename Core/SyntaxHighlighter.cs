@@ -2,12 +2,12 @@ using System.Text.RegularExpressions;
 
 namespace TuiEdit;
 
-/// <summary>Спан подсветки: позиция, длина и scope.</summary>
+/// <summary>Represents a highlighting span: position, length, and scope.</summary>
 internal readonly record struct SyntaxToken(int Start, int Length, string Scope);
 
 /// <summary>
-/// Подсветка по JSON-грамматике: совпадения и многострочные begin/end.
-/// Состояния строк кэшируются, пересчёт — от первой изменённой строки.
+/// Highlights via JSON grammars: matches and multiline begin/end.
+/// Caches line states and recalculates from the first modified line.
 /// </summary>
 internal sealed class SyntaxHighlighter
 {
@@ -38,12 +38,12 @@ internal sealed class SyntaxHighlighter
         if (buf.Version == _version && buf.Count == _lines.Count)
             return;
         int oldCount = _texts.Count;
-        int delta = buf.Count - oldCount; // чистый сдвиг строк (вставка/удаление)
+        int delta = buf.Count - oldCount; // Pure line shift (insert/delete)
         int n = Math.Min(buf.Count, oldCount);
         int dirty = 0;
         while (dirty < n && ReferenceEquals(buf.Lines[dirty], _texts[dirty]))
             dirty++;
-        // Старый хвост держим для раннего выхода, списки урезаем.
+        // Keeps the old tail for early exit while truncating the lists.
         List<string> tailTexts = _texts.GetRange(dirty, oldCount - dirty);
         List<string> tailStacks = _stacks.GetRange(dirty, oldCount - dirty);
         List<List<SyntaxToken>> tailLines = _lines.GetRange(dirty, oldCount - dirty);
@@ -64,9 +64,9 @@ internal sealed class SyntaxHighlighter
             _lines.Add(tokens);
             _stacks.Add(sig);
             _texts.Add(line);
-            // Ранний выход: текст и исходящий стек совпали со старым кэшем —
-            // состояние сошлось. Хвост переиспользуем, только если ВЕСЬ остаток
-            // совпадает построчно (защита от нескольких правок за одну версию).
+            // Early exit: text and outgoing stack match the old cache, so state has converged.
+            // Reuses the tail only when the ENTIRE remainder matches line by line
+            // (guards against multiple edits in one version).
             int t = i - dirty - delta;
             if (t < 0 || t >= tailTexts.Count)
                 continue;
@@ -88,7 +88,7 @@ internal sealed class SyntaxHighlighter
     private static string StackSignature(Stack<(string Scope, Regex End)> stack) =>
         string.Join("\u001F", stack.Reverse().Select(e => e.Scope));
 
-    /// <summary>Весь остаток буфера совпадает со старым хвостом (по ссылкам, со сдвигом).</summary>
+    /// <summary>Determines whether the entire remaining buffer matches the old tail (by reference, with shift).</summary>
     private static bool TailMatches(TextBuffer buf, List<string> tailTexts, int fromNew, int dirty, int delta)
     {
         for (int j = fromNew; j < buf.Count; j++)
@@ -110,7 +110,7 @@ internal sealed class SyntaxHighlighter
         }
     }
 
-    /// <summary>Разобрать строку при входящем стеке (стек мутирует к исходящему).</summary>
+    /// <summary>Tokenizes a line with the incoming stack (mutates the stack to the outgoing state).</summary>
     internal static List<SyntaxToken> TokenizeLine(
         string line, Stack<(string Scope, Regex End)> stack, List<CompiledRule> rules)
     {
@@ -229,7 +229,7 @@ internal sealed class SyntaxHighlighter
             ? new List<SyntaxToken> { new SyntaxToken(0, 0, string.Empty) }
             : new List<SyntaxToken> { new SyntaxToken(0, line.Length, string.Empty) };
 
-    /// <summary>Цвет scope в теме (null — обычный текст).</summary>
+    /// <summary>Gets the theme color for a scope (null means plain text).</summary>
     internal static Rgb? ScopeColor(Theme theme, string scope) => scope switch
     {
         "keyword" => theme.SynKeywordFg,

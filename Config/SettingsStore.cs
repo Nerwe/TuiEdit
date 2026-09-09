@@ -5,8 +5,8 @@ using System.Text.Json;
 namespace TuiEdit;
 
 /// <summary>
-/// Хранилище настроек в JSON
-/// (<c>%APPDATA%\TuiEdit\settings.json</c>, на Linux — <c>~/.config/TuiEdit</c>).
+/// Stores settings as JSON
+/// (<c>%APPDATA%\TuiEdit\settings.json</c>, on Linux — <c>~/.config/TuiEdit</c>).
 /// </summary>
 public sealed class SettingsStore(string path)
 {
@@ -26,7 +26,7 @@ public sealed class SettingsStore(string path)
         "TuiEdit", "settings.json");
 
     /// <summary>
-    /// Итоговый путь: settings.json рядом с exe (portable-режим), иначе по умолчанию.
+    /// Resolves the effective path: settings.json next to the exe (portable mode), otherwise the default.
     /// </summary>
     public static string ResolvePath()
     {
@@ -42,7 +42,7 @@ public sealed class SettingsStore(string path)
         return DefaultPath();
     }
 
-    /// <summary>Загрузить (нет/битый — умолчания).</summary>
+    /// <summary>Loads settings (missing/corrupt files yield defaults).</summary>
     public AppSettings Load()
     {
         try
@@ -78,7 +78,7 @@ public sealed class SettingsStore(string path)
     }
 }
 
-/// <summary>Черновик несохранённого документа для восстановления после краша.</summary>
+/// <summary>Represents a draft of an unsaved document for recovery after a crash.</summary>
 public sealed record DocDraft(string? File, List<string> Lines, int Row, int Col, DateTime SavedAt);
 
 public sealed class DraftStore(string dir)
@@ -88,15 +88,15 @@ public sealed class DraftStore(string dir)
     public static string DefaultDir() => System.IO.Path.Combine(
         System.IO.Path.GetTempPath(), "TuiEdit", "drafts");
 
-    /// <summary>Ключ черновика: sha1 пути (безымянный — "untitled").</summary>
+    /// <summary>Computes the draft key: sha1 of the path ("untitled" for unnamed documents).</summary>
     public static string KeyFor(string? file)
     {
         if (string.IsNullOrWhiteSpace(file))
             return "untitled";
         try
         {
-            // CA5350: SHA1 здесь — не криптография, а короткий ключ имени файла
-            // черновика/бэкапа; смена алгоритма осиротила бы существующие файлы.
+            // CA5350: SHA1 here is not cryptography, but a short file-name key for drafts/backups;
+            // changing the algorithm would orphan existing files.
 #pragma warning disable CA5350 // Do Not Use Weak Cryptographic Algorithms
             byte[] hash = SHA1.HashData(Encoding.UTF8.GetBytes(System.IO.Path.GetFullPath(file)));
 #pragma warning restore CA5350
@@ -117,7 +117,7 @@ public sealed class DraftStore(string dir)
             JsonSerializer.Serialize(draft));
     }
 
-    /// <summary>Все читаемые черновики (битые пропускаются).</summary>
+    /// <summary>Reads all readable drafts (skips corrupt ones).</summary>
     public List<(string key, DocDraft draft)> ReadAll()
     {
         var list = new List<(string, DocDraft)>();

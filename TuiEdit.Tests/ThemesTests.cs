@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Пользовательские темы из конфига: hex, каталог, резолв, диалог.</summary>
+/// <summary>Custom themes from config: hex, catalog, resolve, dialog.</summary>
 public sealed class ThemesTests : IDisposable
 {
     private readonly string _cfgDir;
@@ -75,17 +75,17 @@ public sealed class ThemesTests : IDisposable
             Colors = new Dictionary<string, string>
             {
                 ["EditorBg"] = "#090300",
-                ["editorfg"] = "#a5a2a2", // регистр ролей не важен
-                ["Nope"] = "#ffffff", // неизвестная роль — мимо
-                ["StatusBg"] = "oops", // битый цвет — мимо
+                ["editorfg"] = "#a5a2a2", // role case does not matter
+                ["Nope"] = "#ffffff", // unknown role — ignored
+                ["StatusBg"] = "oops", // broken color — ignored
             },
         });
-        Theme t = ThemeCatalog.Resolve(s, "3024 night"); // имя — case-insensitive
+        Theme t = ThemeCatalog.Resolve(s, "3024 night"); // name is case-insensitive
         Assert.Equal("3024 Night", t.Name);
         Assert.Equal(new Rgb(0x09, 0x03, 0x00), t.EditorBg);
         Assert.Equal(new Rgb(0xA5, 0xA2, 0xA2), t.EditorFg);
-        Assert.Equal(Themes.Dark.StatusBg, t.StatusBg); // битый — из базы
-        Assert.Equal(Themes.Dark.MatchBg, t.MatchBg); // незаданный — из базы
+        Assert.Equal(Themes.Dark.StatusBg, t.StatusBg); // broken — from base
+        Assert.Equal(Themes.Dark.MatchBg, t.MatchBg); // unset — from base
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public sealed class ThemesTests : IDisposable
         });
         Assert.Equal(new Rgb(0, 0, 0), ThemeCatalog.Resolve(s, "dark").EditorBg);
         Assert.Equal(new List<string> { "dark", "light", "3024 Night (dark)", "Paper (light)" },
-            ThemeCatalog.Names(s)); // без дубля
+            ThemeCatalog.Names(s)); // no duplicates
     }
 
     [Fact]
@@ -120,11 +120,11 @@ public sealed class ThemesTests : IDisposable
         Theme paper = ThemeCatalog.Resolve(s, "Paper (light)");
         Assert.Equal("Paper (light)", paper.Name);
         Assert.Equal(new Rgb(0xF7, 0xF3, 0xEA), paper.EditorBg);
-        // Имена со скобками показываются как есть.
+        // Names with brackets are shown as-is.
         var loc = Loc.Load("en");
         Assert.Equal("3024 Night (dark)", ThemeCatalog.DisplayName(loc, "3024 Night (dark)"));
         Assert.Equal("Paper (light)", ThemeCatalog.DisplayName(loc, "Paper (light)"));
-        // Своя схема может перекрыть и новую встроенную.
+        // A custom scheme can also override a new built-in.
         s.Themes.Add(new ThemeScheme
         {
             Name = "Paper (light)",
@@ -212,7 +212,7 @@ public sealed class ThemesTests : IDisposable
             Colors = new Dictionary<string, string> { ["EditorBg"] = "#111111" },
         });
         store.Save(s);
-        // Ручные правки: комментарии, запятая, camelCase.
+        // Manual edits: comments, comma, camelCase.
         string json = File.ReadAllText(store.Path)
             .Replace("\"Theme\"", "// тема\n\"theme\"")
             .Replace("}\n}", "},\n}");

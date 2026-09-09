@@ -1,47 +1,47 @@
 namespace TuiEdit;
 
-/// <summary>Тип модального попапа (влияет на цвета).</summary>
+/// <summary>Specifies the modal popup kind (affects colors).</summary>
 public enum ModalKind
 {
-    /// <summary>Несохранённые изменения / подтверждение (красный — опасность).</summary>
+    /// <summary>Represents unsaved changes / confirmation (red - danger).</summary>
     UnsavedQuit,
-    /// <summary>О программе (синий).</summary>
+    /// <summary>Represents the about box (blue).</summary>
     About,
-    /// <summary>Ошибка (красный).</summary>
+    /// <summary>Represents an error (red).</summary>
     Error,
-    /// <summary>Перезапись файла (красный).</summary>
+    /// <summary>Represents a file overwrite (red).</summary>
     Overwrite,
-    /// <summary>Недавние файлы (синий, кнопки списком).</summary>
+    /// <summary>Represents recent files (blue, buttons as a list).</summary>
     Recent,
-    /// <summary>Список вкладок (синий, кнопки списком).</summary>
+    /// <summary>Represents the tab list (blue, buttons as a list).</summary>
     Tabs,
-    /// <summary>Восстановление черновиков (синий, кнопки списком).</summary>
+    /// <summary>Represents draft restore (blue, buttons as a list).</summary>
     Restore,
-    /// <summary>Массовая замена (красный).</summary>
+    /// <summary>Represents bulk replace (red).</summary>
     ReplaceConfirm,
-    /// <summary>Автодополнение (синий, кнопки списком).</summary>
+    /// <summary>Represents autocomplete (blue, buttons as a list).</summary>
     Complete,
-    /// <summary>Результаты поиска по файлам (синий, кнопки списком).</summary>
+    /// <summary>Represents file search results (blue, buttons as a list).</summary>
     Grep,
-    /// <summary>Большой файл: подтверждение открытия (красный).</summary>
+    /// <summary>Represents a large file open confirmation (red).</summary>
     LargeFile,
 }
 
-/// <summary>Кнопка попапа: подпись и хоткей-буква (без Enter). '\0' — без хоткея.</summary>
+/// <summary>Represents a popup button: label and hotkey letter (without Enter). '\0' means no hotkey.</summary>
 public sealed record ModalButton(string Label, char Hotkey);
 
 public readonly record struct ModalKeyOutcome(bool Done, bool Cancelled, int Button)
 {
-    /// <summary>Попап остаётся открыт (клавиша проглочена).</summary>
+    /// <summary>Gets an outcome that keeps the popup open (key swallowed).</summary>
     public static readonly ModalKeyOutcome Open = new(false, false, -1);
 
-    /// <summary>Закрыт через Esc.</summary>
+    /// <summary>Creates an outcome closed via Esc.</summary>
     public static ModalKeyOutcome Cancel() => new(true, true, -1);
 
     public static ModalKeyOutcome Press(int index) => new(true, false, index);
 }
 
-/// <summary>Модальный попап: рамка с заголовком, фокус-ловушка (весь ввод глотается), Esc — отмена, кнопки — Enter, стрелки и одноклавишные хоткеи.</summary>
+/// <summary>Represents a modal popup: titled frame, focus trap (swallows all input), Esc cancels, buttons activate via Enter, arrows, and single-key hotkeys.</summary>
 public sealed class ModalState
 {
     public ModalKind Kind { get; }
@@ -50,15 +50,15 @@ public sealed class ModalState
 
     public List<string> Lines { get; }
 
-    /// <summary>Кнопки слева направо.</summary>
+    /// <summary>Gets the buttons left to right.</summary>
     public List<ModalButton> Buttons { get; }
 
     public int Selected { get; private set; }
 
-    /// <summary>Первая видимая кнопка (скролл вертикального списка).</summary>
+    /// <summary>Gets the first visible button (vertical list scroll).</summary>
     public int ButtonTop { get; private set; }
 
-    /// <summary>Сколько кнопок видно разом (скролл вертикального списка).</summary>
+    /// <summary>Gets how many buttons are visible at once (vertical list scroll).</summary>
     public int MaxVisibleButtons { get; }
 
     public bool Danger => Kind is ModalKind.UnsavedQuit or ModalKind.Error or ModalKind.Overwrite or ModalKind.ReplaceConfirm or ModalKind.LargeFile;
@@ -85,7 +85,7 @@ public sealed class ModalState
             ButtonTop = Selected - MaxVisibleButtons + 1;
     }
 
-    /// <summary>Попап «несохранённые изменения»: кнопки с хоткеями в скобках, без хинтов.</summary>
+    /// <summary>Creates the "unsaved changes" popup: buttons with bracketed hotkeys, no hints.</summary>
     public static ModalState UnsavedQuit(Loc loc, string? file) => new(
         ModalKind.UnsavedQuit,
         loc["modal.unsaved.title"],
@@ -114,7 +114,7 @@ public sealed class ModalState
         selected: 0,
         hint: string.Empty);
 
-    /// <summary>Попап ошибки (заголовок и текст уже локализованы вызывающим).</summary>
+    /// <summary>Creates the error popup (title and text are already localized by the caller).</summary>
     public static ModalState Error(Loc loc, string title, string message) => new(
         ModalKind.Error,
         title,
@@ -147,7 +147,7 @@ public sealed class ModalState
         selected: 0,
         hint: string.Empty);
 
-    /// <summary>Большой файл: открыть всё равно? Безопасный дефолт — «Нет».</summary>
+    /// <summary>Creates the large-file prompt: open anyway? Safe default is "No".</summary>
     public static ModalState LargeFile(Loc loc, string fileName, long megabytes, long limitMegabytes) => new(
         ModalKind.LargeFile,
         loc["modal.largefile.title"],
@@ -160,7 +160,7 @@ public sealed class ModalState
         selected: 1,
         hint: string.Empty);
 
-    /// <summary>Попап автодополнения: слова-кандидаты списком; пустой список запрещён.</summary>
+    /// <summary>Creates the autocomplete popup: candidate words as a list; empty lists are rejected.</summary>
     public static ModalState Complete(Loc loc, List<string> words)
     {
         if (words.Count == 0)
@@ -175,7 +175,7 @@ public sealed class ModalState
             maxVisibleButtons: 10);
     }
 
-    /// <summary>Попап результатов grep: строки файл:строка; пустой список запрещён.</summary>
+    /// <summary>Creates the grep results popup: file:line rows; empty lists are rejected.</summary>
     public static ModalState Grep(Loc loc, List<GrepHit> hits)
     {
         if (hits.Count == 0)
@@ -193,7 +193,7 @@ public sealed class ModalState
 
     private static string ShortGrepPath(string path) => Shorten(path, 40);
 
-    /// <summary>Попап недавних файлов: каждый файл — кнопка-строка с хоткеем 1..9,0; видно разом 5, остальные — скроллом; пустой список запрещён.</summary>
+    /// <summary>Creates the recent-files popup: each file is a row button with a 1..9,0 hotkey; shows 5 at once, scrolls the rest; empty lists are rejected.</summary>
     public static ModalState Recent(Loc loc, List<string> files)
     {
         if (files.Count == 0)
@@ -214,7 +214,7 @@ public sealed class ModalState
     private static string Shorten(string path, int max) =>
         path.Length <= max ? path : "..." + path[^(max - 3)..];
 
-    /// <summary>Хоткей кнопки по индексу: 1..9,0, дальше — без хоткея.</summary>
+    /// <summary>Gets the button hotkey by index: 1..9,0, then no hotkey.</summary>
     private static char NumberHotkey(int i) => i < 9 ? (char)('1' + i) : i == 9 ? '0' : '\0';
 
     private static string NumberedLabel(int i, string text)
@@ -223,7 +223,7 @@ public sealed class ModalState
         return hot == '\0' ? $"    {text}" : $"[{hot}] {text}";
     }
 
-    /// <summary>Попап списка вкладок: каждая — кнопка-строка с хоткеем 1..9,0; видно разом 5, остальные — скроллом; пустой список запрещён.</summary>
+    /// <summary>Creates the tab-list popup: each tab is a row button with a 1..9,0 hotkey; shows 5 at once, scrolls the rest; empty lists are rejected.</summary>
     public static ModalState Tabs(Loc loc, List<string> titles)
     {
         if (titles.Count == 0)
@@ -238,7 +238,7 @@ public sealed class ModalState
             maxVisibleButtons: 5);
     }
 
-    /// <summary>Попап восстановления черновиков: каждый — кнопка-строка с хоткеем 1..9,0 и датой сохранения; видно разом 5, остальные — скроллом; пустой список запрещён.</summary>
+    /// <summary>Creates the draft-restore popup: each draft is a row button with a 1..9,0 hotkey and save date; shows 5 at once, scrolls the rest; empty lists are rejected.</summary>
     public static ModalState Restore(Loc loc, List<(string name, DateTime savedAt)> items)
     {
         if (items.Count == 0)
@@ -255,14 +255,14 @@ public sealed class ModalState
             maxVisibleButtons: 5);
     }
 
-    /// <summary>Обрабатывает клавишу: Enter — нажать подсвеченную, Esc — отмена, буква-хоткей — нажать сразу; остальное глотается (фокус-ловушка).</summary>
+    /// <summary>Handles a key: Enter presses the highlighted button, Esc cancels, a letter hotkey presses immediately; swallows the rest (focus trap).</summary>
     public ModalKeyOutcome HandleKey(ConsoleKeyInfo key)
     {
         if (key.Key == ConsoleKey.Escape)
             return ModalKeyOutcome.Cancel();
 
         if ((key.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) != 0)
-            return ModalKeyOutcome.Open; // Ctrl/Alt глотаем, попап не закрываем
+            return ModalKeyOutcome.Open; // Swallows Ctrl/Alt, keeps the popup open
 
         switch (key.Key)
         {
@@ -302,7 +302,7 @@ public sealed class ModalState
     private static bool MatchesHotkey(char pressed, char hotkey) => char.ToUpperInvariant(hotkey) switch
     {
         '\0' => false,
-        // Русская раскладка: S→Ы, N→Т, Y→Н.
+        // Russian layout: S→Ы, N→Т, Y→Н.
         'S' => pressed is 'S' or 'Ы',
         'N' => pressed is 'N' or 'Т',
         'Y' => pressed is 'Y' or 'Н',

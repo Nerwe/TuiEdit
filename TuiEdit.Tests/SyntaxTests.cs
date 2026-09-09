@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Модульная подсветка: грамматики, токенизатор, кэш, реестр.</summary>
+/// <summary>Modular highlighting: grammars, tokenizer, cache, registry.</summary>
 public sealed class SyntaxTests
 {
     private static readonly string SeedDir =
@@ -107,7 +107,7 @@ public sealed class SyntaxTests
         Assert.Equal("keyword", ScopeAt(hl.GetLine(b, Cs(), 0), 0));
         var t1 = hl.GetLine(b, Cs(), 1);
         Assert.Equal("keyword", ScopeAt(t1, 0));
-        Assert.Equal("string", ScopeAt(t1, 11)); // "a//b" — строка бьёт комментарий
+        Assert.Equal("string", ScopeAt(t1, 11)); // "a//b" — string beats comment
         Assert.Equal("comment", ScopeAt(t1, 19));
         var t2 = hl.GetLine(b, Cs(), 2);
         Assert.Equal("keyword", ScopeAt(t2, 0));
@@ -134,8 +134,8 @@ public sealed class SyntaxTests
         var hl = new SyntaxHighlighter();
         var b = Buf("code", "/*", "more");
         Assert.Equal("comment", ScopeAt(hl.GetLine(b, Cs(), 2), 0));
-        b.InsertChar(1, 0, '/'); // "/*" -> "//*" — блочный закрыт исходно, стал строчным
-        Assert.Equal("", ScopeAt(hl.GetLine(b, Cs(), 2), 0)); // пересчиталось ниже
+        b.InsertChar(1, 0, '/'); // "/*" -> "//*" — block was closed originally, became line comment
+        Assert.Equal("", ScopeAt(hl.GetLine(b, Cs(), 2), 0)); // recomputed below
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public sealed class SyntaxTests
         var b = Buf("def f():", "\"\"\"doc", "still # not comment", "\"\"\"", "x = 1 # tail");
         Assert.Equal("keyword", ScopeAt(hl.GetLine(b, py, 0), 0));
         Assert.Equal("string", ScopeAt(hl.GetLine(b, py, 1), 0));
-        Assert.Equal("string", ScopeAt(hl.GetLine(b, py, 2), 8)); // # внутри строки
+        Assert.Equal("string", ScopeAt(hl.GetLine(b, py, 2), 8)); // # inside the string
         var t4 = hl.GetLine(b, py, 4);
         Assert.Equal("number", ScopeAt(t4, 4));
         Assert.Equal("comment", ScopeAt(t4, 6));
@@ -188,7 +188,7 @@ public sealed class SyntaxTests
             """));
         Assert.Equal("TestLang", GrammarRegistry.ForExtension(".testlang")?.Name);
         Assert.Equal("TestLang", GrammarRegistry.ByName("testlang")?.Name);
-        // Повторное имя и расширение перекрываются (без влияния на встроенные).
+        // Repeated name and extension are overridden (without affecting built-ins).
         Assert.True(GrammarRegistry.AddJson("""
             { "Name": "TestLang", "Extensions": [".testlang"],
               "Rules": [ { "Scope": "number", "Match": "\\d+" } ] }
@@ -204,7 +204,7 @@ public sealed class SyntaxTests
         Assert.False(GrammarRegistry.AddJson("{not json"));
         Assert.False(GrammarRegistry.AddJson("""{ "Name": "", "Rules": [] }"""));
         Assert.False(GrammarRegistry.AddJson("""{ "Name": "Empty", "Rules": [] }"""));
-        // Битое правило пропущено, хорошее — работает.
+        // Broken rule skipped, good one works.
         Assert.True(GrammarRegistry.AddJson("""
             { "Name": "HalfBad", "Extensions": [".halfbad"],
               "Rules": [
@@ -230,7 +230,7 @@ public sealed class SyntaxTests
         var toks = hl.GetLine(b, g, 0);
         sw.Stop();
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10));
-        Assert.Equal("", ScopeAt(toks, 0)); // таймаут — обычный текст
+        Assert.Equal("", ScopeAt(toks, 0)); // timeout — plain text
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public sealed class SyntaxTests
         Assert.Equal(dark.SynTypeFg, SyntaxHighlighter.ScopeColor(dark, "type"));
         Assert.Null(SyntaxHighlighter.ScopeColor(dark, ""));
         Assert.Null(SyntaxHighlighter.ScopeColor(dark, "nope"));
-        // Своя тема перекрашивает scope-роли.
+        // A custom theme recolors scope roles.
         var s = new AppSettings();
         s.Themes.Add(new ThemeScheme
         {
@@ -267,7 +267,7 @@ public sealed class SyntaxTests
         Assert.Equal("auto", s.Grammar);
     }
 
-    // --- Инкрементальный кэш: сверка с полным пересчётом (ранний выход Ensure). ---
+    // --- Incremental cache: check against full recompute (early Ensure exit). ---
 
     private static List<List<SyntaxToken>> SnapshotAll(TextBuffer buf, CompiledGrammar g)
     {
@@ -299,10 +299,10 @@ public sealed class SyntaxTests
         var b = BlockBuf();
         var g = Cs();
         var hl = new SyntaxHighlighter();
-        Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 2), 0)); // прогрев кэша
-        b.InsertChar(0, 0, '/'); // правка выше блока
+        Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 2), 0)); // cache warm-up
+        b.InsertChar(0, 0, '/'); // edit above the block
         AssertSameAsFresh(b, hl, g);
-        Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 2), 0)); // состояние доползло вниз
+        Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 2), 0)); // state propagated down
         b.Undo();
         AssertSameAsFresh(b, hl, g);
     }
@@ -314,9 +314,9 @@ public sealed class SyntaxTests
         var g = Cs();
         var hl = new SyntaxHighlighter();
         Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 4), 0));
-        b.InsertString(1, 12, " */"); // закрыли блок на строке 1
+        b.InsertString(1, 12, " */"); // closed the block on line 1
         AssertSameAsFresh(b, hl, g);
-        Assert.Equal("keyword", ScopeAt(hl.GetLine(b, g, 2), 0)); // код снова код
+        Assert.Equal("keyword", ScopeAt(hl.GetLine(b, g, 2), 0)); // code is code again
         b.Undo();
         AssertSameAsFresh(b, hl, g);
         Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 2), 0));
@@ -328,12 +328,12 @@ public sealed class SyntaxTests
         var b = BlockBuf();
         var g = Cs();
         var hl = new SyntaxHighlighter();
-        hl.GetLine(b, g, 4); // прогрев
-        b.InsertString(0, 0, "int z = 0;\n"); // +строка сверху (сдвиг)
+        hl.GetLine(b, g, 4); // warm-up
+        b.InsertString(0, 0, "int z = 0;\n"); // +line on top (shift)
         Assert.Equal(6, b.Count);
         AssertSameAsFresh(b, hl, g);
         Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 3), 0));
-        b.CutLine(0); // удаление строки (сдвиг обратно)
+        b.CutLine(0); // line removal (shift back)
         Assert.Equal(5, b.Count);
         AssertSameAsFresh(b, hl, g);
     }
@@ -344,9 +344,9 @@ public sealed class SyntaxTests
         var b = Buf("int a = 1;", "int b = 1;", "/* x */", "int c = 1;");
         var g = Cs();
         var hl = new SyntaxHighlighter();
-        hl.GetLine(b, g, 3); // прогрев
-        // Несколько очагов за одну версию (один undo-шаг): ранний выход
-        // между очагами обязан перепроверять хвост, а не приклеивать старый.
+        hl.GetLine(b, g, 3); // warm-up
+        // Several hotspots in one version (single undo step): early exit
+        // between hotspots must recheck the tail, not glue the old one.
         Assert.Equal(3, b.ReplaceAll("1", "22", 0, 0, true, false));
         AssertSameAsFresh(b, hl, g);
         Assert.Equal("comment", ScopeAt(hl.GetLine(b, g, 2), 0));
@@ -362,7 +362,7 @@ public sealed class SyntaxTests
         var b = Buf("int z = 3;", "int a = 1;", "int m = 2;");
         var g = Cs();
         var hl = new SyntaxHighlighter();
-        hl.GetLine(b, g, 2); // прогрев
+        hl.GetLine(b, g, 2); // warm-up
         b.SortLines(0, 2);
         AssertSameAsFresh(b, hl, g);
         Assert.Equal("int a = 1;", b.GetLine(0));

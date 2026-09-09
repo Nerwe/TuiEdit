@@ -8,9 +8,9 @@ public enum CharClass
 }
 
 /// <summary>
-/// Word-навигация в стиле VS Code:
-/// пропуск пробелов, затем одно слово или сепаратор
-/// (после одиночного сепаратора — ещё и следующее слово).
+/// Provides VS Code-style word navigation:
+/// skips whitespace, then one word or separator
+/// (after a single separator — also the next word).
 /// </summary>
 public static class WordMotion
 {
@@ -23,7 +23,7 @@ public static class WordMotion
         _ => CharClass.Word,
     };
 
-    /// <summary>Следующая граница слова вперёд (как <c>word_forward</c>).</summary>
+    /// <summary>Finds the next word boundary forward (like <c>word_forward</c>).</summary>
     public static int Forward(string line, int col)
     {
         ArgumentNullException.ThrowIfNull(line);
@@ -44,7 +44,7 @@ public static class WordMotion
         return i;
     }
 
-    /// <summary>Предыдущая граница слова (как <c>word_backward</c>).</summary>
+    /// <summary>Finds the previous word boundary (like <c>word_backward</c>).</summary>
     public static int Backward(string line, int col)
     {
         ArgumentNullException.ThrowIfNull(line);

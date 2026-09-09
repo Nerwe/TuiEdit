@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>Модальный попап поверх редактора: исход (кнопка/отмена) — колбэком в редактор, где живут pending-действия.</summary>
+/// <summary>Hosts a modal popup over the editor: reports the outcome (button/cancel) via callback to the editor, where pending actions live.</summary>
 internal sealed class ModalDialog : Dialog
 {
     private readonly ModalState _state;
@@ -37,7 +37,7 @@ internal sealed class ModalDialog : Dialog
         int boxW = Math.Min(Math.Max(content + 6, 24), screenW);
         if (boxW < 12)
             return null;
-        // Строки: заголовок + текст + кнопки (у горизонтальных + разделитель) + хинт + рамка.
+        // Rows: title plus text plus buttons (horizontal adds a separator) plus hint plus frame.
         int btnRows = vertical ? Math.Min(_state.MaxVisibleButtons, _state.Buttons.Count) : 2;
         int hintRows = _state.Hint.Length > 0 ? 1 : 0;
         int boxH = 1 + _state.Lines.Count + btnRows + hintRows + 1;
@@ -137,23 +137,23 @@ internal sealed class ModalDialog : Dialog
         _onDone(_state, o);
     }
 
-    /// <summary>Кнопка под hover (рисуется как выбранная); null — нет.</summary>
+    /// <summary>Gets or sets the hovered button (drawn as selected); null means none.</summary>
     public int? HoverButton { get; set; }
 
-    /// <summary>Показывать ли hover (мышь была последним вводом).</summary>
+    /// <summary>Gets or sets a value that indicates whether to show hover (mouse was the last input).</summary>
     public bool HoverActive { get; set; }
 
     /// <summary>
-    /// Клик: кнопка — нажать, внутри бокса мимо кнопок — проглотить,
-    /// снаружи — false (редактор игнорит, модалка не закрывается).
-    /// Раскладка — зеркало Measure/DrawContent.
+    /// Handles a click: presses a button, swallows misses inside the box,
+    /// returns false outside (the editor ignores it, the modal stays open).
+    /// Layout mirrors Measure/DrawContent.
     /// </summary>
     public override bool HandleClick(int x, int y, int screenW, int screenH, Loc loc)
     {
         int? hit = HitButton(x, y, screenW, screenH, loc);
         if (hit is null)
         {
-            // Внутри бокса мимо кнопок — глушим (фокус-ловушка); снаружи — false.
+            // Swallows misses inside the box (focus trap); returns false outside.
             DialogBox? box = Measure(screenW, screenH, loc);
             if (box is null)
                 return false;
@@ -165,7 +165,7 @@ internal sealed class ModalDialog : Dialog
         return true;
     }
 
-    /// <summary>Индекс кнопки под координатами или null. Чистая — для hover и тестов.</summary>
+    /// <summary>Gets the button index under coordinates or null. Pure - for hover and tests.</summary>
     public int? HitButton(int x, int y, int screenW, int screenH, Loc loc)
     {
         DialogBox? box = Measure(screenW, screenH, loc);
@@ -201,7 +201,7 @@ internal sealed class ModalDialog : Dialog
         return null;
     }
 
-    /// <summary>Колесо над списком — стрелки (выбор+скролл); горизонтальным — мимо.</summary>
+    /// <summary>Scrolls the list on wheel (selection plus scroll); ignores horizontal layouts.</summary>
     public void ScrollList(int dir)
     {
         if (!IsListKind(_state.Kind))

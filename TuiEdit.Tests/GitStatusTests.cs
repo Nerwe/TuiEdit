@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Git-сегмент статусбара: ветка и грязь tracked-файлов.</summary>
+/// <summary>Git status-bar segment: branch and tracked-file dirt.</summary>
 public sealed class GitStatusTests
 {
     private static bool HaveGit()
@@ -66,7 +66,7 @@ public sealed class GitStatusTests
         {
             string? want = GitStatus.ForFileSync(file);
             Assert.NotNull(want);
-            // Кэш свежий — асинхронный путь отдаёт то же без фонового опроса.
+            // Cache is fresh — the async path returns the same without background polling.
             Assert.Equal(want, GitStatus.ForFile(file));
         }
         finally { try { Directory.Delete(dir, true); } catch { } }
@@ -78,7 +78,7 @@ public sealed class GitStatusTests
         string dir = NewDir();
         try
         {
-            Assert.False(GitProcess.HasRepoRoot(dir)); // пусто — сразу false, без спавна
+            Assert.False(GitProcess.HasRepoRoot(dir)); // empty — false at once, no spawn
             Directory.CreateDirectory(Path.Combine(dir, "sub", "deep"));
             Assert.False(GitProcess.HasRepoRoot(Path.Combine(dir, "sub", "deep")));
             Directory.CreateDirectory(Path.Combine(dir, ".git"));
@@ -136,7 +136,7 @@ public sealed class GitStatusTests
         string dir = InitRepo(out string file);
         try
         {
-            File.AppendAllText(file, "two"); // tracked правка — отдельный репо, кэш чист
+            File.AppendAllText(file, "two"); // tracked edit — separate repo, cache clean
             string? seg = GitStatus.ForFileSync(file);
             Assert.NotNull(seg);
             Assert.StartsWith("⎇ ", seg);
@@ -153,7 +153,7 @@ public sealed class GitStatusTests
         string dir = InitRepo(out _);
         try
         {
-            // Только untracked — по решению не считаем грязью (скорость status).
+            // Untracked only — by design not counted as dirty (status speed).
             string? seg = GitStatus.ForFileSync(Path.Combine(dir, "new.txt"));
             Assert.NotNull(seg);
             Assert.DoesNotContain("*", seg, StringComparison.Ordinal);

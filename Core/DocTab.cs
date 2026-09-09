@@ -1,9 +1,9 @@
 namespace TuiEdit;
 
 /// <summary>
-/// Вкладка документа: буфер + состояние вида (курсор, скролл, выделение).
-/// Активная вкладка держит то же состояние в полях редактора (кэш);
-/// при переключении состояние сохраняется/считывается (см. TuiEditor).
+/// Represents a document tab: buffer plus view state (cursor, scroll, selection).
+/// The active tab mirrors that state in editor fields (cache);
+/// switching tabs saves/restores the state (see TuiEditor).
 /// </summary>
 internal sealed class DocTab
 {
@@ -25,16 +25,16 @@ internal sealed class DocTab
         Buf = buf;
     }
 
-    /// <summary>Подсветка синтаксиса вкладки (кэш инвалидируется по версии буфера).</summary>
+    /// <summary>Gets the tab syntax highlighting (the cache invalidates on buffer version changes).</summary>
     public SyntaxHighlighter Highlighter { get; } = new();
 
-    /// <summary>Закладки: строки (0-based). Сдвиг — через Shift/Drop/Move при правках.</summary>
+    /// <summary>Gets bookmarks: lines (0-based). Shifts via Shift/Drop/Move on edits.</summary>
     public SortedSet<int> Bookmarks { get; } = new();
 
-    /// <summary>Свёртки: стартовые строки блоков. Концы считаются по отступу.</summary>
+    /// <summary>Gets folds: block start lines. Ends derive from indentation.</summary>
     public SortedSet<int> Folds { get; } = new();
 
-    /// <summary>Переключить закладку на строке.</summary>
+    /// <summary>Toggles the bookmark on a line.</summary>
     public bool ToggleBookmark(int row)
     {
         if (!Bookmarks.Add(row))
@@ -45,16 +45,16 @@ internal sealed class DocTab
         return true;
     }
 
-    /// <summary>Сдвинуть закладки начиная со строки (для вставки/удаления строк).</summary>
+    /// <summary>Shifts bookmarks starting at a line (for line insertions/deletions).</summary>
     public void ShiftBookmarks(int fromRow, int delta) => ShiftSet(Bookmarks, fromRow, delta);
 
-    /// <summary>Убрать закладки в диапазоне [first, last] (удаляемые строки).</summary>
+    /// <summary>Removes bookmarks in the [first, last] range (deleted lines).</summary>
     public void DropBookmarks(int first, int last) => DropSet(Bookmarks, first, last);
 
-    /// <summary>Закладки вслед за двигаемым блоком [s, e] (dir −1 вверх, +1 вниз).</summary>
+    /// <summary>Moves bookmarks along with the moved block [s, e] (dir -1 moves up, +1 moves down).</summary>
     public void MoveBookmarks(int s, int e, int dir) => MoveSet(Bookmarks, s, e, dir);
 
-    /// <summary>Выкинуть закладки за пределами документа (после undo и т.п.).</summary>
+    /// <summary>Discards bookmarks outside the document (after undo etc.).</summary>
     public void ClampBookmarks(int count) => Bookmarks.RemoveWhere(r => r < 0 || r >= count);
 
     /// <summary>Shifts bookmarks and fold starts together (single call for paired edits).</summary>
@@ -85,16 +85,16 @@ internal sealed class DocTab
         ClampFolds(count);
     }
 
-    /// <summary>Сдвинуть старты свёрток (концы пересчитываются по отступу).</summary>
+    /// <summary>Shifts fold starts (ends are recalculated from indentation).</summary>
     public void ShiftFolds(int fromRow, int delta) => ShiftSet(Folds, fromRow, delta);
 
-    /// <summary>Убрать свёртки в диапазоне [first, last].</summary>
+    /// <summary>Removes folds in the [first, last] range.</summary>
     public void DropFolds(int first, int last) => DropSet(Folds, first, last);
 
-    /// <summary>Старты свёрток вслед за двигаемым блоком.</summary>
+    /// <summary>Moves fold starts along with the moved block.</summary>
     public void MoveFolds(int s, int e, int dir) => MoveSet(Folds, s, e, dir);
 
-    /// <summary>Выкинуть свёртки за пределами документа.</summary>
+    /// <summary>Discards folds outside the document.</summary>
     public void ClampFolds(int count) => Folds.RemoveWhere(r => r < 0 || r >= count);
 
     private static void ShiftSet(SortedSet<int> set, int fromRow, int delta)
@@ -137,7 +137,7 @@ internal sealed class DocTab
         }
     }
 
-    /// <summary>Заголовок вкладки: имя файла или «без имени», грязным — «*».</summary>
+    /// <summary>Gets the tab title: file name or untitled, with "*" when dirty.</summary>
     public string TabTitle(Loc loc) =>
         (Buf.FilePath is null ? loc["status.untitled"] : Path.GetFileName(Buf.FilePath))
         + (Buf.IsModified ? "*" : string.Empty);

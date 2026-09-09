@@ -5,8 +5,8 @@ using System.Text.RegularExpressions;
 namespace TuiEdit;
 
 /// <summary>
-/// Правило подсветки: однострочное совпадение (Match) или многострочная
-/// конструкция (Begin/End). Scope: keyword, string, comment, number, type.
+/// Represents a highlighting rule: a single-line match (Match) or a multiline
+/// construct (Begin/End). Scope: keyword, string, comment, number, type.
 /// </summary>
 public sealed class GrammarRule
 {
@@ -17,8 +17,8 @@ public sealed class GrammarRule
 }
 
 /// <summary>
-/// JSON-грамматика языка: имя, расширения, регистр, упорядоченные правила.
-/// Ранее в списке — выше приоритет при ничьей, иначе побеждает самое раннее.
+/// Represents a language JSON grammar: name, extensions, case handling, and ordered rules.
+/// Earlier in the list means higher priority on ties, otherwise the earliest match wins.
 /// </summary>
 public sealed class Grammar
 {
@@ -29,13 +29,13 @@ public sealed class Grammar
     public List<GrammarRule> Rules { get; set; } = new();
 }
 
-/// <summary>Скомпилированное правило (битые шаблоны уже выкинуты).</summary>
+/// <summary>Represents a compiled rule (invalid patterns already discarded).</summary>
 internal sealed record CompiledRule(string Scope, Regex? Match, Regex? Begin, Regex? End)
 {
     public bool IsMultiline => Begin is not null;
 }
 
-/// <summary>Скомпилированная грамматика.</summary>
+/// <summary>Represents a compiled grammar.</summary>
 internal sealed class CompiledGrammar
 {
     public string Name { get; }
@@ -50,7 +50,7 @@ internal sealed class CompiledGrammar
     }
 }
 
-/// <summary>Реестр грамматик: папка рядом с settings.json (перекрывает встроенные).</summary>
+/// <summary>Provides the grammar registry: a folder next to settings.json (overrides built-in grammars).</summary>
 internal static class GrammarRegistry
 {
     private const string ResourcePrefix = "TuiEdit.Grammars.";
@@ -103,7 +103,7 @@ internal static class GrammarRegistry
             LoadEmbedded();
     }
 
-    /// <summary>Выложить отсутствующие встроенные грамматики (правки пользователя не трогаем).</summary>
+    /// <summary>Deploys missing built-in grammars (leaves user edits untouched).</summary>
     private static void SeedDefaults(string dir)
     {
         try
@@ -150,7 +150,7 @@ internal static class GrammarRegistry
         }
     }
 
-    /// <summary>Загрузить папку (*.json по алфавиту, поздние перекрывают). True — хоть одна встала.</summary>
+    /// <summary>Loads a folder (*.json alphabetically, later files override). Returns <see langword="true" /> if at least one grammar loads; otherwise, <see langword="false" />.</summary>
     private static bool LoadDir(string dir)
     {
         string[] files;
@@ -179,7 +179,7 @@ internal static class GrammarRegistry
         return any;
     }
 
-    /// <summary>Добавить грамматику из JSON-текста. Без валидных правил — мимо.</summary>
+    /// <summary>Adds a grammar from JSON text. Returns <see langword="true" /> if the grammar contains valid rules; otherwise, <see langword="false" />.</summary>
     internal static bool AddJson(string json)
     {
         Grammar? g;
@@ -194,8 +194,8 @@ internal static class GrammarRegistry
         if (g is null || string.IsNullOrWhiteSpace(g.Name))
             return false;
         var cg = new CompiledGrammar(g.Name.Trim(), (g.LineComment ?? string.Empty).Trim());
-        // Compiled: грамматики компилируются один раз за сессию, а матчатся
-        // на каждую строку при каждой правке — интерпретатор заметно дороже.
+        // Compiled: grammars compile once per session but match on every line of every edit —
+        // interpreting them per line would be noticeably more expensive.
         RegexOptions opts = RegexOptions.CultureInvariant | RegexOptions.Compiled;
         if (g.IgnoreCase)
             opts |= RegexOptions.IgnoreCase;
@@ -248,7 +248,7 @@ internal static class GrammarRegistry
         return ext.StartsWith('.') ? ext : "." + ext;
     }
 
-    /// <summary>Грамматика по расширению файла (".cs" / "cs", регистр не важен).</summary>
+    /// <summary>Finds a grammar by file extension (".cs" / "cs", case-insensitive).</summary>
     public static CompiledGrammar? ForExtension(string? ext)
     {
         if (string.IsNullOrWhiteSpace(ext))
@@ -257,7 +257,7 @@ internal static class GrammarRegistry
         return _byExt.TryGetValue(NormalizeExt(ext), out CompiledGrammar? g) ? g : null;
     }
 
-    /// <summary>Грамматика по имени языка.</summary>
+    /// <summary>Finds a grammar by language name.</summary>
     public static CompiledGrammar? ByName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))

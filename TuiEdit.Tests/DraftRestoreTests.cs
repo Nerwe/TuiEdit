@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Черновики и попап восстановления.</summary>
+/// <summary>Drafts and the restore popup.</summary>
 public sealed class DraftRestoreTests
 {
     [Theory]
@@ -65,8 +65,8 @@ public sealed class DraftRestoreTests
             buf.Open(target);
             var ed = new TuiEditor(buf, new AppSettings(),
                 new SettingsStore(Path.Combine(dir, "s.json")));
-            buf.InsertChar(0, 0, 'X'); // вкладка 1 грязная
-            ed.NewTab(); // вкладка 2 чистая
+            buf.InsertChar(0, 0, 'X'); // tab 1 is dirty
+            ed.NewTab(); // tab 2 is clean
             Assert.Equal(1, ed.EmergencyDump());
             var all = ds.ReadAll();
             var hit = all.FirstOrDefault(x => target.Equals(x.draft.File, StringComparison.Ordinal));

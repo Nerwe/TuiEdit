@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Паритет strings.ru/en.json и наличие всех ключей, используемых кодом и справкой.</summary>
+/// <summary>Parity of strings.ru/en.json and presence of all keys used by code and help.</summary>
 public sealed class ResourcesTests
 {
     private static Dictionary<string, string> Load(string lang)
@@ -123,7 +123,7 @@ public sealed class ResourcesTests
     [Fact]
     public void AboutHasNoKeyHints()
     {
-        // Окно «О программе» — только информация: без хоткеев и подсказок закрытия.
+        // The "About" window is info-only: no hotkeys or close hints.
         var (ru, en) = Both();
         foreach (var (lang, map) in new[] { ("ru", ru), ("en", en) })
             foreach (string key in map.Keys.Where(k => k.StartsWith("modal.about.", StringComparison.Ordinal)))

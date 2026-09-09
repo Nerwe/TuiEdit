@@ -46,9 +46,9 @@ public sealed class FoldingTests
         ed.ToggleFold();
         Assert.True(IsHidden(ed, 3));
         ed.GoToLineNumber(7);
-        Assert.True(IsHidden(ed, 3)); // прыжок мимо не трогает
+        Assert.True(IsHidden(ed, 3)); // jump past does not touch
         ed.GoToLineNumber(4);
-        Assert.False(IsHidden(ed, 3)); // прыжок внутрь раскрывает
+        Assert.False(IsHidden(ed, 3)); // jump inside unfolds
         Assert.Equal(EditorCommand.ToggleFold,
             KeyMap.Map(new ConsoleKeyInfo('-', ConsoleKey.OemMinus, false, true, false)));
     }

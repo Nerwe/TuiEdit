@@ -1,14 +1,14 @@
 namespace TuiEdit;
 
-/// <summary>Кадр экрана: ячейки (символ + цвета) с diff-выводом; каждый кадр рисуется в память, а в консоль уходят только изменившиеся runs, поэтому нет мигания.</summary>
+/// <summary>Represents a screen frame: cells (character plus colors) with diff output; renders each frame to memory and sends only changed runs to the console, so there is no flicker.</summary>
 public sealed class Screen
 {
     public readonly record struct Cell(char Ch, Rgb Fg, Rgb Bg);
 
-    /// <summary>Операция вывода: непрерывный run одного цвета.</summary>
+    /// <summary>Represents an output operation: a contiguous run of one color.</summary>
     public readonly record struct DrawOp(int X, int Y, string Text, Rgb Fg, Rgb Bg);
 
-    /// <summary>Truecolor-ANSI вывод (false — ближайшие 16 цветов консоли).</summary>
+    /// <summary>Gets or sets a value that indicates whether Truecolor-ANSI output is used; <see langword="false"/> means the nearest 16 console colors.</summary>
     public bool TrueColor { get; set; } = true;
 
     private Cell[,] _cur = new Cell[0, 0];
@@ -18,23 +18,23 @@ public sealed class Screen
 
     public int Height { get; private set; }
 
-    /// <summary>Смена размера (предыдущий кадр сбрасывается — первый вывод полный).</summary>
+    /// <summary>Resizes the screen (resets the previous frame - the first output is full).</summary>
     public void Resize(int width, int height)
     {
         Width = Math.Max(0, width);
         Height = Math.Max(0, height);
         _cur = new Cell[Width, Height];
-        _prev = new Cell[Width, Height]; // '\0' — такого символа мы не пишем, diff будет полным
+        _prev = new Cell[Width, Height]; // '\0' is never written, so diff will be full
     }
 
-    /// <summary>Поставить ячейку (вне экрана — игнорируется).</summary>
+    /// <summary>Sets a cell (ignores off-screen positions).</summary>
     public void Set(int x, int y, char ch, Rgb fg, Rgb bg)
     {
         if ((uint)x < (uint)Width && (uint)y < (uint)Height)
             _cur[x, y] = new Cell(ch, fg, bg);
     }
 
-    /// <summary>Прочитать ячейку (для затемнения фона под диалогами).</summary>
+    /// <summary>Reads a cell (for dimming the backdrop under dialogs).</summary>
     public Cell At(int x, int y) =>
         (uint)x < (uint)Width && (uint)y < (uint)Height ? _cur[x, y] : default;
 
@@ -51,7 +51,7 @@ public sealed class Screen
             Set(x + i, y, ch, fg, bg);
     }
 
-    /// <summary>Верхняя рамка модалки с заголовком ровно шириной boxW (<c>┌─ Title ───┐</c>); единая формула для всех попапов (раньше менеджер/настройки были короче на символ).</summary>
+    /// <summary>Builds the titled top frame of a modal exactly boxW wide (<c>┌─ Title ───┐</c>); uses one formula for all popups (the manager/settings used to be one symbol shorter).</summary>
     public static string TitleRow(string title, int boxW)
     {
         string seg = $" {title} ";
@@ -60,7 +60,7 @@ public sealed class Screen
         return "┌─" + seg + new string('─', Math.Max(0, boxW - 3 - seg.Length)) + "┐";
     }
 
-    /// <summary>Разница с предыдущим кадром runsами: подряд идущие изменившиеся ячейки одного цвета объединяются в одну операцию.</summary>
+    /// <summary>Computes the diff against the previous frame as runs: adjacent changed cells of one color merge into one operation.</summary>
     public List<DrawOp> ComputeDiff()
     {
         var ops = new List<DrawOp>();
@@ -88,7 +88,7 @@ public sealed class Screen
         return ops;
     }
 
-    /// <summary>Зафиксировать кадр как «предыдущий» (копия — текущий остаётся для инкремента).</summary>
+    /// <summary>Snapshots the frame as "previous" (copies - the current stays for increments).</summary>
     public void Swap() => _prev = (Cell[,])_cur.Clone();
 
     public void Flush()
@@ -108,7 +108,7 @@ public sealed class Screen
         }
         catch (Exception ex) when (ex is ArgumentOutOfRangeException or IOException)
         {
-            // Окно успели изменить между кадром и выводом — следующий кадр поправит.
+            // Window was resized between frame and output - the next frame will fix it.
         }
         Swap();
     }

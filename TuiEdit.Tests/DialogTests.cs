@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Единый механизм диалогов.</summary>
+/// <summary>Unified dialog mechanism.</summary>
 public sealed class DialogTests : IDisposable
 {
     private readonly string _dir;
@@ -74,7 +74,7 @@ public sealed class DialogTests : IDisposable
         Assert.Equal(accent, FgAt(scr, 0, 1));
         Assert.Equal('b', CellAt(scr, 1, 1));
         Assert.Equal(@base, FgAt(scr, 1, 1));
-        // Обрезка по видимой ширине (бэктики не считаются).
+        // Clip to visible width (backticks do not count).
         Dialog.WriteSpans(scr, 0, 2, "`abcdef", @base, accent, bg, 2);
         Assert.Equal('b', CellAt(scr, 1, 2));
         Assert.Equal('\0', CellAt(scr, 2, 2));
@@ -113,7 +113,7 @@ public sealed class DialogTests : IDisposable
         Assert.Equal('│', CellAt(_scr, 33, 12));
         Assert.Equal('│', CellAt(_scr, 62, 12));
         probe.HandleKey(K('\x1B', ConsoleKey.Escape));
-        Assert.False(probe.Closed); // закрытие решает наследник, не база
+        Assert.False(probe.Closed); // closing is decided by the heir, not the base
     }
 
     [Fact]
@@ -226,7 +226,7 @@ public sealed class DialogTests : IDisposable
     [Fact]
     public void ModalFrameClosesAfterButtons()
     {
-        // Регрессия: рамка модалки с кнопками в строку закрывается строго под ними.
+        // Regression: a modal frame with buttons in a row closes strictly below them.
         foreach (ModalKind kind in new[] { ModalKind.UnsavedQuit, ModalKind.Overwrite, ModalKind.ReplaceConfirm, ModalKind.Error })
         {
             var scr = new Screen();
@@ -295,17 +295,17 @@ public sealed class DialogTests : IDisposable
     public void HelpDialogStructureAndScroll()
     {
         var hd = new HelpDialog(_loc);
-        Assert.Equal(24, hd.TotalRows); // 7 заголовков + 17 строк, без футера
+        Assert.Equal(24, hd.TotalRows); // 7 headers + 17 rows, no footer
         Assert.Equal(0, hd.Scroll);
         hd.HandleKey(K('\0', ConsoleKey.DownArrow));
         Assert.Equal(1, hd.Scroll);
         hd.HandleKey(K('x', ConsoleKey.X, ctrl: true));
-        Assert.False(hd.Closed); // Ctrl глотается
+        Assert.False(hd.Closed); // Ctrl is swallowed
         var small = new Screen();
         small.Resize(96, 12);
         hd.HandleKey(K('\0', ConsoleKey.End));
         hd.Draw(small, _theme, _loc);
-        Assert.Equal(24 - HelpDialog.VisibleRows(12), hd.Scroll); // кламп к низу
+        Assert.Equal(24 - HelpDialog.VisibleRows(12), hd.Scroll); // clamp to the bottom
         hd.HandleKey(K('\0', ConsoleKey.Home));
         hd.Draw(small, _theme, _loc);
         Assert.Equal(0, hd.Scroll);
@@ -318,7 +318,7 @@ public sealed class DialogTests : IDisposable
     {
         var hd = new HelpDialog(_loc);
         hd.Draw(_scr, _theme, _loc);
-        // Ни одной ячейки с фоном выделения: структура — только рамками ── ──.
+        // No cell with selection background: structure — frames only ── ──.
         var cur = (Array)typeof(Screen).GetField("_cur", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(_scr)!;
         for (int y = 0; y < 28; y++)
@@ -357,8 +357,8 @@ public sealed class DialogTests : IDisposable
         Assert.Equal(new Rgb(50, 50, 50), new Rgb(100, 100, 100).Blend(new Rgb(0, 0, 0), 0.5));
         Assert.Equal(new Rgb(100, 100, 100), new Rgb(100, 100, 100).Blend(new Rgb(0, 0, 0), 0));
         Assert.Equal(new Rgb(0, 0, 0), new Rgb(100, 100, 100).Blend(new Rgb(0, 0, 0), 1));
-        Assert.Equal(6, Dialog.TopY(24, 10)); // min(7, 6) — ниже центра
-        Assert.Equal(0, Dialog.TopY(24, 30)); // высокое окно — не выше нуля
+        Assert.Equal(6, Dialog.TopY(24, 10)); // min(7, 6) — below the center
+        Assert.Equal(0, Dialog.TopY(24, 30)); // tall window — not above zero
         Assert.Equal(7, Dialog.TopY(28, 6)); // min(11, 7)
         DialogBox? box = Dialog.MeasureOptions(80, 24, "T", ["A", "B", "C"], ["x", "y", "z"]);
         Assert.NotNull(box);
@@ -373,10 +373,10 @@ public sealed class DialogTests : IDisposable
         scr.Text(0, 0, "x", new Rgb(255, 255, 255), new Rgb(100, 100, 100));
         var probe = new ProbeDialog { WantW = 30, WantH = 8 };
         probe.Draw(scr, _theme, _loc);
-        Assert.Equal('x', CellAt(scr, 0, 0)); // символ цел, цвета пригашены
+        Assert.Equal('x', CellAt(scr, 0, 0)); // char intact, colors dimmed
         Assert.Equal(new Rgb(255, 255, 255).Blend(new Rgb(0, 0, 0), 0.55), FgAt(scr, 0, 0));
         Assert.Equal(new Rgb(100, 100, 100).Blend(new Rgb(0, 0, 0), 0.55), BgAt(scr, 0, 0));
-        // esc справа в строке заголовка (бокс x0=33,w=30 → 59..61,y=10)
+        // esc on the right in the title row (box x0=33,w=30 → 59..61,y=10)
         Assert.Equal('e', CellAt(scr, 59, 10));
         Assert.Equal('s', CellAt(scr, 60, 10));
         Assert.Equal('c', CellAt(scr, 61, 10));
@@ -386,7 +386,7 @@ public sealed class DialogTests : IDisposable
         legacy.TrueColor = false;
         legacy.Text(0, 0, "x", new Rgb(255, 255, 255), new Rgb(100, 100, 100));
         probe.Draw(legacy, _theme, _loc);
-        Assert.Equal(new Rgb(100, 100, 100), BgAt(legacy, 0, 0)); // legacy — без затемнения
+        Assert.Equal(new Rgb(100, 100, 100), BgAt(legacy, 0, 0)); // legacy — no dimming
     }
 
     [Fact]
@@ -400,7 +400,7 @@ public sealed class DialogTests : IDisposable
         Assert.Contains(all, e => e is SettingEntry s && s.Row == 9);
         Assert.Contains(all, e => e is CommandEntry c && c.Command == EditorCommand.CopyLine);
         Assert.Contains(all, e => e is CommandEntry c && c.Command == EditorCommand.ListTabs);
-        // Фильтр: подпись, значение настройки и шорткат команды.
+        // Filter: caption, setting value, and command shortcut.
         Assert.Equal([new SettingEntry(9)],
             CommandPaletteDialog.ApplyFilter(all, "mouse", settings, loc));
         Assert.Equal([new CommandEntry(EditorCommand.CopyLine, "Edit: Copy line", "^C"), new SettingEntry(10)],
@@ -421,14 +421,14 @@ public sealed class DialogTests : IDisposable
         st.ReplaceView(view, fresh: true);
         st.MoveTo(2, 2);
         Assert.Equal(2, st.Selected);
-        st.ReplaceView(view, fresh: false); // тот же фильтр — строка жива
+        st.ReplaceView(view, fresh: false); // same filter — row stays alive
         Assert.Equal(2, st.Selected);
         st.MoveTo(3, 2);
         Assert.Equal(3, st.Selected);
-        Assert.Equal(2, st.Top); // окно дотянулось
+        Assert.Equal(2, st.Top); // window caught up
         st.Move(-1, 2);
         Assert.Equal(2, st.Selected);
-        st.ReplaceView([], fresh: false); // пусто — безопасно
+        st.ReplaceView([], fresh: false); // empty — safe
         st.MoveTo(1, 2);
         Assert.Equal(0, st.Selected);
     }
@@ -444,7 +444,7 @@ public sealed class DialogTests : IDisposable
         st.MoveTo(19, 5);
         Assert.Equal(19, st.Selected);
         Assert.Equal(15, st.Top);
-        st.ReplaceView(view, fresh: false); // перерисовка — окно стоит
+        st.ReplaceView(view, fresh: false); // redraw — window stays
         Assert.Equal(19, st.Selected);
         Assert.Equal(15, st.Top);
     }
@@ -456,7 +456,7 @@ public sealed class DialogTests : IDisposable
         var store = new SettingsStore(Path.Combine(_cfgDir, "pal8.json"));
         var dlg = new CommandPaletteDialog(settings, store, () => { }, _ => { });
         var scr = new Screen();
-        scr.Resize(80, 24); // окно списка — 14 строк
+        scr.Resize(80, 24); // list window — 14 rows
         dlg.Draw(scr, _theme, _loc);
         var st = dlg.PaletteState;
         Assert.True(st.View.Count > 14);
@@ -466,7 +466,7 @@ public sealed class DialogTests : IDisposable
         Assert.Equal(7, st.Top);
         dlg.HandleKey(K('\0', ConsoleKey.UpArrow));
         Assert.Equal(19, st.Selected);
-        Assert.Equal(7, st.Top); // выделение поднялось, окно стоит
+        Assert.Equal(7, st.Top); // selection moved up, window stays
         dlg.HandleKey(K('\0', ConsoleKey.DownArrow));
         Assert.Equal(20, st.Selected);
         Assert.Equal(7, st.Top);
@@ -481,10 +481,10 @@ public sealed class DialogTests : IDisposable
         EditorCommand? picked = null;
         var dlg = new CommandPaletteDialog(settings, store, () => { changed = true; }, cmd => picked = cmd);
         Assert.Equal(MouseLevel.Off, settings.Mouse);
-        dlg.Paste("мышь"); // ru-локаль фикстуры
+        dlg.Paste("мышь"); // ru locale of the fixture
         var scr = new Screen();
         scr.Resize(80, 24);
-        // Клик по первой видимой строке (заголовок + фильтр → +2).
+        // Click the first visible row (header + filter → +2).
         var box = (DialogBox?)typeof(Dialog)
             .GetMethod("Measure", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(dlg, [80, 24, _loc]);
@@ -492,7 +492,7 @@ public sealed class DialogTests : IDisposable
         dlg.HandleClick(box.Value.X0 + 2, box.Value.Y0 + 2, 80, 24, _loc);
         Assert.Equal(MouseLevel.Basic, settings.Mouse);
         Assert.True(changed);
-        Assert.Null(picked); // настройка — остаёмся открытыми
+        Assert.Null(picked); // setting — stay open
         Assert.False(dlg.Closed);
         Assert.True(File.Exists(Path.Combine(_cfgDir, "pal.json")));
     }
@@ -504,7 +504,7 @@ public sealed class DialogTests : IDisposable
         var store = new SettingsStore(Path.Combine(_cfgDir, "pal4.json"));
         EditorCommand? picked = null;
         var dlg = new CommandPaletteDialog(settings, store, () => { }, cmd => picked = cmd);
-        dlg.Paste("ctrl+p"); // шорткат списка вкладок
+        dlg.Paste("ctrl+p"); // tab-list shortcut
         var scr = new Screen();
         scr.Resize(80, 24);
         var box = (DialogBox?)typeof(Dialog)
@@ -524,13 +524,13 @@ public sealed class DialogTests : IDisposable
         var dlg = new CommandPaletteDialog(settings, store, () => { }, _ => { });
         dlg.Paste("мышь");
         dlg.HandleKey(K('\x1B', ConsoleKey.Escape));
-        Assert.False(dlg.Closed); // первый Esc — чистит фильтр
+        Assert.False(dlg.Closed); // first Esc — clears the filter
         dlg.HandleKey(K('a', ConsoleKey.A));
         Assert.False(dlg.Closed);
         dlg.HandleKey(K('\x1B', ConsoleKey.Escape));
-        Assert.False(dlg.Closed); // снова чистит
+        Assert.False(dlg.Closed); // clears again
         dlg.HandleKey(K('\x1B', ConsoleKey.Escape));
-        Assert.True(dlg.Closed); // пустой фильтр — закрыть
+        Assert.True(dlg.Closed); // empty filter — close
     }
 
     [Fact]
@@ -541,16 +541,16 @@ public sealed class DialogTests : IDisposable
         var dlg = new CommandPaletteDialog(settings, store, () => { }, _ => { });
         var scr = new Screen();
         scr.Resize(80, 24);
-        dlg.Paste("мышь"); // 4 символа, одна строка
+        dlg.Paste("мышь"); // 4 chars, one row
         var probe = new CommandPaletteDialog(settings, store, () => { }, _ => { });
-        probe.Paste("zzz"); // 3 символа, ноль строк — та же высота бокса
+        probe.Paste("zzz"); // 3 chars, zero rows — same box height
         var scr2 = new Screen();
         scr2.Resize(80, 24);
         dlg.Draw(scr, _theme, _loc);
         probe.Draw(scr2, _theme, _loc);
         Assert.NotNull(dlg.Cursor);
         Assert.NotNull(probe.Cursor);
-        Assert.Equal(probe.Cursor.Value.x + 1, dlg.Cursor.Value.x); // +разница фильтров
+        Assert.Equal(probe.Cursor.Value.x + 1, dlg.Cursor.Value.x); // +filter difference
         Assert.Equal(probe.Cursor.Value.y, dlg.Cursor.Value.y);
     }
 
@@ -561,12 +561,12 @@ public sealed class DialogTests : IDisposable
         scr.Resize(60, 10);
         var box = new DialogBox(5, 1, 40, 6);
         Dialog.DrawOptionRows(scr, _theme, box, ["A", "Longer"], ["x", "yy"], 0);
-        // labelW=6: значение "< yy >" невыбранной строки 2 начинается на x=17.
+        // labelW=6: the "< yy >" value of unselected row 2 starts at x=17.
         Assert.Equal('<', CellAt(scr, 17, 3));
         Assert.Equal(_theme.AccentFg, FgAt(scr, 17, 3));
         Assert.Equal(_theme.AccentFg, FgAt(scr, 22, 3)); // '>'
-        Assert.Equal(_theme.ModalFg, FgAt(scr, 16, 3)); // пробел до — обычный
-        Assert.Equal(_theme.ModalFg, FgAt(scr, 23, 3)); // пробел после — обычный
+        Assert.Equal(_theme.ModalFg, FgAt(scr, 16, 3)); // space before — plain
+        Assert.Equal(_theme.ModalFg, FgAt(scr, 23, 3)); // space after — plain
     }
 
     [Fact]
@@ -587,15 +587,15 @@ public sealed class DialogTests : IDisposable
         scr.Resize(100, 30);
         dlg.Draw(scr, _theme, _loc);
         string text = string.Concat(scr.ComputeDiff().Select(o => o.Text));
-        Assert.Contains("Ctrl+T", text); // шорткат команды виден
-        Assert.DoesNotContain("< Ctrl+T >", text); // но не в стрелках
+        Assert.Contains("Ctrl+T", text); // command shortcut is visible
+        Assert.DoesNotContain("< Ctrl+T >", text); // but not in arrows
 
         dlg.Paste("мышь");
         var scr2 = new Screen();
         scr2.Resize(100, 30);
         dlg.Draw(scr2, _theme, _loc);
         string filtered = string.Concat(scr2.ComputeDiff().Select(o => o.Text));
-        Assert.Contains("< Выкл >", filtered); // настройка — переключаемая
+        Assert.Contains("< Выкл >", filtered); // setting — cyclable
     }
 
     [Fact]
@@ -626,7 +626,7 @@ public sealed class DialogTests : IDisposable
         var store = new SettingsStore(Path.Combine(_cfgDir, "pal7.json"));
         EditorCommand? picked = null;
         var dlg = new CommandPaletteDialog(settings, store, () => { }, cmd => picked = cmd);
-        dlg.Paste("ctrl+p"); // команды без опций
+        dlg.Paste("ctrl+p"); // commands without options
         var scr = new Screen();
         scr.Resize(80, 24);
         dlg.Draw(scr, _theme, _loc);
@@ -753,7 +753,7 @@ public sealed class DialogTests : IDisposable
     public void CommandLineAppliesSet()
     {
         var s = new AppSettings();
-        Assert.Null(CommandLine.ApplySet(s, "wrap", null)); // тогл
+        Assert.Null(CommandLine.ApplySet(s, "wrap", null)); // toggle
         Assert.True(s.WordWrap);
         Assert.Null(CommandLine.ApplySet(s, "wrap", "off"));
         Assert.False(s.WordWrap);

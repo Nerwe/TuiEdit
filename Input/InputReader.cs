@@ -8,35 +8,35 @@ internal abstract record InputEvent;
 internal sealed record KeyInput(ConsoleKeyInfo Key) : InputEvent;
 
 /// <summary>
-/// Вставка полным текстом: терминал присылает <c>ESC [ 200 ~ текст ESC [ 201 ~</c>.
+/// Full-text paste: the terminal sends <c>ESC [ 200 ~ text ESC [ 201 ~</c>.
 /// </summary>
 internal sealed record PasteInput(string Text) : InputEvent;
 
-/// <summary>Фокус окна терминала (?1004): true — focus-in (ESC[I), false — focus-out.</summary>
+/// <summary>Terminal window focus (?1004): true — focus-in (ESC[I), false — focus-out.</summary>
 internal sealed record FocusInput(bool GotFocus) : InputEvent;
 
 internal sealed class InputReader
 {
-    /// <summary>Уровень захвата мыши (AppSettings.Mouse, выкл по умолчанию).</summary>
+    /// <summary>Mouse capture level (AppSettings.Mouse, off by default).</summary>
     public static MouseLevel MouseLevel { get; set; } = MouseLevel.Off;
 
-    /// <summary>Мышь включена (любой уровень кроме Off).</summary>
+    /// <summary>Mouse enabled (any level except Off).</summary>
     public static bool MouseEnabled => MouseLevel != MouseLevel.Off;
 
-    /// <summary>Максимум символов хвоста после ESC (SGR-мышь реально короче).</summary>
+    /// <summary>Max tail chars after ESC (SGR mouse is actually shorter).</summary>
     private const int MaxBurst = 24;
 
-    /// <summary>Потолок склейки колеса: один тик — далеко, пачка тиков — одним событием.</summary>
+    /// <summary>Wheel coalescing cap: one tick goes far, a burst of ticks is a single event.</summary>
     private const int MaxWheelCoalesce = 32;
 
     /// <summary>
-    /// Уже разобранные события, ждущие своей очереди (коалесцирование отложило «лишнее»).
+    /// Already parsed events waiting their turn (coalescing deferred the "extra").
     /// </summary>
     private static readonly Queue<InputEvent> _pendingEvents = new();
 
     /// <summary>
-    /// Откат спекулятивного чтения: хвост без своего ESC хранится только вместе
-    /// с синтетическим ESC спереди (инвариант: очередь пуста или начинается с ESC).
+    /// Speculative-read rollback: a tail without its own ESC is stored only together
+    /// with a synthetic ESC in front (invariant: the queue is empty or starts with ESC).
     /// </summary>
     private static readonly Queue<ConsoleKeyInfo> _pendingKeys = new();
 
@@ -46,23 +46,23 @@ internal sealed class InputReader
             return _pendingEvents.Dequeue();
         if (MouseEnabled && OperatingSystem.IsWindows())
         {
-            // Очередь conhost разбираем сами: .NET ReadKey события мыши глотает,
-            // а в блокировке ждёт только клавиш. ReadKey зовём лишь когда спереди
-            // key-down — тогда он возвращается мгновенно, ничего не теряя.
+            // We drain the conhost queue ourselves: .NET ReadKey swallows mouse events,
+            // and blocks waiting for keys only. We call ReadKey only when a
+            // key-down is at the front — then it returns instantly, losing nothing.
             while (true)
             {
                 if (!Terminal.TryPeek(out Terminal.InputRecord rec))
                 {
                     if (!Terminal.WaitForInput(50))
-                        break; // ошибка консоли — старый путь
+                        break; // console error — legacy path
                     continue;
                 }
                 if (rec.EventType == Terminal.MOUSE_EVENT)
                 {
                     if (Terminal.Take() is MouseInput mev)
                     {
-                        // Backpressure: устаревшее движение (за ним уже что-то есть)
-                        // съедаем без рендера — иначе потоп морит клавиши голодом.
+                        // Backpressure: stale motion (something already behind it)
+                        // is eaten without a render — otherwise the flood starves keys.
                         if (mev.Action == MouseAction.Move && Terminal.PendingCount() > 0)
                             continue;
                         return mev;
@@ -71,19 +71,19 @@ internal sealed class InputReader
                 }
                 if (rec.EventType != Terminal.KEY_EVENT || rec.KeyEvent.KeyDown == 0)
                 {
-                    Terminal.Take(); // key-up, ресайз, фокус — мимо
+                    Terminal.Take(); // key-up, resize, focus — skip
                     continue;
                 }
-                break; // спереди key-down
+                break; // key-down at the front
             }
         }
         ConsoleKeyInfo k = TakeKey();
         if (k.Key != ConsoleKey.Escape || !HasChar())
             return new KeyInput(k);
         var burst = new StringBuilder();
-        // Читаем по одному и останавливаемся на первой полной последовательности:
-        // раньше пачка жадно глотала до 24 символов, и быстрый ввод/вставка
-        // после клика съедались и отбрасывались вместе с мусором.
+        // Read one by one and stop at the first complete sequence:
+        // previously a burst greedily ate up to 24 chars, and fast input/paste
+        // after a click was eaten and discarded together with garbage.
         while (HasChar() && burst.Length < MaxBurst)
         {
             burst.Append(TakeKey().KeyChar);
@@ -91,56 +91,56 @@ internal sealed class InputReader
             if (s.StartsWith("[200~", StringComparison.Ordinal))
                 return new PasteInput(ReadBracketedPaste(s[5..]));
             if ("[200~".StartsWith(s, StringComparison.Ordinal))
-                continue; // строгий префикс маркера вставки — ждём хвост
+                continue; // strict prefix of the paste marker — wait for the tail
             if (s is "[I" or "[O")
             {
                 var focus = new FocusInput(s == "[I");
                 if (focus.GotFocus && MouseLevel != MouseLevel.Off)
-                    Terminal.RestoreModes(MouseLevel); // ConPTY мог сбросить DEC-режимы
+                    Terminal.RestoreModes(MouseLevel); // ConPTY may have reset DEC modes
                 return focus;
             }
             if (MouseEnabled && s.Length >= 2 && s[0] == '[' && s[1] == '<')
             {
                 if (s[^1] is 'M' or 'm')
                     return FinishMouse(s, k);
-                continue; // SGR-мышь без терминатора — ждём
+                continue; // SGR mouse without a terminator — wait
             }
-            break; // неизвестный CSI — как раньше: отбросить, вернуть Esc
+            break; // unknown CSI — as before: drop, return Esc
         }
-        // Не paste — пачку отбрасываем, чтобы мусор не попал в текст.
+        // Not paste — drop the burst so garbage does not get into the text.
         return new KeyInput(k);
     }
 
     /// <summary>
-    /// Полная SGR-последовательность: разобрать, среднюю/правую отбросить в Esc
-    /// (как раньше), колесо и движение склеить с соседями из того же чанка.
+    /// Full SGR sequence: parse, drop middle/right into Esc
+    /// (as before), coalesce wheel and motion with neighbors from the same chunk.
     /// </summary>
     private static InputEvent FinishMouse(string s, ConsoleKeyInfo esc)
     {
         if (MouseInput.TryParse(s) is not MouseInput m)
-            return new KeyInput(esc); // битый SGR — как раньше: Esc
+            return new KeyInput(esc); // broken SGR — as before: Esc
         if (m.Action == MouseAction.MiddlePress)
-            return new KeyInput(esc); // потребителей нет — как раньше: Esc
-        return Coalesce(m); // RightPress — в HandleMouseAt (копия по выделению)
+            return new KeyInput(esc); // no consumers — as before: Esc
+        return Coalesce(m); // RightPress — into HandleMouseAt (copy by selection)
     }
 
     /// <summary>
-    /// Склейка событий из одного stdin-чанка: колесо одного направления — в Count,
-    /// движение — в последнюю позицию; чужое событие откладывается в очередь.
+    /// Coalesce events from one stdin chunk: same-direction wheel — into Count,
+    /// motion — into the last position; a foreign event is deferred to the queue.
     /// </summary>
     private static MouseInput Coalesce(MouseInput first)
     {
         bool wheel = first.Action is MouseAction.WheelUp or MouseAction.WheelDown;
         if (!wheel && first.Action != MouseAction.Move)
-            return first; // клики — сразу, задержка недопустима
+            return first; // clicks — immediately, delay is unacceptable
         int count = first.Count, x = first.X, y = first.Y;
         while (HasChar())
         {
             string? seq = TakeRawSequence();
             if (seq is null)
-                break; // не мышь или обрывок — хвост уже откачен, стоп
+                break; // not mouse or fragment — tail already rolled back, stop
             if (MouseInput.TryParse(seq) is not MouseInput m)
-                break; // битый SGR — отбросить, стоп
+                break; // broken SGR — drop, stop
             if (wheel && m.Action == first.Action && count < MaxWheelCoalesce)
             {
                 count += m.Count;
@@ -151,10 +151,10 @@ internal sealed class InputReader
             if (!wheel && m.Action == MouseAction.Move)
             {
                 x = m.X;
-                y = m.Y; // hover: жива только последняя позиция
+                y = m.Y; // hover: only the last position stays alive
                 continue;
             }
-            // Средняя/правая в середине пачки: как раньше — Esc, а не событие.
+            // Middle/right in the middle of a burst: as before — Esc, not an event.
             _pendingEvents.Enqueue(m.Action is MouseAction.MiddlePress or MouseAction.RightPress
                 ? new KeyInput(new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false))
                 : m);
@@ -164,9 +164,9 @@ internal sealed class InputReader
     }
 
     /// <summary>
-    /// Спекулятивно забрать одну полную SGR-последовательность («[&lt;…M/m»).
-    /// Не мышь или обрывок — откатить всё назад (с синтетическим ESC спереди)
-    /// и вернуть null, ничего не потеряв.
+    /// Speculatively take one full SGR sequence ("[&lt;...M/m").
+    /// Not mouse or a fragment — roll everything back (with a synthetic ESC in front)
+    /// and return null, losing nothing.
     /// </summary>
     private static string? TakeRawSequence()
     {
@@ -178,13 +178,13 @@ internal sealed class InputReader
             if (s.Length >= 2 && (s[0] != '[' || s[1] != '<'))
             {
                 PushBack(sb.ToString());
-                return null; // не мышь (стрелка, вставка, …) — откат
+                return null; // not mouse (arrow, paste, ...) — rollback
             }
             if (s.Length >= 2 && s[0] == '[' && s[1] == '<' && s[^1] is 'M' or 'm')
-                return s; // полная SGR-мышь
+                return s; // full SGR mouse
         }
         PushBack(sb.ToString());
-        return null; // обрывок или перебор — откат, разберём позже
+        return null; // fragment or overflow — rollback, parse later
     }
 
     private static void PushBack(string tail)

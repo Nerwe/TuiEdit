@@ -2,26 +2,26 @@ namespace TuiEdit;
 
 public readonly record struct DialogBox(int X0, int Y0, int W, int H);
 
-/// <summary>Базовый класс диалогового окна: центрирование, рамка с заголовком, цикл ввода с фокус-ловушкой.</summary>
+/// <summary>Provides the base dialog window: centering, a titled frame, and an input loop with a focus trap.</summary>
 internal abstract class Dialog
 {
-    /// <summary>Диалог закрыт — цикл Render/Read завершается.</summary>
+    /// <summary>Gets a value that indicates whether the dialog is closed - the Render/Read loop then exits.</summary>
     public bool Closed { get; protected set; }
 
     protected abstract string GetTitle(Loc loc);
 
-    /// <summary>Рамка по центру экрана под контент (null — не влезает); каждый наследник повторяет свою прежнюю формулу размера 1 в 1.</summary>
+    /// <summary>Measures the centered content frame (returns null when it does not fit); every heir mirrors its former size formula exactly.</summary>
     protected abstract DialogBox? Measure(int screenW, int screenH, Loc loc);
 
-    /// <summary>Контент поверх пустой рамки (внутренняя ширина — box.W - 2).</summary>
+    /// <summary>Draws content over the empty frame (inner width is box.W - 2).</summary>
     protected abstract void DrawContent(Screen screen, Theme theme, Loc loc, Rgb fg, Rgb bg, DialogBox box);
 
     protected virtual (Rgb fg, Rgb bg) FrameColors(Theme theme) => (theme.ModalFg, theme.ModalBg);
 
-    /// <summary>Цвет заголовка в рамке (по умолчанию акцент).</summary>
+    /// <summary>Gets the frame title color (accent by default).</summary>
     protected virtual Rgb TitleFg(Theme theme) => theme.AccentFg;
 
-    /// <summary>Цвет приглушённых хинтов рамки (esc).</summary>
+    /// <summary>Gets the dimmed frame hint color (esc).</summary>
     protected virtual Rgb HintFg(Theme theme) => theme.ModalHintFg;
 
     public void Draw(Screen screen, Theme theme, Loc loc)
@@ -36,9 +36,9 @@ internal abstract class Dialog
     }
 
     /// <summary>
-    /// Затемнить фон под окном (окно «всплывает»). Только truecolor;
-    /// в legacy-режиме пропускаем. Кадр за кадром стабильно: редактор
-    /// под окном перерисовывается свежим каждый Render.
+    /// Dims the backdrop under the window (makes the window "pop"). Truecolor only;
+    /// skips legacy mode. Stable frame after frame: the editor
+    /// underneath redraws fresh on every Render.
     /// </summary>
     protected static void DimBackdrop(Screen screen)
     {
@@ -68,27 +68,27 @@ internal abstract class Dialog
         screen.Text(box.X0, box.Y0 + box.H - 1, "└" + new string('─', box.W - 2) + "┘", fg, bg);
     }
 
-    /// <summary>Обработать клавишу (фокус-ловушка: всё глотается).</summary>
+    /// <summary>Handles a key (focus trap: swallows everything).</summary>
     public abstract void HandleKey(ConsoleKeyInfo key);
 
-    /// <summary>Клик: true — обработан (включая глушение), false — мимо окна.</summary>
+    /// <summary>Handles a click: returns <see langword="true"/> if handled (including swallowing), otherwise <see langword="false"/> for a miss.</summary>
     public virtual bool HandleClick(int x, int y, int screenW, int screenH, Loc loc) => false;
 
-    /// <summary>Вставка из буфера обмена (по умолчанию игнор).</summary>
+    /// <summary>Pastes from the clipboard (ignores by default).</summary>
     public virtual void Paste(string text)
     {
     }
 
-    /// <summary>Отмена извне без исхода (напр. потеря консоли).</summary>
+    /// <summary>Cancels from the outside without an outcome (e.g. console loss).</summary>
     public virtual void Cancel() => Closed = true;
 
-    /// <summary>Позиция аппаратного курсора (null — спрятать).</summary>
+    /// <summary>Gets the hardware cursor position (null hides it).</summary>
     public virtual (int x, int y)? Cursor => null;
 
-    /// <summary>Убрать разметку `акцента` (для консольного --help).</summary>
+    /// <summary>Strips `accent` markup (for console --help).</summary>
     internal static string StripSpans(string s) => s.Replace("`", "");
 
-    /// <summary>Видимая длина строки со спанами.</summary>
+    /// <summary>Measures the visible length of a string with spans.</summary>
     internal static int SpanWidth(string s)
     {
         int n = 0;
@@ -98,7 +98,7 @@ internal abstract class Dialog
         return n;
     }
 
-    /// <summary>Строка с `акцентными` кусками (как bold-ключи в подвалах opencode); пишет до maxWidth видимых символов.</summary>
+    /// <summary>Writes a string with `accented` chunks (like bold keys in opencode footers); writes up to maxWidth visible symbols.</summary>
     internal static void WriteSpans(Screen screen, int x, int y, string text, Rgb fg, Rgb accentFg, Rgb bg, int maxWidth)
     {
         int cx = x, left = maxWidth;
@@ -117,11 +117,11 @@ internal abstract class Dialog
         }
     }
 
-    /// <summary>Верх окна: ниже центра (четверть экрана), но не выше центра для высоких окон.</summary>
+    /// <summary>Computes the window top: below center (a quarter of the screen), but not above center for tall windows.</summary>
     internal static int TopY(int screenH, int boxH) =>
         Math.Max(0, Math.Min((screenH - boxH) / 2, screenH / 4));
 
-    /// <summary>Замер окна опций: подписи слева, значения в ровной колонке.</summary>
+    /// <summary>Measures the options window: labels on the left, values in an aligned column.</summary>
     internal static DialogBox? MeasureOptions(int screenW, int screenH, string title, string[] labels, string[] values)
     {
         if (screenW < 20 || screenH < 5)
@@ -143,8 +143,8 @@ internal abstract class Dialog
     }
 
     /// <summary>
-    /// Строки опций: маркер ● у выбранной, значения в одной колонке акцентным цветом.
-    /// Переключаемые — в стрелках (&lt; &gt;), plain — голым текстом (команды без опций).
+    /// Draws option rows: a ● marker on the selected row, values in one column with the accent color.
+    /// Switchable values render in arrows (&lt; &gt;), plain values render as bare text (commands without options).
     /// </summary>
     internal static void DrawOptionRows(Screen screen, Theme theme, DialogBox box,
         string[] labels, string[] values, int selected, bool[]? plain = null)
@@ -166,8 +166,8 @@ internal abstract class Dialog
             cell = cell.PadRight(inner);
             int y = box.Y0 + 1 + i;
             screen.Text(box.X0, y, "│", fg, bg);
-            // Значение — в ровной колонке акцентным (на выбранной строке — инверсия).
-            // Сдвиг: " "(1) + маркер(2) + подпись + "  "(2) — ровно начало val.
+            // Renders the value in an aligned column with accent (inverted on the selected row).
+            // Offset: " "(1) + marker(2) + label + "  "(2) - exactly the start of val.
             int valX = 1 + 2 + labelW + 2;
             for (int k = 0; k < cell.Length && k < inner; k++)
             {
@@ -179,11 +179,11 @@ internal abstract class Dialog
         }
     }
 
-    /// <summary>Значение строки опций: переключаемое — в стрелках, plain/пустое — как есть.</summary>
+    /// <summary>Formats an option row value: switchable values get arrows, plain/empty values stay as-is.</summary>
     internal static string FormatOptionValue(string value, bool plain) =>
         plain || value.Length == 0 ? value : $"< {value} >";
 
-    /// <summary>Центрировать текст (обрезается до ширины).</summary>
+    /// <summary>Centers text (truncates to the width).</summary>
     internal static string CenterPad(string s, int width)
     {
         if (s.Length >= width)

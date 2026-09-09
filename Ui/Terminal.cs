@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace TuiEdit;
 
-/// <summary>Режимы терминала: включение VT-последовательностей (нужны truecolor-цветам и bracketed paste).</summary>
+/// <summary>Controls terminal modes: enables VT sequences (needed for truecolor colors and bracketed paste).</summary>
 internal static class Terminal
 {
     private const int STD_INPUT_HANDLE = -10;
@@ -89,7 +89,7 @@ internal static class Terminal
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetNumberOfConsoleInputEvents(IntPtr hConsoleInput, out uint lpcNumberOfEvents);
 
-    /// <summary>Включить обработку VT-последовательностей для вывода; на Unix VT есть изначально (кроме dumb-терминалов).</summary>
+    /// <summary>Enables VT sequence processing for output; on Unix VT exists from the start (except dumb terminals).</summary>
     public static bool TryEnableVirtualTerminal()
     {
         if (!OperatingSystem.IsWindows())
@@ -115,7 +115,7 @@ internal static class Terminal
         }
     }
 
-    /// <summary>Пригасить обработку ввода (без VT_INPUT): снимаем LINE/ECHO/PROCESSED, иначе conhost перехватывает Ctrl+S как паузу вывода (XOFF); VIRTUAL_TERMINAL_INPUT намеренно не ставим — с ним стрелки/F-клавиши/Alt-комбинации приходят ESC-последовательностями, а .NET ReadKey их не собирает; WINDOW_INPUT не нужен (ресайз виден по WindowWidth/Height); на Unix ничего не делаем.</summary>
+    /// <summary>Dims input processing (without VT_INPUT): clears LINE/ECHO/PROCESSED, otherwise conhost intercepts Ctrl+S as output pause (XOFF); deliberately omits VIRTUAL_TERMINAL_INPUT - with it arrows/F-keys/Alt combos arrive as ESC sequences that .NET ReadKey never collects; skips WINDOW_INPUT (resize is visible via WindowWidth/Height); does nothing on Unix.</summary>
     public static bool TryEnableRawInput()
     {
         if (!OperatingSystem.IsWindows())
@@ -139,9 +139,9 @@ internal static class Terminal
     }
 
     /// <summary>
-    /// SGR-последовательность включения мыши по уровню (чистая функция для тестов).
-    /// Старшие режимы гасятся первыми: часть терминалов считает ?1000/?1002/?1003
-    /// одним семейством, где побеждает последняя последовательность.
+    /// Builds the SGR mouse-enable sequence per level (a pure function for tests).
+    /// Disables higher modes first: some terminals treat ?1000/?1002/?1003
+    /// as one family where the last sequence wins.
     /// </summary>
     internal static string MouseEnableSequence(MouseLevel level) => level switch
     {
@@ -151,13 +151,13 @@ internal static class Terminal
         _ => "",
     };
 
-    /// <summary>Выключение всех мышиных режимов разом.</summary>
+    /// <summary>Builds the sequence that disables all mouse modes at once.</summary>
     internal static string MouseDisableSequence() => "\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?1000l";
 
-    /// <summary>Включить отчёты мыши (клики+колесо) и SGR-расширение; терминалы без поддержки игнорят.</summary>
+    /// <summary>Enables mouse reports (clicks plus wheel) and the SGR extension; terminals without support ignore them.</summary>
     public static void TryEnableMouse() => SetMouseLevel(MouseLevel.Basic);
 
-    /// <summary>Включить отчёты мыши заданного уровня.</summary>
+    /// <summary>Enables mouse reports at the given level.</summary>
     public static void SetMouseLevel(MouseLevel level)
     {
         try
@@ -172,27 +172,27 @@ internal static class Terminal
         }
     }
 
-    /// <summary>Выключить отчёты мыши (вызывать при выходе и в crash handler).</summary>
+    /// <summary>Disables mouse reports (calls on exit and in the crash handler).</summary>
     public static void DisableMouse()
     {
         try { Console.Write(MouseDisableSequence()); } catch { }
     }
 
-    /// <summary>Включить отчёты фокуса окна (?1004: ESC[I / ESC[O).</summary>
+    /// <summary>Enables window focus reports (?1004: ESC[I / ESC[O).</summary>
     public static void TryEnableFocusTracking()
     {
         try { Console.Write("\x1b[?1004h"); } catch { }
     }
 
-    /// <summary>Выключить отчёты фокуса (выход, crash handler).</summary>
+    /// <summary>Disables focus reports (exit, crash handler).</summary>
     public static void DisableFocusTracking()
     {
         try { Console.Write("\x1b[?1004l"); } catch { }
     }
 
     /// <summary>
-    /// Переотправить активные режимы: Windows Terminal/ConPTY молча сбрасывает
-    /// DEC-режимы при потере фокуса. Вызывать по focus-in (ESC[I).
+    /// Resends active modes: Windows Terminal/ConPTY silently resets
+    /// DEC modes on focus loss. Calls on focus-in (ESC[I).
     /// </summary>
     public static void RestoreModes(MouseLevel level)
     {
@@ -201,8 +201,8 @@ internal static class Terminal
         try
         {
             Console.Write(MouseEnableSequence(level));
-            Console.Write("\x1b[?1004h"); // фокус-трекинг тоже могли сбросить
-            Console.Write("\x1b[?2004h"); // bracketed paste — туда же
+            Console.Write("\x1b[?1004h"); // Focus tracking could be reset too
+            Console.Write("\x1b[?2004h"); // Bracketed paste - same
         }
         catch
         {
@@ -210,7 +210,7 @@ internal static class Terminal
     }
 
     /// <summary>
-    /// Подсмотреть первую запись очереди ввода, не съедая (только Windows).
+    /// Peeks the first input queue record without consuming it (Windows only).
     /// </summary>
     internal static bool TryPeek(out InputRecord rec)
     {
@@ -231,7 +231,7 @@ internal static class Terminal
         }
     }
 
-    /// <summary>Съесть одну запись спереди; событие мыши — транслировать (остальное — null).</summary>
+    /// <summary>Consumes one record from the front; translates a mouse event (returns null for the rest).</summary>
     internal static MouseInput? Take()
     {
         if (!OperatingSystem.IsWindows())
@@ -253,10 +253,10 @@ internal static class Terminal
     }
 
     /// <summary>
-    /// Впереди key-down? Мышиные записи игнорятся, key-up и прочий мусор
-    /// съедаются (релизы клавиш .NET всё равно не отдаёт). Нужно проверкам
-    /// готовности: голый KeyAvailable истинен и на мыши, а ReadKey поверх
-    /// неё блокируется/глотает ввод.
+    /// Peeks whether a key-down is ahead. Ignores mouse records, consumes key-up and other junk
+    /// (.NET never reports key releases anyway). Serves readiness checks:
+    /// bare KeyAvailable is true on mouse too, while ReadKey over it
+    /// blocks/swallows input.
     /// </summary>
     internal static bool IsKeyPending()
     {
@@ -279,7 +279,7 @@ internal static class Terminal
                     return false;
                 if (rec.EventType == KEY_EVENT && rec.KeyEvent.KeyDown != 0)
                     return true;
-                Take(); // key-up, ресайз, фокус — съесть и смотреть дальше
+                Take(); // Consumes key-up, resize, focus and looks further
             }
             return false;
         }
@@ -289,7 +289,7 @@ internal static class Terminal
         }
     }
 
-    /// <summary>Сколько событий в очереди (backpressure для motion).</summary>
+    /// <summary>Gets how many events are queued (backpressure for motion).</summary>
     internal static uint PendingCount()
     {
         if (!OperatingSystem.IsWindows())
@@ -307,7 +307,7 @@ internal static class Terminal
         }
     }
 
-    /// <summary>Спать до ввода (чтобы не крутить CPU в опросе очереди).</summary>
+    /// <summary>Sleeps until input (avoids spinning the CPU while polling the queue).</summary>
     internal static bool WaitForInput(int milliseconds)
     {
         if (!OperatingSystem.IsWindows())
@@ -325,7 +325,7 @@ internal static class Terminal
         }
     }
 
-    /// <summary>MOUSE_EVENT_RECORD — событие v1 (клик/колесо, координаты уже 0-based).</summary>
+    /// <summary>Translates MOUSE_EVENT_RECORD - a v1 event (click/wheel, coordinates already 0-based).</summary>
     internal static MouseInput? TranslateMouse(MouseEventRecord r)
     {
         int x = Math.Max(0, (int)r.MousePosition.X);
@@ -346,11 +346,11 @@ internal static class Terminal
                 MouseButton.None, mods);
         }
         if ((r.EventFlags & MOUSE_MOVED) != 0)
-            return new MouseInput(x, y, MouseAction.Move, PressedButton(r.ButtonState), mods); // движение: hover
+            return new MouseInput(x, y, MouseAction.Move, PressedButton(r.ButtonState), mods); // Motion: hover
         if ((r.ButtonState & FROM_LEFT_1ST_BUTTON_PRESSED) == 0)
             return r.ButtonState == 0 && r.EventFlags == 0
-                ? new MouseInput(x, y, MouseAction.Move) // отпускание: только позиция hover
-                : null; // средняя/правая
+                ? new MouseInput(x, y, MouseAction.Move) // Release: hover position only
+                : null; // Middle/right
         return new MouseInput(x, y, MouseAction.LeftPress, MouseButton.Left, mods);
     }
 
@@ -358,15 +358,15 @@ internal static class Terminal
         (buttons & FROM_LEFT_1ST_BUTTON_PRESSED) != 0 ? MouseButton.Left : MouseButton.None;
 
     /// <summary>
-    /// Вкл/выкл мышь conhost-API (.NET ReadKey её не отдаёт). Выкл возвращает
-    /// и QuickEdit как было (RestoreInput при выходе вернёт вообще всё).
+    /// Toggles mouse via conhost-API (.NET ReadKey never reports it). Disabling also restores
+    /// QuickEdit as it was (RestoreInput on exit restores everything).
     /// </summary>
     public static void ApplyMouseInput(bool on)
     {
         if (!OperatingSystem.IsWindows())
             return;
         if (!_stdinModeSaved)
-            return; // консоль не наша (тесты, редирект) — режимы не трогаем
+            return; // Console is not ours (tests, redirect) - leaves modes alone
         try
         {
             IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
@@ -377,8 +377,8 @@ internal static class Terminal
             uint next;
             if (on)
             {
-                // Гасим QuickEdit, иначе клики уходят в выделение conhost.
-                // EXTENDED_FLAGS обязателен для смены QuickEdit.
+                // Disables QuickEdit, otherwise clicks go to the conhost selection.
+                // EXTENDED_FLAGS is required to change QuickEdit.
                 next = (mode & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS | ENABLE_MOUSE_INPUT;
             }
             else
@@ -395,7 +395,7 @@ internal static class Terminal
         }
     }
 
-    /// <summary>Вернуть режим ввода консоли (вызывать при выходе).</summary>
+    /// <summary>Restores the console input mode (calls on exit).</summary>
     public static void RestoreInput()
     {
         if (!_stdinModeSaved)

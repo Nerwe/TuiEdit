@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>Свёртки по отступу: блок — строки с отступом глубже стартовой (пустые принадлежат).</summary>
+/// <summary>Provides indent-based folding: a block holds lines indented deeper than the start (blank lines belong to it).</summary>
 internal static class Folding
 {
     public static int IndentOf(string line)
@@ -13,7 +13,7 @@ internal static class Folding
 
     public static bool CanFold(IReadOnlyList<string> lines, int row) => EndOf(lines, row) > row;
 
-    /// <summary>Последняя строка блока (без висячих пустых в конце).</summary>
+    /// <summary>Finds the last line of a block (excludes trailing blank lines).</summary>
     public static int EndOf(IReadOnlyList<string> lines, int row)
     {
         if (row < 0 || row >= lines.Count)
@@ -41,7 +41,7 @@ internal static class Folding
         return end;
     }
 
-    /// <summary>Строка скрыта свёрткой (стартовая видима всегда).</summary>
+    /// <summary>Determines whether a line hides inside a fold (the start line always stays visible).</summary>
     public static bool IsHidden(IReadOnlyList<string> lines, SortedSet<int> folds, int row)
     {
         foreach (int f in folds)
@@ -54,7 +54,7 @@ internal static class Folding
         return false;
     }
 
-    /// <summary>Убрать свёртки, содержащие строку (для прыжков внутрь).</summary>
+    /// <summary>Removes folds containing a line (for jumps inside).</summary>
     public static void UnfoldContaining(IReadOnlyList<string> lines, SortedSet<int> folds, int row) =>
         folds.RemoveWhere(f => f < row && EndOf(lines, f) >= row);
 }

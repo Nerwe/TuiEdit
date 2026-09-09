@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Недавние файлы, .bak и попап Recent.</summary>
+/// <summary>Recent files, .bak, and the Recent popup.</summary>
 public sealed class RecentBackupTests
 {
     private static ConsoleKeyInfo Arrow(ConsoleKey k) => new('\0', k, false, false, false);
@@ -89,9 +89,9 @@ public sealed class RecentBackupTests
             b.Open(f);
             b.InsertChar(0, 0, 'N');
             b.Save();
-            // Нормализуем переводы: дефолт детекта для файла без переводов — CRLF.
+            // Normalize line endings: the detection default for a file without breaks is CRLF.
             Assert.Equal("Nold\n", File.ReadAllText(f).Replace("\r\n", "\n"));
-            // Временный файл подтёрт, рядом с целью мусора нет.
+            // The temp file is cleaned up, no litter next to the target.
             Assert.Empty(Directory.GetFiles(dir, "*.tmp"));
         }
         finally { try { Directory.Delete(dir, true); } catch { } }
@@ -119,7 +119,7 @@ public sealed class RecentBackupTests
         Assert.Equal(12, m12.Buttons.Count);
         Assert.Equal('\0', m12.Buttons[10].Hotkey);
         Assert.False(m12.Buttons[10].Label.StartsWith('['));
-        // Текст без номера начинается в той же колонке, что после "[N] ".
+        // Unnumbered text starts in the same column as after "[N] ".
         Assert.Equal(4, m12.Buttons[10].Label.IndexOf("f11.txt", StringComparison.Ordinal));
         Assert.Equal(5, m12.MaxVisibleButtons);
         Assert.Equal(0, m12.Selected);

@@ -2,19 +2,19 @@ namespace TuiEdit;
 
 public sealed record SidebarEntry(string Name, bool IsDir, bool IsHidden = false, bool IsExe = false);
 
-/// <summary>Сайдбар файлов (фиксированная ширина <see cref="Width"/>): плоский список текущей папки (папки первыми, «..» — наверх), подсветка, скролл.</summary>
+/// <summary>Provides the file sidebar (fixed <see cref="Width"/> width): a flat list of the current folder (folders first, ".." goes up), highlight, scroll.</summary>
 public sealed class SidebarState
 {
     public const int Width = 24;
 
-    /// <summary>Показанная папка (всегда полная).</summary>
+    /// <summary>Gets the shown folder (always full).</summary>
     public string CurrentDir { get; private set; } = string.Empty;
 
     public List<SidebarEntry> Entries { get; } = new();
 
     public int Selected { get; private set; }
 
-    /// <summary>Первая видимая строка (скролл).</summary>
+    /// <summary>Gets the first visible row (scroll).</summary>
     public int Top { get; private set; }
 
     public SidebarState(string root)
@@ -22,7 +22,7 @@ public sealed class SidebarState
         NavigateTo(root);
     }
 
-    /// <summary>Перейти в папку (битая — пустой список, молча).</summary>
+    /// <summary>Navigates to a folder (a broken path yields an empty list, silently).</summary>
     public void NavigateTo(string dir)
     {
         Entries.Clear();
@@ -63,7 +63,7 @@ public sealed class SidebarState
     private static readonly HashSet<string> ExeExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".exe", ".bat", ".cmd", ".com", ".ps1", ".sh" };
 
-    /// <summary>Классификация записи: скрытая — точка в начале или атрибут Hidden, исполняемая — файл с известным расширением.</summary>
+    /// <summary>Classifies an entry: hidden means a leading dot or the Hidden attribute, executable means a file with a known extension.</summary>
     internal static SidebarEntry Classify(string fullPath, bool isDir)
     {
         string name = Path.GetFileName(fullPath);
@@ -85,7 +85,7 @@ public sealed class SidebarState
         }
     }
 
-    /// <summary>Двинуть подсветку (видимое окно держим через visCount).</summary>
+    /// <summary>Moves the highlight (keeps the visible window via visCount).</summary>
     public void MoveHighlight(int d, int visCount)
     {
         if (Entries.Count == 0)
@@ -98,13 +98,13 @@ public sealed class SidebarState
             Top = Selected - visCount + 1;
     }
 
-    /// <summary>Полный путь подсвеченной строки (null — пусто).</summary>
+    /// <summary>Gets the full path of the highlighted row (null when empty).</summary>
     public string? SelectedPath =>
         Entries.Count == 0 ? null : Path.Combine(CurrentDir, Entries[Selected].Name);
 
     public bool SelectedIsDir => Entries.Count > 0 && Entries[Selected].IsDir;
 
-    /// <summary>Enter: по папке — зайти, по файлу — false (открывает редактор).</summary>
+    /// <summary>Handles Enter: enters a folder; returns <see langword="true"/> on a folder, otherwise <see langword="false"/> on a file (the editor opens it).</summary>
     public bool EnterSelected()
     {
         string? path = SelectedPath;

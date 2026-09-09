@@ -11,7 +11,7 @@ internal sealed partial class TuiEditor
         {
             if (_dialog is not null)
             {
-                _dialog.Paste(paste.Text); // менеджер вставляет, остальные игнорят
+                _dialog.Paste(paste.Text); // Manager inserts, others ignore
                 return;
             }
             _menu = null;
@@ -33,14 +33,14 @@ internal sealed partial class TuiEditor
             HandleMouse(mouse);
             return;
         }
-        _mouseActive = false; // клавиатура/вставка — hover гаснет
-        _mouseDrag = false; // клавиша mid-drag — тяга стоп, выделение как есть
+        _mouseActive = false; // Keyboard/paste clears hover
+        _mouseDrag = false; // Key mid-drag stops the drag, keeps selection as-is
         if (input is KeyInput key)
             HandleKey(key.Key);
-        // Будущие типы событий — игнор, а не каст (мышь уже роняла это место).
+        // Ignores future event types instead of casting (mouse already broke this spot once).
     }
 
-    /// <summary>Мышь: размеры — из консоли, дальше — чистая логика.</summary>
+    /// <summary>Handles the mouse: reads sizes from the console, then runs pure logic.</summary>
     private void HandleMouse(MouseInput m)
     {
         int w, h;
@@ -57,9 +57,9 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>
-    /// Мышь: движение — только hover; модалка — кнопки/колесо/фон-закрыть;
-    /// меню — по кнопкам; табы/панели — фокус; колесо мимо — скролл активной панели.
-    /// Приоритет: модалка → диалог → меню → бар → табы/текст.
+    /// Handles the mouse: motion is hover-only; modals take buttons/wheel/background-close;
+    /// menus take buttons; tabs/panes take focus; stray wheel scrolls the active pane.
+    /// Priority: modal -&gt; dialog -&gt; menu -&gt; bar -&gt; tabs/text.
     /// </summary>
     internal void HandleMouseAt(MouseInput m, int w, int h)
     {
@@ -70,16 +70,16 @@ internal sealed partial class TuiEditor
         _mouseY = m.Y;
         if (m.Action == MouseAction.Move)
         {
-            // hover — только позиция; тяга с зажатой левой — растянуть,
-            // отпускание (m) — завершить. Активации контролов на отпускании
-            // нет сознательно: срабатывание — всегда на press (см. ниже).
+            // Hover tracks position only; drag with held left extends,
+            // release (m) finishes. Activation on release is
+            // deliberately absent: triggers always fire on press (see below).
             if (_mouseDrag && m.Button == MouseButton.Left)
                 ExtendMouseDrag(m, w, h);
             else if (_mouseDrag)
                 EndMouseDrag(copy: true);
             return;
         }
-        _mouseDrag = false; // любое не-движение без viewport-press разоружает тягу
+        _mouseDrag = false; // Any non-motion without viewport-press disarms the drag
         if (_dialog is ModalDialog md)
         {
             if (m.Action is MouseAction.WheelUp or MouseAction.WheelDown)
@@ -90,28 +90,28 @@ internal sealed partial class TuiEditor
                 return;
             }
             if (m.Action != MouseAction.LeftPress)
-                return; // средняя/правая — потребителей нет
+                return; // Middle/right have no consumers
             if (!md.HandleClick(m.X, m.Y, w, h, _loc))
             {
-                // Мимо бокса — как Esc: отмена без исхода (была фокус-ловушка).
+                // Missed the box - acts as Esc: cancels without outcome (was a focus trap).
                 md.HandleKey(new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
             }
             if (ReferenceEquals(_dialog, md) && md.Closed)
-                _dialog = null; // как клавиатурный путь: исход без нового диалога — убрать
+                _dialog = null; // Matches the keyboard path: clears an outcome without a new dialog
             return;
         }
         if (_dialog is not null)
-            return; // RunDialog-диалоги (настройки, менеджер): мыши пока нет
+            return; // RunDialog dialogs (settings, manager): no mouse yet
         if (m.Action == MouseAction.RightPress && _menu is not null)
-            return; // правая по меню — игнор, пункты жмут только левой
+            return; // Ignores right-click on menus, items click with left only
         if (_menu is not null && HandleMenuMouse(m))
             return;
-        // Мимо меню (закрыли) — клик доезжает до текста, как клавиша в HandleMenuKey.
+        // Missed the menu (closed) - lets the click reach text, like a key in HandleMenuKey.
         if (w < 20 || h < 5)
             return;
         if (_menu is null && m.Y == 0 && m.Action == MouseAction.LeftPress)
         {
-            // Закрытое меню: клик по бару открывает (в текст y=0 не попадает).
+            // Closed menu: a bar click opens it (y=0 never hits text).
             int? bar = MenuHit.BarHit(BuildMenus(_loc), m.X, w);
             if (bar is not null)
             {
@@ -124,13 +124,13 @@ internal sealed partial class TuiEditor
             w, h, sideW, _panes.Count, _panes.Any(p => p.Docs.Count > 1));
         if (m.Action is MouseAction.WheelUp or MouseAction.WheelDown)
         {
-            // Колесо вне модалки/меню — всегда скролл активной панели,
-            // даже над гуттером, сайдбаром и статусбаром (fallback).
+            // Wheel outside modal/menu always scrolls the active pane,
+            // even over gutter, sidebar, and status bar (fallback).
             ScrollWheel(m.Action == MouseAction.WheelDown ? 1 : -1, m.Count);
             return;
         }
         if (m.Action is not (MouseAction.LeftPress or MouseAction.RightPress))
-            return; // средняя — потребителей нет
+            return; // Middle has no consumers
         if (layout.TabH == 1 && m.Y == 1)
         {
             if (m.Action != MouseAction.LeftPress)
@@ -152,15 +152,15 @@ internal sealed partial class TuiEditor
         }
         int pane = layout.PaneAt(m.X);
         if (pane < 0)
-            return; // сайдбар: кликов нет
+            return; // Sidebar: no clicks
         if (pane != _pane)
-            SwitchPane(pane); // клик в чужую панель — сначала фокус
+            SwitchPane(pane); // Click in another pane focuses it first
         var g = TextGeom(layout);
         if (m.X < g.cx0 || m.X >= g.x1 || m.Y < g.y0 || m.Y >= g.y1)
-            return; // гуттер/разделитель/статусбар: кликов нет
+            return; // Gutter/divider/status bar: no clicks
         if (m.Action == MouseAction.RightPress)
         {
-            CopyMouseSelection(); // есть выделение — в буфер, нет — игнор
+            CopyMouseSelection(); // Copies a selection to the buffer, ignores none
             return;
         }
         (int row, int col) = LocateClick(_buf.Lines, _docs[_active].Folds, _top, _topSeg,
@@ -170,13 +170,13 @@ internal sealed partial class TuiEditor
         _col = col;
         ClampCursor();
         TrackCol();
-        _mouseDrag = true; // press в тексте: якорь для тяги
+        _mouseDrag = true; // Press in text: drag anchor
         _mousePane = pane;
         _mouseRow = _row;
         _mouseCol = _col;
     }
 
-    /// <summary>Геометрия текста активной панели (гуттер — по её буферу).</summary>
+    /// <summary>Gets the active pane text geometry (gutter follows its buffer).</summary>
     private (int cx0, int x1, int y0, int y1, int cw) TextGeom(EditorLayout layout)
     {
         int numWidth = Math.Max(4, _buf.Count.ToString(CultureInfo.InvariantCulture).Length);
@@ -187,12 +187,12 @@ internal sealed partial class TuiEditor
             layout.Y0 + layout.TextHeight, cw);
     }
 
-    /// <summary>Тяга: растянуть выделение от якоря press до позиции мыши.</summary>
+    /// <summary>Extends the drag selection from the press anchor to the mouse position.</summary>
     private void ExtendMouseDrag(MouseInput m, int w, int h)
     {
         if (_mousePane < 0 || _mousePane >= _panes.Count || _mousePane != _pane)
         {
-            _mouseDrag = false; // фокус mid-drag уехал клавишами — стоп
+            _mouseDrag = false; // Keys moved focus mid-drag - stops
             return;
         }
         EditorLayout layout = EditorLayout.Compute(
@@ -204,14 +204,14 @@ internal sealed partial class TuiEditor
         (int row, int col) = LocateClick(_buf.Lines, _docs[_active].Folds, _top, _topSeg,
             _settings.WordWrap, g.cw, _left, vx, vc);
         if (!_sel.Active)
-            _sel.Start(_mouseRow, _mouseCol); // первая подвижка — якорим press
+            _sel.Start(_mouseRow, _mouseCol); // First move anchors the press
         _row = row;
         _col = col;
         ClampCursor();
         TrackCol();
     }
 
-    /// <summary>Отпускание после тяги: есть выделение — политика копии, нет — гасим.</summary>
+    /// <summary>Releases after a drag: applies the copy policy with a selection, clears without one.</summary>
     private void EndMouseDrag(bool copy)
     {
         _mouseDrag = false;
@@ -221,11 +221,11 @@ internal sealed partial class TuiEditor
             return;
         }
         if (copy && _settings.CopyOnSelect)
-            CopyMouseSelection(); // копирует и гасит
-        // Иначе выделение остаётся для клавиатурных операций.
+            CopyMouseSelection(); // Copies and clears
+        // Otherwise the selection stays for keyboard operations.
     }
 
-    /// <summary>Выделение — во внутренний буфер + OSC 52, с сообщением; пустое — игнор.</summary>
+    /// <summary>Copies the selection to the internal buffer plus OSC 52, with a message; ignores empty selections.</summary>
     private void CopyMouseSelection()
     {
         if (!_sel.HasSelection(_row, _col))
@@ -239,8 +239,8 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>
-    /// Вкладка под координатой X внутри панели (зеркало DrawTabs).
-    /// Возвращает индекс или null (мимо/одна вкладка).
+    /// Hits the tab under X inside a pane (mirrors DrawTabs).
+    /// Returns the index or null (miss/single tab).
     /// </summary>
     internal static int? TabHit(
         IReadOnlyList<string> titles, int active, int tabLeft, int paneW, int x)
@@ -264,8 +264,8 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>
-    /// Мышь при открытом меню: бар — открыть/переключить, дропдаун — пункт, мимо — закрыть.
-    /// Возвращает false, если меню закрыто кликом мимо (клик доезжает до текста).
+    /// Handles mouse with an open menu: bar opens/switches, dropdown picks an item, miss closes.
+    /// Returns false when a stray click closed the menu (the click reaches text).
     /// </summary>
     private bool HandleMenuMouse(MouseInput m)
     {
@@ -283,7 +283,7 @@ internal sealed partial class TuiEditor
             return true;
         if (m.Action != MouseAction.LeftPress)
         {
-            _menu = null; // колесо и прочие — мимо, закрываем
+            _menu = null; // Wheel and others miss, closes
             return true;
         }
         List<TopMenu> menus = _menu.Menus;
@@ -293,8 +293,8 @@ internal sealed partial class TuiEditor
             int was = _menu.OpenIndex;
             _menu = null;
             if (hit is not null && hit.Value != was)
-                OpenMenu(hit.Value); // другое меню — переключить
-            // повтор по своему / мимо ячеек — закрыто
+                OpenMenu(hit.Value); // Switches to another menu
+            // Repeat on own / miss on cells stays closed
             return true;
         }
         int menuX = 0;
@@ -304,13 +304,13 @@ internal sealed partial class TuiEditor
         if (item is null)
         {
             _menu = null;
-            return false; // мимо — закрыть и отдать клик тексту
+            return false; // Miss closes and passes the click to text
         }
         ActivateMenuItem(_menu.Current.Items[item.Value]);
         return true;
     }
 
-    /// <summary>Колесо: курсор ±3 строки за тик (steps — склейка пачки тиков).</summary>
+    /// <summary>Scrolls on wheel: moves the cursor +-3 rows per tick (steps merges a tick batch).</summary>
     private void ScrollWheel(int dir, int steps = 1)
     {
         if (_buf.Count == 0)
@@ -324,7 +324,7 @@ internal sealed partial class TuiEditor
 
     private void HandleKey(ConsoleKeyInfo k)
     {
-        // Открытый диалог глотает весь ввод.
+        // An open dialog swallows all input.
         if (_dialog is not null)
         {
             Dialog d = _dialog;
@@ -334,21 +334,21 @@ internal sealed partial class TuiEditor
             return;
         }
 
-        // Открытое меню перехватывает ввод.
+        // An open menu intercepts input.
         if (_menu is not null)
         {
             HandleMenuKey(k);
             return;
         }
 
-        // Фокус в панели файлов: навигация и Enter глотаются панелью.
+        // Focus in the file panel: the panel swallows navigation and Enter.
         if (_sidebarFocus && _sidebar is not null)
         {
             HandleSidebarKey(k);
             return;
         }
 
-        // Esc гасит активное выделение.
+        // Esc clears the active selection.
         if (k.Key == ConsoleKey.Escape && _sel.HasSelection(_row, _col))
         {
             _sel.Clear();
@@ -371,7 +371,7 @@ internal sealed partial class TuiEditor
         Execute(cmd, k);
     }
 
-    /// <summary>Команды движения курсора (участвуют в Shift-выделении).</summary>
+    /// <summary>Gets cursor movement commands (participate in Shift-selection).</summary>
     private static bool IsMovement(EditorCommand cmd) => cmd switch
     {
         EditorCommand.MoveLeft or EditorCommand.MoveRight
@@ -462,7 +462,7 @@ internal sealed partial class TuiEditor
             EditorCommand? picked = null;
             RunDialog(new CommandPaletteDialog(_settings, _store, ApplySettings, cmd => picked = cmd));
             if (picked is { } pc)
-                _dispatcher.Execute(pc, k); // команда — после закрытия палитры (без вложенности)
+                _dispatcher.Execute(pc, k); // Runs the command after the palette closes (no nesting)
         },
         [EditorCommand.QuickOpen] = _ => QuickOpenFlow(),
         [EditorCommand.CommandLine] = _ => CommandLineFlow(),
@@ -503,14 +503,14 @@ internal sealed partial class TuiEditor
         [EditorCommand.Redo] = _ => { _buf.Redo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.redo"]); },
         [EditorCommand.InsertEnter] = _ =>
         {
-            DeleteSelection(); // замена выделения
+            DeleteSelection(); // Replaces the selection
             (_row, _col) = _buf.SplitLine(_row, _col);
             _docs[_active].ShiftMarks(_row, 1);
             TrackCol();
         },
         [EditorCommand.InsertBackspace] = _ =>
         {
-            if (DeleteSelection()) return; // стереть выделение вместо символа
+            if (DeleteSelection()) return; // Erases the selection instead of a character
             if (_settings.AutoPairs && _buf.DeletePair(_row, _col) is (int ar, int ac))
             {
                 (_row, _col) = (ar, ac);
@@ -525,7 +525,7 @@ internal sealed partial class TuiEditor
         },
         [EditorCommand.InsertDelete] = _ =>
         {
-            if (DeleteSelection()) return; // стереть выделение вместо символа
+            if (DeleteSelection()) return; // Erases the selection instead of a character
             int dr = _row, dc = _col, dl = _buf.GetLine(dr).Length, dn = _buf.Count;
             (_row, _col) = _buf.Delete(_row, _col);
             if (dc >= dl && dr + 1 < dn)
@@ -543,7 +543,7 @@ internal sealed partial class TuiEditor
         [EditorCommand.SelectAll] = _ => SelectAll(),
         [EditorCommand.InsertChar] = k =>
         {
-            DeleteSelection(); // замена выделения вводом
+            DeleteSelection(); // Replaces the selection with input
             if (_settings.AutoPairs && TryAutoPair(k.KeyChar))
                 return;
             _buf.InsertChar(_row, _col, k.KeyChar);
@@ -555,7 +555,7 @@ internal sealed partial class TuiEditor
 
     private void Execute(EditorCommand cmd, ConsoleKeyInfo k) => _dispatcher.Execute(cmd, k);
 
-    /// <summary>Маршрут клавиши при открытом меню.</summary>
+    /// <summary>Routes a key while a menu is open.</summary>
     private void HandleMenuKey(ConsoleKeyInfo k)
     {
         if (k.Key is ConsoleKey.Escape or ConsoleKey.F10)
@@ -610,8 +610,8 @@ internal sealed partial class TuiEditor
         _menu.Open(index);
     }
 
-    /// <summary>Меню-бар: File / Edit / Help.</summary>
-    /// <summary>Подсказка меню: оверрайд биндинга или дефолтный литерал.</summary>
+    /// <summary>Builds the menu bar: File / Edit / Help.</summary>
+    /// <summary>Gets a menu hint: a binding override or the default literal.</summary>
     private static string? Hint(string? literal, EditorCommand cmd) =>
         KeyMap.HintFor(cmd) ?? literal;
 
@@ -660,7 +660,7 @@ internal sealed partial class TuiEditor
         }),
     };
 
-    /// <summary>Общий драйвер диалогов: Render/Read, пока не закроется.</summary>
+    /// <summary>Runs the shared dialog driver: Render/Read until closed.</summary>
     private void RunDialog(Dialog dlg)
     {
         Dialog? prev = _dialog;
@@ -710,7 +710,7 @@ internal sealed partial class TuiEditor
         }
     }
 
-    /// <summary>Файловый менеджер модальным окном (путь или null по Esc).</summary>
+    /// <summary>Runs the file manager as a modal window (path or null on Esc).</summary>
     private string? RunPicker(PickerMode mode, string startDir, string initialName)
     {
         var dlg = new FileDialog(new FilePickerState(mode, startDir, initialName),
@@ -727,7 +727,7 @@ internal sealed partial class TuiEditor
         var field = new LineField();
         field.Set(initial ?? string.Empty);
         field.End(select: false);
-        // Живая подсветка: превью-термин + ререндер на каждое нажатие (курсор не двигаем).
+        // Live highlight: preview term plus rerender on every keystroke (leaves the cursor).
         void RefreshLive()
         {
             if (!liveHighlight)
@@ -757,7 +757,7 @@ internal sealed partial class TuiEditor
             }
             if (ev is MouseInput mm)
             {
-                // Клик по тоглам [x] (строка опций — зеркало DrawPrompt).
+                // Click on [x] toggles (option row mirrors DrawPrompt).
                 if (showOptions && _screen.Height >= 5
                     && mm.Action == MouseAction.LeftPress && mm.Y == _screen.Height - 2
                     && PromptOptionHit(mm.X, _loc["settings.matchcase"],
@@ -814,10 +814,10 @@ internal sealed partial class TuiEditor
 
     private static char Check(bool v) => v ? 'x' : ' ';
 
-    /// <summary>Тогл под координатой в строке опций промпта ('C'/'W'/'R' или null). Чистая.</summary>
+    /// <summary>Hits the toggle under a coordinate in the prompt option row ('C'/'W'/'R' or null). Pure.</summary>
     internal static char? PromptOptionHit(int x, string matchCase, string wholeWord, string useRegex)
     {
-        // Зеркало DrawPrompt: "[x] label (Alt+C)  [ ] label (Alt+W)  [ ] label (Alt+R".
+        // Mirrors DrawPrompt: "[x] label (Alt+C)  [ ] label (Alt+W)  [ ] label (Alt+R".
         string[] segs = [
             $"[ ] {matchCase} (Alt+C)",
             $"[ ] {wholeWord} (Alt+W)",
@@ -829,7 +829,7 @@ internal sealed partial class TuiEditor
         {
             if (x >= cx && x < cx + segs[i].Length)
                 return keys[i];
-            cx += segs[i].Length + 2; // два пробела-разделителя
+            cx += segs[i].Length + 2; // Two-space separator
         }
         return null;
     }

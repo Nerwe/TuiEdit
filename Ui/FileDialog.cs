@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>Файловый менеджер модальным окном: исход — <see cref="Result"/> (выбранный путь или null).</summary>
+/// <summary>Provides the file manager as a modal window: the outcome is <see cref="Result"/> (the selected path or null).</summary>
 internal sealed class FileDialog : Dialog
 {
     private readonly FilePickerState _state;
@@ -18,7 +18,7 @@ internal sealed class FileDialog : Dialog
         _saveTitle = saveTitle;
     }
 
-    /// <summary>Выбранный путь (null — отмена). Читать после закрытия.</summary>
+    /// <summary>Gets the selected path (null means cancelled). Reads after close.</summary>
     public string? Result { get; private set; }
 
     protected override string GetTitle(Loc loc) =>
@@ -117,7 +117,7 @@ internal sealed class FileDialog : Dialog
         {
             hint = loc["picker.hint"];
         }
-        // Хинт по центру по ВИДИМОЙ длине (спаны `..` не считаем).
+        // Centers the hint by VISIBLE length (ignores `..` spans).
         int visLen = Math.Min(SpanWidth(hint), inner);
         int hx = x0 + 1 + Math.Max(0, (inner - visLen) / 2);
         screen.Text(x0, y0 + bh - 2, "│" + new string(' ', inner) + "│", hintFg, bg);
@@ -143,7 +143,7 @@ internal sealed class FileDialog : Dialog
         var k = key;
         if (_pendingDelete is not null)
         {
-            // Взведённое удаление: Y/Enter — удалить, всё остальное — отмена.
+            // Armed delete: Y/Enter deletes, anything else cancels.
             if (k.Key == ConsoleKey.Y && (k.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) == 0
                 || k.Key == ConsoleKey.Enter)
             {
@@ -161,7 +161,7 @@ internal sealed class FileDialog : Dialog
         bool alt = (k.Modifiers & ConsoleModifiers.Alt) != 0;
         if (alt && (k.Modifiers & ConsoleModifiers.Control) == 0)
         {
-            // Навигация по каталогам (Backspace текст не трогает).
+            // Navigates directories (Backspace leaves text alone).
             switch (k.Key)
             {
                 case ConsoleKey.LeftArrow: _state.UpDir(); break;
@@ -183,7 +183,7 @@ internal sealed class FileDialog : Dialog
             return;
         }
         if ((k.Modifiers & ConsoleModifiers.Control) != 0)
-            return; // Ctrl+Alt (AltGr) в менеджере не используется
+            return; // Ctrl+Alt (AltGr) is unused in the manager
         FilePickerState p = _state;
         switch (k.Key)
         {
@@ -194,7 +194,7 @@ internal sealed class FileDialog : Dialog
                     "ok" => null,
                     "empty" => "picker.mkdir.empty",
                     "exists" => "picker.mkdir.exists",
-                    _ => null, // error — текст уже в Error
+                    _ => null, // error - text is already in Error
                 };
                 return;
             case ConsoleKey.F8:

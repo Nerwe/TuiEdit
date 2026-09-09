@@ -1,15 +1,15 @@
 namespace TuiEdit;
 
 /// <summary>
-/// Пересчёт символьных колонок в визуальные: табуляция раскрывается
-/// до следующей стоп-позиции (ширина таба — <see cref="Width"/>), остальные символы — шириной 1.
-/// Строки в буфере хранятся как есть (с табами), раскрытие — только для отрисовки.
+/// Converts character columns to visual columns: expands tabs to the next stop
+/// (tab width is <see cref="Width"/>), other characters are width 1.
+/// Buffers store lines as-is (with tabs); expansion applies to rendering only.
 /// </summary>
 public static class TabStops
 {
     public const int Width = 4;
 
-    /// <summary>Визуальная ширина первых символов строки.</summary>
+    /// <summary>Gets the visual width of the first characters of a line.</summary>
     public static int VisualWidth(string line, int charCount)
     {
         ArgumentNullException.ThrowIfNull(line);
@@ -20,7 +20,7 @@ public static class TabStops
         return pos;
     }
 
-    /// <summary>Индекс символа по визуальной колонке (для позиционирования курсора).</summary>
+    /// <summary>Finds the character index for a visual column (for cursor positioning).</summary>
     public static int CharIndexAtVisual(string line, int visualCol)
     {
         ArgumentNullException.ThrowIfNull(line);
@@ -34,7 +34,7 @@ public static class TabStops
         return i;
     }
 
-    /// <summary>Срез строки по визуальным колонкам (табы — пробелами).</summary>
+    /// <summary>Slices a line by visual columns (renders tabs as spaces).</summary>
     public static string Slice(string line, int startVisual, int maxWidth)
     {
         ArgumentNullException.ThrowIfNull(line);
@@ -59,12 +59,12 @@ public static class TabStops
 }
 
 /// <summary>
-/// Мягкий перенос строк: таб, не влезающий в остаток сегмента, целиком едет
-/// на следующий — границы сегментов всегда совпадают с началами символов.
+/// Wraps lines softly: a tab that does not fit in the segment remainder moves entirely
+/// to the next segment — segment boundaries always align with character starts.
 /// </summary>
 public static class WordWrap
 {
-    /// <summary>Старты сегментов в визуальных колонках (первый всегда 0).</summary>
+    /// <summary>Gets segment starts in visual columns (the first is always 0).</summary>
     public static List<int> SegmentStarts(string line, int width)
     {
         ArgumentNullException.ThrowIfNull(line);

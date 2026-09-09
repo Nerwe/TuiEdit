@@ -3,8 +3,8 @@ using System.Globalization;
 namespace TuiEdit;
 
 /// <summary>
-/// Версионные копии сохраняемых файлов в центральной папке (проект не замусоривается).
-/// Имя: sha1(пути)_время.bak; на файл — до 5 свежих, старше 7 дней — чистка.
+/// Stores versioned copies of saved files in a central folder (keeps the project clean).
+/// Names files sha1(path)_timestamp.bak; keeps up to 5 recent copies per file and prunes copies older than 7 days.
 /// </summary>
 public sealed class BackupStore(string dir)
 {
@@ -14,8 +14,8 @@ public sealed class BackupStore(string dir)
 
     public string Dir { get; } = dir;
 
-    // Монотонный счётчик в имени: освобождённое ротацией имя нельзя занимать
-    // заново в ту же секунду, иначе ротация удалит свежую копию как «старейшую».
+    // Uses a monotonic counter in the name: a name freed by rotation must not be reused
+    // within the same second, otherwise rotation would delete the fresh copy as the "oldest".
     private static long _seq;
 
     public static string DefaultDir(string settingsPath)
@@ -32,7 +32,7 @@ public sealed class BackupStore(string dir)
         return Path.Combine(Path.GetTempPath(), "TuiEdit", "backups");
     }
 
-    /// <summary>Сохранить копию байт файла перед перезаписью + ротация. Ошибки — молча.</summary>
+    /// <summary>Saves a copy of the file bytes before overwriting plus rotation. Swallows errors silently.</summary>
     public void Write(string target, byte[] bytes)
     {
         try
@@ -53,7 +53,7 @@ public sealed class BackupStore(string dir)
         }
     }
 
-    /// <summary>Выкинуть копии старше лимита (по всем файлам). Ошибки — молча.</summary>
+    /// <summary>Discards copies older than the limit (for all files). Swallows errors silently.</summary>
     public void PruneAll()
     {
         string[] files;

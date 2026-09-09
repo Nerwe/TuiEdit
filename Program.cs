@@ -14,8 +14,8 @@ try
 }
 catch (Exception ex)
 {
-    // Аварийный выход: терминал в исходное, черновики в драфты, короткий текст.
-    // (Run() уже чинит терминал в finally — здесь прикрываем стартовую фазу.)
+    // Emergency exit: restore the terminal, dump drafts, short message.
+    // (Run() already fixes the terminal in finally — this covers the startup phase.)
     RestoreTerminal();
     int dumped = 0;
     try { dumped = editor?.EmergencyDump() ?? 0; } catch { }
@@ -99,7 +99,7 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
                 {
                     if (ln == 0 && cn == 0 && Directory.Exists(p))
                     {
-                        startDir ??= p; // папка — корень панели (без файлов)
+                        startDir ??= p; // folder — sidebar root (no files)
                         break;
                     }
                 }
@@ -119,7 +119,7 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
         return (loc, 1, null);
     }
 
-    InputReader.MouseLevel = settings.Mouse; // мышь выкл по умолчанию
+    InputReader.MouseLevel = settings.Mouse; // mouse off by default
     string? firstPath = files.Count > 0 ? files[0].path : null;
     var buffer = new TextBuffer(firstPath);
     // Composition root: services are wired explicitly (no container — single-file app).

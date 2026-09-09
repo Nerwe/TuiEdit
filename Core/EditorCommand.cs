@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>Команда редактора, полученная из нажатия клавиши или меню.</summary>
+/// <summary>Represents an editor command derived from a key press or menu.</summary>
 public enum EditorCommand
 {
     None,
@@ -11,15 +11,15 @@ public enum EditorCommand
     WordLeft, WordRight,
     DelWordBefore, DelWordAfter,
     /// <summary>
-    /// Сохранить. Если файл ещё не назван — редактор должен запросить имя
-    /// (то же поведение, что и <see cref="SaveAs"/>).
+    /// Saves the file. Prompts for a name when the file is still unnamed
+    /// (behaves like <see cref="SaveAs"/>).
     /// </summary>
     Save,
     SaveAs,
     SaveAll,
     FileFormat,
     TrimTrailing,
-    /// <summary>Выход (с подтверждением при несохранённых изменениях).</summary>
+    /// <summary>Quits (confirms when there are unsaved changes).</summary>
     Quit,
     NewFile,
     OpenFile,
@@ -57,9 +57,9 @@ public enum EditorCommand
     ToggleWhitespace,
     ToggleSidebar,
     NewTab,
-    /// <summary>Закрыть вкладку (грязную — через диалог).</summary>
+    /// <summary>Closes the tab (prompts via dialog when dirty).</summary>
     CloseTab,
-    /// <summary>Следующая/предыдущая вкладка (Ctrl+Tab там, где терминал пропускает).</summary>
+    /// <summary>Switches to the next/previous tab (Ctrl+Tab where the terminal passes it through).</summary>
     NextTab, PrevTab,
     GoTabNumber,
     ListTabs,

@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Сплит-вид: панели со своими вкладками, фокус, закрытие, клавиши.</summary>
+/// <summary>Split view: panes with their own tabs, focus, closing, keys.</summary>
 public sealed class PanesTests
 {
     private static ConsoleKeyInfo K(char c, ConsoleKey k, bool shift = false, bool alt = false, bool ctrl = false)
@@ -48,7 +48,7 @@ public sealed class PanesTests
         Assert.Equal(new[] { 48, 48 }, TuiEditor.PaneWidths(96, 2));
         Assert.Equal(new[] { 32, 32, 32 }, TuiEditor.PaneWidths(96, 3));
         int[] w = TuiEditor.PaneWidths(95, 2);
-        Assert.Equal(new[] { 48, 47 }, w); // остаток — левым
+        Assert.Equal(new[] { 48, 47 }, w); // remainder goes left
         Assert.Empty(TuiEditor.PaneWidths(96, 0));
         Assert.Equal(new[] { 96 }, TuiEditor.PaneWidths(96, 1));
     }
@@ -68,7 +68,7 @@ public sealed class PanesTests
         ed.SwitchPane(0);
         Assert.Equal(0, ed.ActivePane);
         Assert.Equal("x", ActiveBuf(ed).GetLine(0));
-        ed.SwitchPane(5); // по кругу
+        ed.SwitchPane(5); // wraps around
         Assert.Equal(1, ed.ActivePane);
     }
 
@@ -83,7 +83,7 @@ public sealed class PanesTests
         Assert.Equal(1, ed.TabCount);
         ed.SwitchPane(0);
         Assert.Equal(2, ed.TabCount);
-        // Таб-клавиши работают по активной панели (стоим на вкладке 1 — завернёт на 0).
+        // Tab keys work on the active pane (sitting on tab 1 — wraps to 0).
         Assert.Equal(1, ed.ActiveTab);
         HandleKey(ed, K('\t', ConsoleKey.Tab, ctrl: true));
         Assert.Equal(0, ed.ActiveTab);
@@ -97,11 +97,11 @@ public sealed class PanesTests
         ActiveBuf(ed).InsertChar(0, 0, 'x');
         ed.SplitPane();
         Assert.Equal(2, ed.PaneCount);
-        ed.CloseTabNow(); // единственная вкладка панели — панель уходит
+        ed.CloseTabNow(); // the pane's only tab — the pane goes away
         Assert.Equal(1, ed.PaneCount);
         Assert.Equal(0, ed.ActivePane);
         Assert.Equal("x", ActiveBuf(ed).GetLine(0));
-        ed.CloseTabNow(); // последняя панель — очищается
+        ed.CloseTabNow(); // last pane — cleared
         Assert.Equal(1, ed.PaneCount);
         Assert.Equal("", ActiveBuf(ed).GetLine(0));
     }
@@ -111,9 +111,9 @@ public sealed class PanesTests
     {
         var ed = NewEditor();
         ActiveBuf(ed).InsertChar(0, 0, 'x');
-        ed.SplitPane(); // активна чистая вторая
+        ed.SplitPane(); // the clean second one is active
         HandleKey(ed, K('\x11', ConsoleKey.Q, ctrl: true));
-        Assert.NotNull(Get(ed, "_dialog")); // спросили: грязь в первой панели
+        Assert.NotNull(Get(ed, "_dialog")); // prompted: dirty content in the first pane
     }
 
     private static MouseInput Click(int x, int y) =>
@@ -152,7 +152,7 @@ public sealed class PanesTests
         Assert.Equal([24], s.PaneXs);
         Assert.Equal(1, s.TabH);
         Assert.Equal(2, s.Y0);
-        Assert.Equal(-1, s.PaneAt(10)); // сайдбар
+        Assert.Equal(-1, s.PaneAt(10)); // sidebar
     }
 
     [Fact]
@@ -191,7 +191,7 @@ public sealed class PanesTests
         InputReader.MouseLevel = MouseLevel.Basic;
         try
         {
-            ed.HandleMouseAt(WheelDown(0, 5), 80, 24); // гуттер, не текст
+            ed.HandleMouseAt(WheelDown(0, 5), 80, 24); // gutter, not text
             Assert.Equal(2, Get(ed, "_row"));
         }
         finally { InputReader.MouseLevel = MouseLevel.Off; }
@@ -201,16 +201,16 @@ public sealed class PanesTests
     public void TabClickSwitches()
     {
         var ed = NewEditor();
-        ActiveBuf(ed).InsertChar(0, 0, 'x'); // грязная — NewTab не откажет
+        ActiveBuf(ed).InsertChar(0, 0, 'x'); // dirty — NewTab will not refuse
         ed.NewTab();
         Assert.Equal(2, ed.TabCount);
         Assert.Equal(1, ed.ActiveTab);
         InputReader.MouseLevel = MouseLevel.Basic;
         try
         {
-            ed.HandleMouseAt(Click(0, 1), 80, 24); // первая вкладка
+            ed.HandleMouseAt(Click(0, 1), 80, 24); // first tab
             Assert.Equal(0, ed.ActiveTab);
-            ed.HandleMouseAt(Click(79, 1), 80, 24); // мимо спанов — стоим
+            ed.HandleMouseAt(Click(79, 1), 80, 24); // missed the spans — staying put
             Assert.Equal(0, ed.ActiveTab);
         }
         finally { InputReader.MouseLevel = MouseLevel.Off; }
@@ -221,14 +221,14 @@ public sealed class PanesTests
     {
         var ed = NewEditor();
         ActiveBuf(ed).InsertChar(0, 0, 'x');
-        ed.CloseTab(); // модалка «несохранённые изменения»
+        ed.CloseTab(); // "unsaved changes" modal
         Assert.NotNull(Get(ed, "_dialog"));
         InputReader.MouseLevel = MouseLevel.Basic;
         try
         {
-            ed.HandleMouseAt(Click(79, 23), 80, 24); // мимо бокса — как Esc
+            ed.HandleMouseAt(Click(79, 23), 80, 24); // missed the box — like Esc
             Assert.Null(Get(ed, "_dialog"));
-            Assert.Equal("x", ActiveBuf(ed).GetLine(0)); // вкладка жива, выхода нет
+            Assert.Equal("x", ActiveBuf(ed).GetLine(0)); // tab alive, no exit
         }
         finally { InputReader.MouseLevel = MouseLevel.Off; }
     }
@@ -242,12 +242,12 @@ public sealed class PanesTests
         try
         {
             ed.HandleMouseAt(Click(8, 1), 80, 24);
-            Assert.False(SelOf(ed).Active); // press сам выделения не создаёт
+            Assert.False(SelOf(ed).Active); // press alone creates no selection
             ed.HandleMouseAt(DragTo(10, 3), 80, 24);
             Assert.True(SelOf(ed).HasSelection(2, 2));
             ed.HandleMouseAt(Release(10, 3), 80, 24);
             Assert.Equal(["aaa", "bbb", "cc"], ClipboardOf(ed));
-            Assert.False(SelOf(ed).Active); // копия ушла — гасим
+            Assert.False(SelOf(ed).Active); // copy dispatched — clearing
         }
         finally { InputReader.MouseLevel = MouseLevel.Off; }
     }
@@ -263,7 +263,7 @@ public sealed class PanesTests
             ed.HandleMouseAt(Click(8, 1), 80, 24);
             ed.HandleMouseAt(DragTo(10, 3), 80, 24);
             ed.HandleMouseAt(Release(10, 3), 80, 24);
-            Assert.True(SelOf(ed).HasSelection(2, 2)); // осталась для клавиатуры
+            Assert.True(SelOf(ed).HasSelection(2, 2)); // kept for the keyboard
             Assert.Empty(ClipboardOf(ed));
         }
         finally { InputReader.MouseLevel = MouseLevel.Off; }
@@ -296,7 +296,7 @@ public sealed class PanesTests
         try
         {
             ed.HandleMouseAt(Click(8, 1), 80, 24);
-            ed.HandleMouseAt(Release(8, 1), 80, 24); // сразу отпустили — клик
+            ed.HandleMouseAt(Release(8, 1), 80, 24); // released immediately — a click
             Assert.False(SelOf(ed).Active);
             Assert.Empty(ClipboardOf(ed));
         }
@@ -333,7 +333,7 @@ public sealed class PanesTests
         Assert.Equal(3, Get(ed, "_col")); // "bbb".Length
         ed.GoToPosition(99, 99);
         Assert.Equal(1, Get(ed, "_row"));
-        ed.GoToPosition(1, 0); // колонку не двигаем
+        ed.GoToPosition(1, 0); // keep the column
         Assert.Equal(3, Get(ed, "_col"));
     }
 
@@ -357,7 +357,7 @@ public sealed class PanesTests
         Assert.Equal(0, ed.ActivePane);
         HandleKey(ed, K('2', ConsoleKey.D2, ctrl: true));
         Assert.Equal(1, ed.ActivePane);
-        HandleKey(ed, K('9', ConsoleKey.D9, ctrl: true)); // нет такой — стоим
+        HandleKey(ed, K('9', ConsoleKey.D9, ctrl: true)); // no such pane — staying put
         Assert.Equal(1, ed.ActivePane);
     }
 }

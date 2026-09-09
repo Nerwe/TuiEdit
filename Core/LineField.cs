@@ -1,8 +1,8 @@
 namespace TuiEdit;
 
 /// <summary>
-/// Однострочное поле ввода: текст, курсор, якорь выделения.
-/// Чистая модель — общее для поля имени в менеджере и промптов.
+/// Represents a single-line input field: text, cursor, and selection anchor.
+/// Implements a pure model shared by the manager name field and prompts.
 /// </summary>
 public sealed class LineField
 {
@@ -30,7 +30,7 @@ public sealed class LineField
         Anchor = null;
     }
 
-    /// <summary>Ввод поверх выделения.</summary>
+    /// <summary>Inserts input over the selection.</summary>
     public void Insert(string text)
     {
         if (string.IsNullOrEmpty(text))
@@ -59,7 +59,7 @@ public sealed class LineField
             Text = Text.Remove(Pos, 1);
     }
 
-    /// <summary>Удаление слова до (dir&lt;0) / после курсора.</summary>
+    /// <summary>Deletes the word before (dir&lt;0) / after the cursor.</summary>
     public void DeleteWord(int dir)
     {
         if (DeleteSelection())
@@ -77,16 +77,16 @@ public sealed class LineField
         }
     }
 
-    /// <summary>Стрелки (select — с выделением).</summary>
+    /// <summary>Moves with arrows (select moves with selection).</summary>
     public void Move(int delta, bool select) => MoveTo(Pos + delta, select);
 
-    /// <summary>В начало/конец (select — с выделением).</summary>
+    /// <summary>Moves to the start (select moves with selection).</summary>
     public void Home(bool select) => MoveTo(0, select);
 
-    /// <summary>В начало/конец (select — с выделением).</summary>
+    /// <summary>Moves to the end (select moves with selection).</summary>
     public void End(bool select) => MoveTo(Text.Length, select);
 
-    /// <summary>По словам (select — с выделением).</summary>
+    /// <summary>Moves by words (select moves with selection).</summary>
     public void MoveWord(int dir, bool select) =>
         MoveTo(dir < 0 ? WordMotion.Backward(Text, Pos) : WordMotion.Forward(Text, Pos), select);
 
@@ -94,15 +94,15 @@ public sealed class LineField
     {
         pos = Math.Clamp(pos, 0, Text.Length);
         if (select)
-            Anchor ??= Pos; // якорь в точке старта
+            Anchor ??= Pos; // Anchors at the start point
         else
             Anchor = null;
         Pos = pos;
         if (Anchor == Pos)
-            Anchor = null; // схлопнулось
+            Anchor = null; // Collapses to a caret
     }
 
-    /// <summary>Стереть выделение (true если было).</summary>
+    /// <summary>Clears the selection. Returns <see langword="true" /> if a selection existed; otherwise, <see langword="false" />.</summary>
     private bool DeleteSelection()
     {
         if (!HasSelection)

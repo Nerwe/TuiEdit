@@ -1,9 +1,9 @@
 namespace TuiEdit;
 
-/// <summary>Разбор файлового аргумента вида path[:line[:col]] / path:$ (строка с конца — в конец).</summary>
+/// <summary>Parses a file argument of the form path[:line[:col]] / path:$ (a trailing line jumps to the end).</summary>
 internal static class CliArgs
 {
-    /// <returns>Путь, 1-based строка (0 — без перехода, int.MaxValue — в конец) и 1-based колонка (0 — не двигать).</returns>
+    /// <returns>The path, 1-based line (0 means no jump, int.MaxValue means the end) and 1-based column (0 means do not move).</returns>
     public static (string Path, int Line, int Col) SplitFileLine(string arg)
     {
         int c = arg.LastIndexOf(':');

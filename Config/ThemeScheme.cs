@@ -3,8 +3,8 @@ using System.Reflection;
 namespace TuiEdit;
 
 /// <summary>
-/// Пользовательская тема из конфига: имя, базовая встроенная тема
-/// и переопределения ролей цветами #rrggbb. Незаданное — из базовой.
+/// Represents a custom theme from config: name, base built-in theme,
+/// and role overrides with #rrggbb colors. Falls back to the base theme when unset.
 /// </summary>
 public sealed class ThemeScheme
 {
@@ -12,10 +12,10 @@ public sealed class ThemeScheme
 
     public string? Base { get; set; }
 
-    /// <summary>Роль (имя поля Theme) → цвет #rrggbb.</summary>
+    /// <summary>Gets or sets role (Theme field name) to #rrggbb color mappings.</summary>
     public Dictionary<string, string> Colors { get; set; } = new();
 
-    /// <summary>Разобрать #rrggbb (решетка необязательна, #rgb тоже можно).</summary>
+    /// <summary>Tries to parse #rrggbb (the hash is optional, #rgb is allowed too).</summary>
     internal static bool TryParseHex(string? s, out Rgb rgb)
     {
         rgb = default;
@@ -41,10 +41,10 @@ public sealed class ThemeScheme
     }
 }
 
-/// <summary>Каталог тем: встроенные + пользовательские из настроек.</summary>
+/// <summary>Provides the theme catalog: built-in plus custom themes from settings.</summary>
 public static class ThemeCatalog
 {
-    /// <summary>Имена для перебора: встроенные, затем пользовательские.</summary>
+    /// <summary>Lists names for enumeration: built-in first, then custom.</summary>
     public static List<string> Names(AppSettings settings)
     {
         var names = new List<string>(Themes.Names);
@@ -58,7 +58,7 @@ public static class ThemeCatalog
         return names;
     }
 
-    /// <summary>Подпись в настройках: встроенные — локализованы, свои — как есть.</summary>
+    /// <summary>Gets the display label in settings: built-in names are localized, custom names stay as-is.</summary>
     public static string DisplayName(Loc loc, string name) => name switch
     {
         "light" => loc["settings.light"],
@@ -69,7 +69,7 @@ public static class ThemeCatalog
     public static bool Contains(AppSettings settings, string? name) =>
         Names(settings).Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>Собрать тему: своя схема поверх базы, битое — игнорируется.</summary>
+    /// <summary>Builds a theme: applies the custom scheme over the base and ignores invalid values.</summary>
     public static Theme Resolve(AppSettings settings, string? name)
     {
         ThemeScheme? scheme = settings.Themes.FirstOrDefault(
@@ -104,7 +104,7 @@ public static class ThemeCatalog
             }
             else
             {
-                return @base; // структура Theme изменилась — отдаём базу целиком
+                return @base; // The Theme struct changed — returns the base theme as-is
             }
         }
         return (Theme)ctor.Invoke(args);

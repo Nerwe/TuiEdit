@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>Формат файла: кодировка, переводы строк и отступ; ←/→ листают, применяется сразу.</summary>
+/// <summary>Provides the file format dialog: encoding, line endings, and indent; Left/Right cycles, applies immediately.</summary>
 internal sealed class FormatDialog : Dialog
 {
     internal const int RowCount = 3;
@@ -49,7 +49,7 @@ internal sealed class FormatDialog : Dialog
         }
     }
 
-    /// <summary>Клик по строке: выбрать и шагнуть (+1), как стрелка вправо.</summary>
+    /// <summary>Handles a row click: selects and steps (+1), like RightArrow.</summary>
     public override bool HandleClick(int x, int y, int screenW, int screenH, Loc loc)
     {
         DialogBox? box = Measure(screenW, screenH, loc);
@@ -58,7 +58,7 @@ internal sealed class FormatDialog : Dialog
         DialogBox b = box.Value;
         if (x < b.X0 || x >= b.X0 + b.W || y < b.Y0 || y >= b.Y0 + b.H)
             return false;
-        int row = y - (b.Y0 + 1); // строки опций — зеркало DrawOptionRows
+        int row = y - (b.Y0 + 1); // Option rows mirror DrawOptionRows
         if (row < 0 || row >= RowCount)
             return true;
         _row = row;

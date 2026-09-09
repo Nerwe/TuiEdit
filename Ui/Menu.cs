@@ -1,7 +1,7 @@
 namespace TuiEdit;
 
-/// <summary>Пункт выпадающего меню: подпись, хоткей (одиночная буква без Enter), текст глобального шортката справа и команда.</summary>
-/// <remarks>Пункт срабатывает по клику, хоткею или глобальному шорткату.</remarks>
+/// <summary>Represents a dropdown menu item: label, hotkey (single letter without Enter), global shortcut text on the right, and command.</summary>
+/// <remarks>Activates on click, hotkey, or global shortcut.</remarks>
 public sealed record MenuItem(string Label, char Hotkey, string? Shortcut, EditorCommand Command)
 {
     public static MenuItem Separator => new(string.Empty, '\0', null, EditorCommand.None);
@@ -13,7 +13,7 @@ public sealed record TopMenu(string Label, char Hotkey, List<MenuItem> Items);
 
 public sealed class MenuState
 {
-    /// <summary>Все меню бара слева направо.</summary>
+    /// <summary>Gets all bar menus left to right.</summary>
     public List<TopMenu> Menus { get; }
 
     public int OpenIndex { get; private set; }
@@ -32,7 +32,7 @@ public sealed class MenuState
 
     public MenuItem Selected => Current.Items[SelectedIndex];
 
-    /// <summary>Раскрыть меню (выбор — на первый невырожденный пункт).</summary>
+    /// <summary>Opens the menu (selects the first non-degenerate item).</summary>
     public void Open(int index)
     {
         OpenIndex = Math.Clamp(index, 0, Menus.Count - 1);
@@ -41,7 +41,7 @@ public sealed class MenuState
             MoveDown();
     }
 
-    /// <summary>Выбор вверх с зацикливанием (разделители пропускаем).</summary>
+    /// <summary>Moves the selection up with wraparound (skips separators).</summary>
     public void MoveUp()
     {
         int n = Current.Items.Count;
@@ -53,7 +53,7 @@ public sealed class MenuState
         }
     }
 
-    /// <summary>Выбор вниз с зацикливанием (разделители пропускаем).</summary>
+    /// <summary>Moves the selection down with wraparound (skips separators).</summary>
     public void MoveDown()
     {
         int n = Current.Items.Count;
@@ -65,20 +65,20 @@ public sealed class MenuState
         }
     }
 
-    /// <summary>Переход к соседнему меню влево (выбор сбрасывается).</summary>
+    /// <summary>Moves to the neighboring menu on the left (resets the selection).</summary>
     public void MoveLeft() => Open((OpenIndex - 1 + Menus.Count) % Menus.Count);
 
-    /// <summary>Переход к соседнему меню вправо (выбор сбрасывается).</summary>
+    /// <summary>Moves to the neighboring menu on the right (resets the selection).</summary>
     public void MoveRight() => Open((OpenIndex + 1) % Menus.Count);
 
-    /// <summary>Пункт раскрытого меню по хоткею (без учёта регистра) или null.</summary>
+    /// <summary>Finds the open-menu item by hotkey (case-insensitive) or returns null.</summary>
     public MenuItem? FindItemByHotkey(char ch)
     {
         char c = char.ToUpperInvariant(ch);
         return Current.Items.FirstOrDefault(i => !i.IsSeparator && char.ToUpperInvariant(i.Hotkey) == c);
     }
 
-    /// <summary>Индекс меню бара по хоткею (без учёта регистра) или -1.</summary>
+    /// <summary>Finds the bar menu index by hotkey (case-insensitive), or -1.</summary>
     public int FindMenuByHotkey(char ch)
     {
         char c = char.ToUpperInvariant(ch);
@@ -89,16 +89,16 @@ public sealed class MenuState
     }
 }
 
-/// <summary>Хит-тесты мыши по меню (чистые; зеркало DrawMenuBar/DrawDropdown).</summary>
+/// <summary>Provides pure menu mouse hit-tests (mirrors DrawMenuBar/DrawDropdown).</summary>
 internal static class MenuHit
 {
-    /// <summary>Ячейка меню-бара (row 0) или null (мимо и за краем).</summary>
+    /// <summary>Hits a menu-bar cell (row 0) or returns null (miss past the edge).</summary>
     public static int? BarHit(IReadOnlyList<TopMenu> menus, int x, int screenW)
     {
         int cx = 0;
         for (int i = 0; i < menus.Count; i++)
         {
-            int cw = menus[i].Label.Length + 2; // " Label " как в DrawMenuBar
+            int cw = menus[i].Label.Length + 2; // " Label " as in DrawMenuBar
             if (cx + cw > screenW)
                 break;
             if (x >= cx && x < cx + cw)
@@ -108,7 +108,7 @@ internal static class MenuHit
         return null;
     }
 
-    /// <summary>Индекс пункта дропдауна или null (мимо, разделитель, не влез).</summary>
+    /// <summary>Hits a dropdown item index or returns null (miss, separator, or overflow).</summary>
     public static int? DropdownHit(TopMenu m, int menuX, int x, int y, int w, int h)
     {
         int inner = 0;

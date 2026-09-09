@@ -1,91 +1,91 @@
 namespace TuiEdit;
 
-/// <summary>Режим файлового менеджера.</summary>
+/// <summary>Specifies the file manager mode.</summary>
 public enum PickerMode
 {
-    /// <summary>Выбор существующего файла.</summary>
+    /// <summary>Selects an existing file.</summary>
     Open,
-    /// <summary>Выбор пути для сохранения (с подтверждением перезаписи).</summary>
+    /// <summary>Selects a save path (with overwrite confirmation).</summary>
     Save,
 }
 
-/// <summary>Запись каталога: имя (без слэша), признак папки и размер файла (-1 — папка/неизвестен).</summary>
+/// <summary>Represents a directory entry: name (without slash), directory flag, and file size (-1 means directory/unknown).</summary>
 public sealed record PickerEntry(string Name, bool IsDir, long Size = -1)
 {
-    /// <summary>Имя для показа: папки со слэшем (кроме ..).</summary>
+    /// <summary>Gets the display name: directories get a slash (except ..).</summary>
     public string DisplayName =>
         IsDir && Name != ".." && !Name.EndsWith('/') && !Name.EndsWith('\\') ? Name + "/" : Name;
 }
 
-/// <summary>Исход Enter в менеджере.</summary>
+/// <summary>Specifies the Enter outcome in the manager.</summary>
 public enum PickerEnterResult
 {
-    /// <summary>Остаёмся (пусто / не разрешилось).</summary>
+    /// <summary>Stays put (empty / unresolved).</summary>
     Stayed,
-    /// <summary>Перешли в другой каталог.</summary>
+    /// <summary>Navigates to another directory.</summary>
     Navigated,
-    /// <summary>Путь выбран.</summary>
+    /// <summary>Accepts the path.</summary>
     Accepted,
 }
 
 /// <summary>
-/// Файловый менеджер модальным окном:
-/// путь + имя, список [.., папки/, файлы], вход по Enter,
-/// перезапись подтверждается отдельно.
-/// Чистая модель без консоли — покрывается unit-тестами.
+/// Provides the file manager as a modal window:
+/// path plus name, a [.., folders/, files] list, Enter to enter,
+/// with overwrite confirmed separately.
+/// Behaves as a pure model without console access - covered by unit tests.
 /// </summary>
 public sealed class FilePickerState
 {
-    /// <summary>Режим.</summary>
+    /// <summary>Gets the mode.</summary>
     public PickerMode Mode { get; }
 
-    /// <summary>Текущий каталог; "" — диски (подпись маппит вызывающий через Loc).</summary>
+    /// <summary>Gets the current directory; "" means drives (the caller maps the label via Loc).</summary>
     public string CurrentDir { get; private set; }
 
-    /// <summary>Показывать скрытые файлы.</summary>
+    /// <summary>Gets or sets a value that indicates whether hidden files are shown.</summary>
     public bool ShowHidden { get; set; } = true;
 
-    /// <summary>Записи каталога: .., папки, файлы.</summary>
+    /// <summary>Gets the directory entries: .., folders, files.</summary>
     public List<PickerEntry> Entries { get; private set; } = new();
 
-    /// <summary>Выбранная запись.</summary>
+    /// <summary>Gets the selected entry.</summary>
     public int Selected { get; private set; }
 
-    /// <summary>Первая видимая запись (скролл).</summary>
+    /// <summary>Gets the first visible entry (scroll).</summary>
     public int Top { get; private set; }
 
-    /// <summary>Поле имени (в Open — и выбор подсвеченного).</summary>
+    /// <summary>Gets the name field (in Open it also reflects the highlighted entry).</summary>
     public string Name => _name.Text;
 
-    /// <summary>Курсор в поле имени.</summary>
+    /// <summary>Gets the cursor in the name field.</summary>
     public int NamePos => _name.Pos;
 
-    /// <summary>Якорь выделения в поле имени (null — нет выделения).</summary>
+    /// <summary>Gets the selection anchor in the name field (null means no selection).</summary>
     public int? NameAnchor => _name.Anchor;
 
-    /// <summary>Есть ли невырожденное выделение.</summary>
+    /// <summary>Gets a value that indicates whether a non-empty selection exists.</summary>
     public bool HasNameSelection => _name.HasSelection;
 
-    /// <summary>Границы выделения (a==b — нет).</summary>
+    /// <summary>Gets the selection bounds (a==b means none).</summary>
     public void GetNameSelection(out int a, out int b) => _name.GetSelection(out a, out b);
 
-    /// <summary>Снять выделение.</summary>
+    /// <summary>Clears the selection.</summary>
     public void ClearNameSelection() => _name.ClearSelection();
 
     private readonly LineField _name = new();
 
-    /// <summary>Имя как его оставил последний синк (для отличия ручного ввода).</summary>
+    /// <summary>Stores the name as left by the last sync (distinguishes manual input).</summary>
     private string _syncedName = string.Empty;
 
-    /// <summary>Ошибка чтения каталога (код BadPath маппится через Loc).</summary>
+    /// <summary>Gets the directory read error (the BadPath code maps via Loc).</summary>
     public string? Error { get; private set; }
 
-    /// <summary>Ключ локализованного уведомления для строки хинта (сбрасывается при Refresh).</summary>
+    /// <summary>Gets or sets the localized notice key for the hint row (reset by Refresh).</summary>
     public string? NoticeKey { get; set; }
 
-    /// <param name="mode">Режим.</param>
-    /// <param name="startDir">Стартовый каталог ("" — диски на Windows).</param>
-    /// <param name="initialName">Начальное имя (для Save — предзаполнено).</param>
+    /// <param name="mode">The mode.</param>
+    /// <param name="startDir">The starting directory ("" means drives on Windows).</param>
+    /// <param name="initialName">The initial name (pre-filled for Save).</param>
     public FilePickerState(PickerMode mode, string startDir, string initialName)
     {
         Mode = mode;
@@ -96,7 +96,7 @@ public sealed class FilePickerState
         Refresh();
     }
 
-    /// <summary>Перечитать каталог: .., папки, файлы (сортировка без учёта регистра).</summary>
+    /// <summary>Refreshes the directory: .., folders, files (case-insensitive sort).</summary>
     public void Refresh()
     {
         Error = null;
@@ -156,13 +156,13 @@ public sealed class FilePickerState
     private bool CanGoUp() =>
         CurrentDir != "" && (OperatingSystem.IsWindows() || Path.GetDirectoryName(CurrentDir) is not null);
 
-    /// <summary>Подсвеченная запись или null.</summary>
+    /// <summary>Gets the highlighted entry or null.</summary>
     public PickerEntry? Highlighted() =>
         Entries.Count == 0 ? null : Entries[Math.Clamp(Selected, 0, Entries.Count - 1)];
 
     /// <summary>
-    /// Движение подсветки. Подсветка файла подставляет имя;
-    /// подсветка папки имя не трогает (введённое сохраняется).
+    /// Moves the highlight. Highlighting a file substitutes its name;
+    /// highlighting a folder leaves the name alone (typed input is preserved).
     /// </summary>
     public void MoveHighlight(int delta)
     {
@@ -170,19 +170,19 @@ public sealed class FilePickerState
             return;
         Selected = Math.Clamp(Selected + delta, 0, Entries.Count - 1);
         PickerEntry h = Entries[Selected];
-        // Подсветка файла подставляет имя, но введённое руками не затираем.
-        // Подсветка папки имя не трогает никогда.
+        // Highlighting a file substitutes its name, but never clobbers typed input.
+        // Highlighting a folder never touches the name.
         if ((Mode == PickerMode.Open || !h.IsDir) && Name == _syncedName)
             SetName(EntryBaseName(h));
     }
 
-    /// <summary>В начало / конец списка.</summary>
+    /// <summary>Moves to the start of the list.</summary>
     public void GotoFirst() => MoveHighlight(-Entries.Count);
 
-    /// <summary>В начало / конец списка.</summary>
+    /// <summary>Moves to the end of the list.</summary>
     public void GotoLast() => MoveHighlight(Entries.Count);
 
-    /// <summary>Поддержать видимость выбранного при maxRows строках.</summary>
+    /// <summary>Keeps the selection visible within maxRows rows.</summary>
     public void EnsureVisible(int maxRows)
     {
         if (maxRows <= 0)
@@ -202,31 +202,31 @@ public sealed class FilePickerState
         _syncedName = name;
     }
 
-    /// <summary>Ввод в поле имени (поверх выделения).</summary>
+    /// <summary>Inserts input into the name field (over the selection).</summary>
     public void InsertName(string text) => _name.Insert(text);
 
-    /// <summary>Backspace только по тексту; в начале поля — ничего (вверх — Alt+←).</summary>
+    /// <summary>Deletes with Backspace over text only; does nothing at the field start (up is Alt+Left).</summary>
     public void Backspace() => _name.Backspace();
 
-    /// <summary>Delete в поле имени (сначала выделение).</summary>
+    /// <summary>Deletes in the name field (selection first).</summary>
     public void DeleteChar() => _name.DeleteChar();
 
-    /// <summary>Удаление слова до/после курсора (как Ctrl+BS/Del в редакторе).</summary>
+    /// <summary>Deletes the word before/after the cursor (like Ctrl+BS/Del in the editor).</summary>
     public void DeleteNameWord(int dir) => _name.DeleteWord(dir);
 
-    /// <summary>Стрелки в поле имени (select — с выделением).</summary>
+    /// <summary>Moves with arrows in the name field (select moves with selection).</summary>
     public void MoveNameCursor(int delta, bool select) => _name.Move(delta, select);
 
-    /// <summary>В начало/конец поля (select — с выделением).</summary>
+    /// <summary>Moves to the start of the field (select moves with selection).</summary>
     public void HomeName(bool select) => _name.Home(select);
 
-    /// <summary>В начало/конец поля (select — с выделением).</summary>
+    /// <summary>Moves to the end of the field (select moves with selection).</summary>
     public void EndName(bool select) => _name.End(select);
 
-    /// <summary>По словам как Ctrl+стрелки в редакторе (select — с выделением).</summary>
+    /// <summary>Moves by words like Ctrl+arrows in the editor (select moves with selection).</summary>
     public void MoveNameWord(int dir, bool select) => _name.MoveWord(dir, select);
 
-    /// <summary>Вверх: родитель или диски (Windows).</summary>
+    /// <summary>Moves up: to the parent or to drives (Windows).</summary>
     public void UpDir()
     {
         if (CurrentDir == "")
@@ -244,7 +244,7 @@ public sealed class FilePickerState
         NavigateTo(parent ?? "");
     }
 
-    /// <summary>Перейти в каталог ("" — диски).</summary>
+    /// <summary>Navigates to a directory ("" means drives).</summary>
     public void NavigateTo(string dir)
     {
         try
@@ -258,11 +258,11 @@ public sealed class FilePickerState
         }
         Selected = 0;
         Top = 0;
-        _name.ClearSelection(); // контекст сменился
+        _name.ClearSelection(); // Context changed
         Refresh();
     }
 
-    /// <summary>Полный путь из имени (абсолютное — как есть).</summary>
+    /// <summary>Resolves the full path from a name (absolute stays as-is).</summary>
     public string? ResolveName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -283,10 +283,10 @@ public sealed class FilePickerState
     }
 
     /// <summary>
-    /// Вход в подсвеченный каталог (для Alt+→): .. — вверх, папка — внутрь,
-    /// файл — ничего (в отличие от Enter, не принимает путь).
+    /// Enters the highlighted directory (for Alt+Right): .. goes up, a folder goes inside,
+    /// a file does nothing (unlike Enter, it never accepts a path).
     /// </summary>
-    /// <returns>true если перешли.</returns>
+    /// <returns><see langword="true"/> if navigation happened; otherwise, <see langword="false"/>.</returns>
     public bool EnterDir()
     {
         PickerEntry? h = Highlighted();
@@ -300,9 +300,9 @@ public sealed class FilePickerState
     }
 
     /// <summary>
-    /// Enter: папка под курсором — перейти (имя сохраняется);
-    /// иначе — разрешить имя: каталог — перейти, файл — принять путь.
-    /// В корне дисков Enter переходит на диск.
+    /// Handles Enter: navigates into the folder under the cursor (keeps the name);
+    /// otherwise resolves the name: navigates into a directory, accepts a file path.
+    /// At the drives root Enter navigates to the drive.
     /// </summary>
     public (PickerEnterResult Result, string? Path) Enter()
     {
@@ -321,7 +321,7 @@ public sealed class FilePickerState
         {
             if (h is null)
                 return (PickerEnterResult.Stayed, null);
-            SetName(h.Name); // файл — подставить имя
+            SetName(h.Name); // Substitutes the file name
         }
         string? full = ResolveName(Name);
         if (full is null)
@@ -335,7 +335,7 @@ public sealed class FilePickerState
         return (PickerEnterResult.Accepted, full);
     }
 
-    /// <summary>Enter в корне дисков: введённый путь — в приоритете, иначе — подсветка.</summary>
+    /// <summary>Handles Enter at the drives root: prefers the typed path, otherwise uses the highlight.</summary>
     private (PickerEnterResult Result, string? Path) EnterFromDrives()
     {
         if (!string.IsNullOrEmpty(Name))
@@ -361,7 +361,7 @@ public sealed class FilePickerState
     private static string? ResolveDriveName(string name)
     {
         name = name.Trim();
-        // "C:" — диск относительно... нормализуем в корень диска.
+        // "C:" is a relative drive path... normalizes to the drive root.
         if (name.Length == 2 && name[1] == ':' && char.IsAsciiLetter(name[0]))
             return char.ToUpperInvariant(name[0]) + ":\\";
         try
@@ -393,7 +393,7 @@ public sealed class FilePickerState
         }
     }
 
-    /// <summary>Создать подпапку из имени: ok / empty / exists / error (ошибка — в Error).</summary>
+    /// <summary>Creates a subfolder from the name: ok / empty / exists / error (the error goes to Error).</summary>
     public string MakeDir(string? name)
     {
         string? full = ResolveName(name ?? Name);
@@ -414,7 +414,7 @@ public sealed class FilePickerState
         return "ok";
     }
 
-    /// <summary>Цель удаления: подсвеченная запись (не .., не корень дисков).</summary>
+    /// <summary>Gets the delete target: the highlighted entry (not .., not the drives root).</summary>
     public string? DeleteTarget()
     {
         if (CurrentDir == "")
@@ -432,7 +432,7 @@ public sealed class FilePickerState
         }
     }
 
-    /// <summary>Число объектов для confirm (файл — 1; стоп на 1001).</summary>
+    /// <summary>Counts items for confirm (a file counts as 1; stops at 1001).</summary>
     public static int CountItems(string path)
     {
         try
@@ -453,7 +453,7 @@ public sealed class FilePickerState
         }
     }
 
-    /// <summary>Удалить файл/каталог рекурсивно (Refresh; ошибка — в Error).</summary>
+    /// <summary>Deletes a file/directory recursively (refreshes; the error goes to Error).</summary>
     public bool DeletePath(string path)
     {
         try

@@ -3,21 +3,21 @@ using System.Diagnostics;
 namespace TuiEdit;
 
 /// <summary>
-/// Запуск git, который никогда не вешает вызывающего.
-/// Контекст: git.exe без присоединённой консоли виснет навсегда, если вверх
-/// от рабочей папки нет репозитория (порождает conhost и ждёт). Поэтому:
-/// сначала пешком ищем <c>.git</c> (быстро и безопасно), спавн — только при
-/// найденном корне, и всё равно с общим таймаутом, чтением обоих потоков
-/// и убийством по таймауту.
+/// Runs git without ever hanging the caller.
+/// Context: git.exe without an attached console hangs forever when no repository
+/// exists above the working folder (it spawns conhost and waits). Therefore:
+/// first walks up to find <c>.git</c> (fast and safe), spawns only when a root
+/// is found, and still uses a shared timeout, drains both streams, and kills
+/// the process on timeout.
 /// </summary>
 internal static class GitProcess
 {
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
     /// <summary>
-    /// Вверх от dir есть <c>.git</c> (папка, либо файл worktree/submodule)?
-    /// Сомнения (нет доступа, странный путь, задан GIT_DIR) — true:
-    /// пусть решает сам git, но уже ограниченный таймаутом ниже.
+    /// Determines whether a <c>.git</c> exists above dir (folder or worktree/submodule file)?
+    /// Returns true when in doubt (no access, odd path, GIT_DIR set):
+    /// lets git itself decide, already bounded by the timeout below.
     /// </summary>
     internal static bool HasRepoRoot(string dir)
     {
@@ -49,7 +49,7 @@ internal static class GitProcess
         }
     }
 
-    /// <summary>Stdout при exit 0, иначе null. Общий таймаут на всё, убийство по нему.</summary>
+    /// <summary>Returns stdout on exit 0, otherwise null. Applies a shared timeout to everything and kills the process on expiry.</summary>
     internal static string? Run(string dir, params string[] args)
     {
         using var cts = new CancellationTokenSource(Timeout);
@@ -65,7 +65,7 @@ internal static class GitProcess
                 RedirectStandardError = true,
                 RedirectStandardInput = true,
             };
-            // Неинтерактивность: ни пейджеров, ни промптов, ни локов от нас.
+            // Enforces non-interactive mode: no pagers, prompts, or locks from us.
             p.StartInfo.Environment["GIT_PAGER"] = "cat";
             p.StartInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
             p.StartInfo.Environment["GIT_OPTIONAL_LOCKS"] = "0";

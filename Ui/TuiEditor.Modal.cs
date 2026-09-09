@@ -20,14 +20,14 @@ internal sealed partial class TuiEditor
         }
     }
 
-    /// <summary>Аварийный сброс черновиков всех изменённых вкладок (для crash handler).
-    /// Хендлеру падать нельзя: каждая запись и весь обход — в try/catch.</summary>
+    /// <summary>Dumps drafts for all modified tabs in an emergency (for the crash handler).
+    /// Never throws from the handler: wraps each write and the whole walk in try/catch.</summary>
     internal int EmergencyDump()
     {
         int n = 0;
         try
         {
-            SaveTabState(); // вид активной вкладки — из полей в модель
+            SaveTabState(); // Moves the active tab view from fields to the model
             foreach (Pane p in _panes)
                 foreach (DocTab t in p.Docs)
                 {
@@ -97,7 +97,7 @@ internal sealed partial class TuiEditor
         TrackCol();
         try
         {
-            _drafts.DeleteKey(key); // восстановлен — дальше ведут автосейв/сейв/выход
+            _drafts.DeleteKey(key); // Restored - autosave/save/exit take over from here
         }
         catch
         {
@@ -105,7 +105,7 @@ internal sealed partial class TuiEditor
         SetMessage(_loc["msg.restored"]);
     }
 
-    /// <summary>Исход закрытой модалки (pending-действия живут здесь).</summary>
+    /// <summary>Applies the closed modal outcome (pending actions live here).</summary>
     private void ApplyModalOutcome(ModalState m, ModalKeyOutcome o)
     {
         if (o.Cancelled)
@@ -167,7 +167,7 @@ internal sealed partial class TuiEditor
                 SetMessage(_loc["msg.cancelled"]);
                 return;
             case (ModalKind.LargeFile, 0):
-                ApplyPending(); // тот же маршрут PendingOp.Open, но уже с force
+                ApplyPending(); // Same PendingOp.Open route, but with force
                 return;
             case (ModalKind.LargeFile, _):
                 _pending = PendingOp.None;
@@ -207,7 +207,7 @@ internal sealed partial class TuiEditor
         _ => UnsavedAction.Cancel,
     };
 
-    /// <summary>Сохранение из попапа с последующим отложенным действием.</summary>
+    /// <summary>Saves from the popup with a deferred action afterwards.</summary>
     private void SaveFlowForPending()
     {
         try

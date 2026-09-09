@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Версия берётся из сборки, а не из хардкода.</summary>
+/// <summary>Version comes from the assembly, not from a hardcode.</summary>
 public sealed class VersionTests
 {
     [Fact]

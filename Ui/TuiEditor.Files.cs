@@ -3,7 +3,7 @@ namespace TuiEdit;
 /// <summary>TuiEditor: tabs, panes, session, save/open and file flows.</summary>
 internal sealed partial class TuiEditor
 {
-    /// <summary>Новая пустая вкладка (чистую безымянную не дублируем).</summary>
+    /// <summary>Opens a new empty tab (never duplicates a clean untitled one).</summary>
     internal void NewTab()
     {
         if (_buf.FilePath is null && !_buf.IsModified)
@@ -14,7 +14,7 @@ internal sealed partial class TuiEditor
         LoadTabState();
     }
 
-    /// <summary>Открыть вкладки прошлой сессии (несуществующие пропускаем).</summary>
+    /// <summary>Restores tabs from the previous session (skips missing files).</summary>
     internal int RestoreSessionTabs()
     {
         if (!_settings.RestoreSession || _settings.SessionTabs.Count == 0)
@@ -49,7 +49,7 @@ internal sealed partial class TuiEditor
         return n;
     }
 
-    /// <summary>Запомнить открытые файлы с курсорами для следующего старта.</summary>
+    /// <summary>Remembers open files with cursors for the next start.</summary>
     internal void SaveSessionTabs()
     {
         if (!_settings.RestoreSession)
@@ -74,7 +74,7 @@ internal sealed partial class TuiEditor
         _store.Save(_settings);
     }
 
-    /// <summary>Прыжок на 1-based строку и колонку (0 — соответствующую не двигать).</summary>
+    /// <summary>Jumps to a 1-based line and column (0 leaves that axis alone).</summary>
     internal void GoToPosition(int line, int col)
     {
         if (_buf.Count == 0)
@@ -88,7 +88,7 @@ internal sealed partial class TuiEditor
         TrackCol();
     }
 
-    /// <summary>Открыть файл старта новой вкладкой (CLI-список).</summary>
+    /// <summary>Opens a startup file in a new tab (CLI list).</summary>
     internal void OpenStartupFile(string path, int line, int col)
     {
         try
@@ -107,7 +107,7 @@ internal sealed partial class TuiEditor
         }
     }
 
-    /// <summary>Открыть панель файлов с корнем (старт с папкой).</summary>
+    /// <summary>Opens the file panel with a root (starts with a folder).</summary>
     internal void OpenSidebarRoot(string dir)
     {
         try
@@ -120,18 +120,18 @@ internal sealed partial class TuiEditor
         }
     }
 
-    /// <summary>Переключиться на вкладку (по кругу).</summary>
+    /// <summary>Switches tabs (wraps around).</summary>
     internal void SwitchTab(int index)
     {
         if (_docs.Count == 0)
             return;
-        _mouseDrag = false; // фокус уехал — тяга стоп
+        _mouseDrag = false; // Focus moved - stops the drag
         SaveTabState();
         _active = ((index % _docs.Count) + _docs.Count) % _docs.Count;
         LoadTabState();
     }
 
-    /// <summary>Закрыть активную вкладку (грязную — через диалог).</summary>
+    /// <summary>Closes the active tab (a dirty tab goes through a dialog).</summary>
     internal void CloseTab()
     {
         if (_buf.IsModified)
@@ -143,11 +143,11 @@ internal sealed partial class TuiEditor
         CloseTabNow();
     }
 
-    /// <summary>Имя грязного буфера для вопроса.</summary>
+    /// <summary>Gets the dirty buffer name for the prompt.</summary>
     private string DirtyLabel() =>
         _buf.FilePath is null ? _loc["status.untitled"] : Path.GetFileName(_buf.FilePath);
 
-    /// <summary>Закрыть активную вкладку безусловно (последняя в панели — чистит панель).</summary>
+    /// <summary>Closes the active tab unconditionally (the last tab in a pane clears the pane).</summary>
     internal void CloseTabNow()
     {
         if (_docs.Count <= 1)
@@ -176,7 +176,7 @@ internal sealed partial class TuiEditor
 
     private bool AnyModified() => _panes.Any(p => p.Docs.Any(d => d.Buf.IsModified));
 
-    /// <summary>Первая грязная вкладка — активной (для цикла выхода).</summary>
+    /// <summary>Activates the first dirty tab (for the quit loop).</summary>
     private void ActivateFirstModified()
     {
         for (int pi = 0; pi < _panes.Count; pi++)
@@ -191,7 +191,7 @@ internal sealed partial class TuiEditor
                 }
     }
 
-    /// <summary>Разделить вид: новая панель справа, фокус — в неё.</summary>
+    /// <summary>Splits the view: adds a new pane on the right and focuses it.</summary>
     internal void SplitPane()
     {
         SaveTabState();
@@ -200,18 +200,18 @@ internal sealed partial class TuiEditor
         LoadTabState();
     }
 
-    /// <summary>Фокус на панель (по кругу).</summary>
+    /// <summary>Focuses a pane (wraps around).</summary>
     internal void SwitchPane(int index)
     {
         if (_panes.Count == 0)
             return;
-        _mouseDrag = false; // фокус уехал — тяга стоп
+        _mouseDrag = false; // Focus moved - stops the drag
         SaveTabState();
         _pane = ((index % _panes.Count) + _panes.Count) % _panes.Count;
         LoadTabState();
     }
 
-    /// <summary>Ширины панелей: поровну, остаток — левым.</summary>
+    /// <summary>Computes pane widths: splits evenly, gives the remainder to the left.</summary>
     internal static int[] PaneWidths(int total, int count)
     {
         if (count <= 0)
@@ -223,7 +223,7 @@ internal sealed partial class TuiEditor
         return r;
     }
 
-    /// <summary>Отметить файл недавним и сохранить настройки.</summary>
+    /// <summary>Marks a file as recent and saves settings.</summary>
     private void TouchRecent(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -232,7 +232,7 @@ internal sealed partial class TuiEditor
         _store.Save(_settings);
     }
 
-    /// <summary>Сохранить все именованные грязные вкладки всех панелей.</summary>
+    /// <summary>Saves all named dirty tabs across panes.</summary>
     internal void SaveAll()
     {
         SaveTabState();
@@ -326,7 +326,7 @@ internal sealed partial class TuiEditor
             _quitRequested = true;
             return;
         }
-        // Красный попап Save / Don't save / Cancel.
+        // Red Save / Don't save / Cancel popup.
         _pending = PendingOp.Quit;
         _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc, DirtyLabel()), ApplyModalOutcome);
     }
@@ -342,7 +342,7 @@ internal sealed partial class TuiEditor
         OpenPicked(path);
     }
 
-    /// <summary>Открыть выбранный путь: сразу или через диалог несохранённых.</summary>
+    /// <summary>Opens the selected path: immediately or via the unsaved-changes dialog.</summary>
     private void OpenPicked(string path)
     {
         if (!_buf.IsModified)
@@ -355,7 +355,7 @@ internal sealed partial class TuiEditor
         _dialog = new ModalDialog(ModalState.UnsavedQuit(_loc, DirtyLabel()), ApplyModalOutcome);
     }
 
-    /// <summary>Панель файлов: открыть/закрыть/вернуть фокус (корень — папка файла).</summary>
+    /// <summary>Toggles the file panel: opens/closes/refocuses (roots at the file folder).</summary>
     private void ToggleSidebar()
     {
         if (_sidebar is null)
@@ -376,7 +376,7 @@ internal sealed partial class TuiEditor
         _sidebarFocus = true;
     }
 
-    /// <summary>Клавиша при фокусе в панели.</summary>
+    /// <summary>Handles a key while the panel has focus.</summary>
     private void HandleSidebarKey(ConsoleKeyInfo k)
     {
         if (_sidebar is null)
@@ -440,8 +440,8 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>
-    /// «Не сохранять»: откат к последнему сохранённому (файл перечитывается,
-    /// безымянный очищается). Без отката цикл выхода возвращается к вкладке снова.
+    /// Discards changes: rolls back to the last save (rereads the file,
+    /// clears untitled buffers). Without rollback the quit loop returns to the tab again.
     /// </summary>
     private void DiscardBuffer()
     {
@@ -484,12 +484,12 @@ internal sealed partial class TuiEditor
         }
     }
 
-    /// <summary>Проверка размера: большой файл — диалог, путь откладывается в pending.</summary>
+    /// <summary>Checks the size: defers large files to a dialog, stashing the path as pending.</summary>
     private bool GuardLargeFile(string path)
     {
         long bytes;
         try { bytes = new FileInfo(path).Length; }
-        catch { return false; } // размер не узнали — пусть открывает, ошибку покажет Open
+        catch { return false; } // Size unknown - lets Open show any error
         if (bytes <= LargeFileBytes)
             return false;
         _pending = PendingOp.Open;

@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Автопары скобок и кавычек.</summary>
+/// <summary>Auto-pairs for brackets and quotes.</summary>
 public sealed class AutoPairTests
 {
     [Theory]
@@ -25,7 +25,7 @@ public sealed class AutoPairTests
         Assert.True(AutoPair.ShouldPair("", 0, '('));
         Assert.True(AutoPair.ShouldPair("f(", 2, '('));
         Assert.True(AutoPair.ShouldPair("", 0, '"'));
-        Assert.False(AutoPair.ShouldPair("don't", 2, '\'')); // внутри слова — нет
+        Assert.False(AutoPair.ShouldPair("don't", 2, '\'')); // inside a word — no
         Assert.True(AutoPair.ShouldPair("say ", 4, '"'));
         Assert.True(AutoPair.ShouldSkip("()", 1, ')'));
         Assert.True(AutoPair.ShouldSkip("\"\"", 1, '"'));
@@ -82,7 +82,7 @@ public sealed class AutoPairTests
         Type(ed, '(');
         Assert.Equal("()", Line(ed));
         Assert.Equal(1, Col(ed));
-        Type(ed, ')'); // перепрыгнуть
+        Type(ed, ')'); // jump over
         Assert.Equal("()", Line(ed));
         Assert.Equal(2, Col(ed));
     }

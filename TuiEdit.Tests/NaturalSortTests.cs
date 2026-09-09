@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Натуральный порядок имён.</summary>
+/// <summary>Natural name ordering.</summary>
 public sealed class NaturalSortTests
 {
     [Theory]
@@ -22,7 +22,7 @@ public sealed class NaturalSortTests
     public void DigitsBeforeLettersAndCaseTiebreak()
     {
         Assert.True(NaturalSort.Compare("2a", "ab") < 0);
-        Assert.True(NaturalSort.Compare("Ab", "aB") != 0); // регистр — тайбрейк
+        Assert.True(NaturalSort.Compare("Ab", "aB") != 0); // case — tiebreak
         Assert.Equal(0, NaturalSort.Compare("same", "same"));
         Assert.True(NaturalSort.Compare(null, "x") < 0);
         Assert.True(NaturalSort.Compare("x", null) > 0);

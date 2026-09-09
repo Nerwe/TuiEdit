@@ -1,9 +1,9 @@
 namespace TuiEdit;
 
-/// <summary>Сборка строки статусбара: слева — текст, справа — прижатый блок (кодировка | переводы строк | отступ | файл).</summary>
+/// <summary>Builds the status bar row: text on the left, a pinned block on the right (encoding | line endings | indent | file).</summary>
 public static class StatusBar
 {
-    /// <summary>Собирает строку ровно шириной width; правый блок виден всегда, при переполнении — его хвост.</summary>
+    /// <summary>Builds a row exactly width wide; the right block stays visible, showing its tail on overflow.</summary>
     public static string Build(string left, string right, int width) => (left, right, width) switch
     {
         (_, _, <= 0) => string.Empty,
@@ -12,7 +12,7 @@ public static class StatusBar
         var (l, r, w) => l + new string(' ', w - r.Length - l.Length) + r,
     };
 
-    /// <summary>Правый блок: кодировка | переводы | отступ | файл [| git] [| табы] [| панели].</summary>
+    /// <summary>Builds the right block: encoding | endings | indent | file [| git] [| tabs] [| panes].</summary>
     public static string BuildRight(
         string encoding, string ending, string indent, string file, string? git,
         int tabIndex, int tabCount, int paneIndex, int paneCount) =>

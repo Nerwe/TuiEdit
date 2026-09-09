@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>Диалог настроек: значения применяются и сохраняются сразу при листании.</summary>
+/// <summary>Provides the settings dialog: values apply and save immediately while cycling.</summary>
 internal sealed class SettingsDialog : Dialog
 {
     private readonly SettingsDialogState _state = new();
@@ -41,7 +41,7 @@ internal sealed class SettingsDialog : Dialog
         DrawOptionRows(screen, theme, box, labels, values, _state.Row);
     }
 
-    /// <summary>Клик по строке: выбрать и шагнуть (+1), как стрелка вправо.</summary>
+    /// <summary>Handles a row click: selects and steps (+1), like RightArrow.</summary>
     public override bool HandleClick(int x, int y, int screenW, int screenH, Loc loc)
     {
         DialogBox? box = Measure(screenW, screenH, loc);
@@ -51,7 +51,7 @@ internal sealed class SettingsDialog : Dialog
         if (x < b.X0 || x >= b.X0 + b.W || y < b.Y0 || y >= b.Y0 + b.H)
             return false;
         var (labels, _, _) = Rows(loc);
-        int row = y - (b.Y0 + 1); // строки опций — зеркало DrawOptionRows
+        int row = y - (b.Y0 + 1); // Option rows mirror DrawOptionRows
         if (row < 0 || row >= labels.Length)
             return true;
         _state.MoveTo(row);
@@ -68,7 +68,7 @@ internal sealed class SettingsDialog : Dialog
         {
             case ConsoleKey.Escape:
             case ConsoleKey.Enter:
-                Closed = true; // изменения сохраняются сразу при листании
+                Closed = true; // Changes save immediately while cycling
                 return;
             case ConsoleKey.UpArrow: _state.Move(-1); break;
             case ConsoleKey.DownArrow: _state.Move(1); break;

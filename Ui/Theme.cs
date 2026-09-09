@@ -1,39 +1,39 @@
 namespace TuiEdit;
 
-/// <summary>Палитра интерфейса: именованные роли вместо разбросанных цветов; мягкие пастельные тона (truecolor-ANSI, см. <see cref="Rgb"/>).</summary>
+/// <summary>Represents the interface palette: named roles instead of scattered colors; soft pastel tones (truecolor-ANSI, see <see cref="Rgb"/>).</summary>
 public sealed record Theme(
     string Name,
-    // Редактор
+    // Editor
     Rgb EditorBg, Rgb EditorFg,
     Rgb CurLineBg, Rgb CurLineFg,
     Rgb GutterFg, Rgb FillerFg,
     Rgb GitAddFg, Rgb GitModFg,
     Rgb SelBg, Rgb SelFg,
     Rgb MatchBg, Rgb MatchFg,
-    // Меню
+    // Menu
     Rgb MenuBarBg, Rgb MenuFg, Rgb MenuHotkeyFg,
     Rgb MenuOpenBg, Rgb MenuOpenFg,
     Rgb DropBg, Rgb DropFg, Rgb DropBorderFg,
     Rgb DropSelBg, Rgb DropSelFg, Rgb DropDimFg,
-    // Статус и промпт
+    // Status and prompt
     Rgb StatusBg, Rgb StatusFg,
     Rgb PromptBg, Rgb PromptFg,
-    // Модалки
+    // Modals
     Rgb ModalBg, Rgb ModalFg,
     Rgb ModalDangerBg, Rgb ModalDangerFg,
     Rgb ModalHintFg, Rgb ModalHintDangerFg,
     Rgb ButtonSelBg, Rgb ButtonSelFg,
-    // Менеджер файлов
+    // File manager
     Rgb PickerDirFg, Rgb PickerUpFg, Rgb PickerFileFg,
     Rgb PickerHiddenFg, Rgb PickerExeFg,
     Rgb PickerEmptyFg, Rgb PickerErrorFg, Rgb PickerHintFg,
-    // Подсветка синтаксиса (scope -> цвет)
+    // Syntax highlighting (scope -> color)
     Rgb SynKeywordFg, Rgb SynStringFg, Rgb SynCommentFg, Rgb SynNumberFg, Rgb SynTypeFg,
-    // Направляющие отступов
+    // Indent guides
     Rgb IndentGuideFg,
-    // Акцент интерфейса: полосы, заголовки диалогов, хоткеи в справке
+    // Interface accent: bars, dialog titles, help hotkeys
     Rgb AccentFg,
-    // Фон линейки колонки
+    // Column ruler background
     Rgb RulerBg
 );
 
@@ -93,7 +93,7 @@ public static class Themes
         AccentFg: new Rgb(0x1E, 0x66, 0xF5),
         RulerBg: new Rgb(0xDC, 0xE0, 0xE8));
 
-    /// <summary>Тёмная «3024 Night» (палитра 3024).</summary>
+    /// <summary>Gets the dark "3024 Night" (3024 palette).</summary>
     public static Theme Night3024 { get; } = new(
         Name: "3024 Night (dark)",
         EditorBg: new Rgb(0x09, 0x03, 0x00), EditorFg: new Rgb(0xA5, 0xA2, 0xA2),
@@ -146,7 +146,7 @@ public static class Themes
         AccentFg: new Rgb(0x00, 0x77, 0xB6),
         RulerBg: new Rgb(0xED, 0xE6, 0xD6));
 
-    /// <summary>Тема по имени (неизвестная — тёмная).</summary>
+    /// <summary>Gets a theme by name (unknown falls back to dark).</summary>
     public static Theme Get(string? name) => name switch
     {
         "light" => Light,

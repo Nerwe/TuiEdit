@@ -4,7 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Инкрементальный поиск: живой термин важнее последнего (курсор не двигаем).</summary>
+/// <summary>Incremental search: the live term beats the last one (we do not move the cursor).</summary>
 public sealed class LiveSearchTests : IDisposable
 {
     private readonly string _cfgDir;
@@ -40,7 +40,7 @@ public sealed class LiveSearchTests : IDisposable
         ed._liveSearch = "f";
         Assert.Equal("f", ed.EffectiveSearchTerm);
         ed._liveSearch = "";
-        Assert.Equal("", ed.EffectiveSearchTerm); // пустой ввод — без подсветки
+        Assert.Equal("", ed.EffectiveSearchTerm); // empty input — no highlight
         ed._liveSearch = null;
         Assert.Equal("foo", ed.EffectiveSearchTerm);
     }
@@ -91,7 +91,7 @@ public sealed class LiveSearchTests : IDisposable
     [Fact]
     public void PartialTermSafe()
     {
-        // Недописанный regex/пустой ввод не должны ронять маску подсветки.
+        // An unfinished regex/empty input must not drop the highlight mask.
         var m = typeof(TuiEditor).GetMethod("FindMatches", BindingFlags.Static | BindingFlags.NonPublic)!;
         bool[] Mask(string text, string term, bool rx) =>
             (bool[])m.Invoke(null, [text, term, true, false, rx])!;

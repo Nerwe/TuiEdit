@@ -1,9 +1,9 @@
 namespace TuiEdit;
 
-/// <summary>Автодополнение из слов буфера (без внешних словарей).</summary>
+/// <summary>Provides autocompletion from buffer words (without external dictionaries).</summary>
 internal static class Completion
 {
-    /// <summary>Уникальные слова длиннее префикса: сначала с тем же регистром, затем остальные.</summary>
+    /// <summary>Collects unique words longer than the prefix: same-case matches first, then the rest.</summary>
     public static List<string> Collect(TextBuffer buf, string prefix)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

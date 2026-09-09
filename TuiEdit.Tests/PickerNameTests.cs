@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Поле имени менеджера: выделение, слова, навигация.</summary>
+/// <summary>Manager name field: selection, words, navigation.</summary>
 public sealed class PickerNameTests : IDisposable
 {
     private readonly string _root;
@@ -64,7 +64,7 @@ public sealed class PickerNameTests : IDisposable
         string dirBefore = p.CurrentDir;
         p.Backspace();
         Assert.Equal("", p.Name);
-        Assert.Equal(dirBefore, p.CurrentDir); // без UpDir
+        Assert.Equal(dirBefore, p.CurrentDir); // no UpDir
 
         p = Save("hello.txt");
         p.MoveNameCursor(-4, select: true);

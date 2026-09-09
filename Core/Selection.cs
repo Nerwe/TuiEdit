@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-/// <summary>Выделение: якорь (неподвижный конец) + курсор (активный конец).</summary>
+/// <summary>Represents a selection: anchor (fixed end) plus cursor (active end).</summary>
 public sealed class TextSelection
 {
     public int AnchorRow { get; set; }
@@ -9,7 +9,7 @@ public sealed class TextSelection
 
     public bool Active { get; private set; }
 
-    /// <summary>Есть ли невырожденное выделение относительно курсора.</summary>
+    /// <summary>Determines whether a non-collapsed selection exists relative to the cursor.</summary>
     public bool HasSelection(int curRow, int curCol) =>
         Active && (AnchorRow != curRow || AnchorCol != curCol);
 
@@ -22,7 +22,7 @@ public sealed class TextSelection
 
     public void Clear() => Active = false;
 
-    /// <summary>Границы [start, end): start &lt;= end лексикографически.</summary>
+    /// <summary>Normalizes bounds to [start, end): start &lt;= end lexicographically.</summary>
     public (int StartRow, int StartCol, int EndRow, int EndCol) Normalize(int curRow, int curCol) =>
         (AnchorRow, AnchorCol, curRow, curCol) switch
         {

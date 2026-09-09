@@ -3,7 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
-/// <summary>Оверрайды биндингов поверх дефолтной таблицы.</summary>
+/// <summary>Binding overrides on top of the default table.</summary>
 public sealed class KeyMapOverrideTests
 {
     private static ConsoleKeyInfo K(char c, ConsoleKey k, bool shift = false, bool alt = false, bool ctrl = false)
@@ -17,7 +17,7 @@ public sealed class KeyMapOverrideTests
             KeyMap.SetOverrides(new Dictionary<string, string?> { ["Save"] = "Ctrl+Shift+S" });
             Assert.Equal(EditorCommand.Save,
                 KeyMap.Map(K('\x13', ConsoleKey.S, ctrl: true, shift: true)));
-            Assert.Equal(EditorCommand.None, // старый ключ больше не сохраняет
+            Assert.Equal(EditorCommand.None, // old key no longer saves
                 KeyMap.Map(K('\x13', ConsoleKey.S, ctrl: true)));
             Assert.Equal("Ctrl+Shift+S", KeyMap.HintFor(EditorCommand.Save));
         }
@@ -32,7 +32,7 @@ public sealed class KeyMapOverrideTests
             KeyMap.SetOverrides(new Dictionary<string, string?> { ["Save"] = null });
             Assert.Equal(EditorCommand.None, KeyMap.Map(K('\x13', ConsoleKey.S, ctrl: true)));
             Assert.Equal(string.Empty, KeyMap.HintFor(EditorCommand.Save));
-            // Остальное живо.
+            // The rest stays alive.
             Assert.Equal(EditorCommand.Quit, KeyMap.Map(K('\x11', ConsoleKey.Q, ctrl: true)));
         }
         finally { KeyMap.ResetToDefaults(); }
@@ -46,7 +46,7 @@ public sealed class KeyMapOverrideTests
             KeyMap.SetOverrides(new Dictionary<string, string?>
             {
                 ["Save"] = "Ctrl+G",
-                ["GoToLine"] = "Ctrl+G", // забирает ключ у Save
+                ["GoToLine"] = "Ctrl+G", // steals the key from Save
             });
             Assert.Equal(EditorCommand.GoToLine, KeyMap.Map(K('\x07', ConsoleKey.G, ctrl: true)));
         }
@@ -72,11 +72,11 @@ public sealed class KeyMapOverrideTests
         {
             KeyMap.SetOverrides(new Dictionary<string, string?>
             {
-                ["Nope"] = "Ctrl+S", // нет такой команды
-                ["Save"] = "Win+S", // мусор в нотации
+                ["Nope"] = "Ctrl+S", // no such command
+                ["Save"] = "Win+S", // garbage in the notation
             });
             Assert.Equal(EditorCommand.Save, KeyMap.Map(K('\x13', ConsoleKey.S, ctrl: true)));
-            Assert.Null(KeyMap.HintFor(EditorCommand.Save)); // оверрайда нет — литерал меню
+            Assert.Null(KeyMap.HintFor(EditorCommand.Save)); // no override — menu literal
         }
         finally { KeyMap.ResetToDefaults(); }
     }

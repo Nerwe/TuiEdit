@@ -1,13 +1,13 @@
 namespace TuiEdit;
 
-/// <summary>Цвет RGB для truecolor-ANSI вывода: только так доступны мягкие пастельные палитры (16 цветов консоли для этого не годятся).</summary>
+/// <summary>Represents an RGB color for truecolor-ANSI output: the only way to get soft pastel tones (the 16 console colors cannot do it).</summary>
 public readonly record struct Rgb(byte R, byte G, byte B)
 {
     public string ToAnsiFg() => $"\x1b[38;2;{R};{G};{B}m";
 
     public string ToAnsiBg() => $"\x1b[48;2;{R};{G};{B}m";
 
-    /// <summary>Смешать с другим цветом (t=0 — этот, t=1 — other).</summary>
+    /// <summary>Blends with another color (t=0 means this, t=1 means other).</summary>
     public Rgb Blend(Rgb other, double t)
     {
         double k = Math.Clamp(t, 0, 1);
@@ -17,7 +17,7 @@ public readonly record struct Rgb(byte R, byte G, byte B)
             (byte)(B + (other.B - B) * k));
     }
 
-    /// <summary>Ближайший из 16 цветов консоли (fallback без VT).</summary>
+    /// <summary>Finds the nearest of the 16 console colors (fallback without VT).</summary>
     public ConsoleColor ToConsoleColor()
     {
         (ConsoleColor color, int r, int g, int b)[] table =

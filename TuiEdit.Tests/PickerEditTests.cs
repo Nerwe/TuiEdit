@@ -58,12 +58,12 @@ public sealed class PickerEditTests : IDisposable
         dlg.HandleKey(K('\0', ConsoleKey.F7));
         Assert.True(Directory.Exists(Path.Combine(_dir, "sub")));
         Assert.False(dlg.Closed);
-        p.MoveHighlight(1); // подсветка на sub
+        p.MoveHighlight(1); // highlight on sub
         dlg.HandleKey(K('\0', ConsoleKey.F8));
-        dlg.HandleKey(K('n', ConsoleKey.N)); // отмена — папка жива
+        dlg.HandleKey(K('n', ConsoleKey.N)); // cancel — folder survives
         Assert.True(Directory.Exists(Path.Combine(_dir, "sub")));
         dlg.HandleKey(K('\0', ConsoleKey.F8));
-        dlg.HandleKey(K('y', ConsoleKey.Y)); // confirm — удалена
+        dlg.HandleKey(K('y', ConsoleKey.Y)); // confirm — deleted
         Assert.False(Directory.Exists(Path.Combine(_dir, "sub")));
         Assert.False(dlg.Closed);
     }
@@ -114,7 +114,7 @@ public sealed class PickerEditTests : IDisposable
     {
         File.WriteAllText(Path.Combine(_dir, "a.txt"), "x");
         var p = State();
-        Assert.Null(p.DeleteTarget()); // подсветка на ..
+        Assert.Null(p.DeleteTarget()); // highlight on ..
         p.MoveHighlight(1);
         Assert.EndsWith("a.txt", p.DeleteTarget());
         var drives = new FilePickerState(PickerMode.Open, "", "");

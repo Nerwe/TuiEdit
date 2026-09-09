@@ -3,8 +3,8 @@ using System.Globalization;
 namespace TuiEdit;
 
 /// <summary>
-/// Строки настроек: подписи, значения, листание. Общее ядро для
-/// <see cref="SettingsDialog"/> и палитры команд (порядок строк — контракт).
+/// Provides setting rows: labels, values, cycling. Shared core for
+/// <see cref="SettingsDialog"/> and the command palette (row order is a contract).
 /// </summary>
 internal static class SettingsModel
 {
@@ -54,7 +54,7 @@ internal static class SettingsModel
         _ => OnOff(loc, settings.GitGutter),
     };
 
-    /// <summary>Шагнуть значение строки (dir +1/-1); сохранение — на вызывающем.</summary>
+    /// <summary>Steps a row value (dir +1/-1); the caller saves.</summary>
     public static void Cycle(AppSettings settings, int row, int dir)
     {
         switch (row)

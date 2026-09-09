@@ -3,7 +3,7 @@ namespace TuiEdit;
 /// <summary>TuiEditor: find, replace, grep and go-to.</summary>
 internal sealed partial class TuiEditor
 {
-    /// <summary>Прыжок на строку для CLI file:line (1-based, за концом — кламп).</summary>
+    /// <summary>Jumps to a row for CLI file:line (1-based, clamps past the end).</summary>
     internal void GoToLineNumber(int n)
     {
         _row = Math.Clamp(n - 1, 0, _buf.Count - 1);
@@ -37,7 +37,7 @@ internal sealed partial class TuiEditor
 
     private void FindPrev() => JumpSearch(wrap: true, backward: true);
 
-    /// <summary>Поиск по файлам: шаблон + папка, прыжок по выбору.</summary>
+    /// <summary>Searches files: pattern plus folder, jumps on pick.</summary>
     private void GrepFlow()
     {
         string? pattern = Prompt(_loc["prompt.grep.pattern"], _lastSearch, liveHighlight: false, showOptions: true);
@@ -58,7 +58,7 @@ internal sealed partial class TuiEditor
         _dialog = new ModalDialog(ModalState.Grep(_loc, _grepHits), ApplyModalOutcome);
     }
 
-    /// <summary>Быстрый переход к файлу проекта (фильтр по имени).</summary>
+    /// <summary>Jumps quickly to a project file (filters by name).</summary>
     private void QuickOpenFlow()
     {
         string root = StartDir();
@@ -88,12 +88,12 @@ internal sealed partial class TuiEditor
         }
     }
 
-    /// <summary>Командная строка (F12): set/goto/find/save/quit.</summary>
+    /// <summary>Runs the command line (F12): set/goto/find/save/quit.</summary>
     private void CommandLineFlow()
     {
         string? s = Prompt(_loc["cmdline.title"], string.Empty);
         if (s is null)
-            return; // Esc — тихо
+            return; // Esc stays quiet
         switch (CommandLine.Parse(s))
         {
             case null:
@@ -143,7 +143,7 @@ internal sealed partial class TuiEditor
         }
     }
 
-    /// <summary>Прыжок к вхождению со счётчиком «k/N».</summary>
+    /// <summary>Jumps to a match with a "k/N" counter.</summary>
     private void JumpSearch(bool wrap, bool backward)
     {
         if (string.IsNullOrEmpty(_lastSearch)) { Find(); return; }
@@ -153,7 +153,7 @@ internal sealed partial class TuiEditor
             : _buf.FindNext(_lastSearch, _row, _col + 1, mc, ww, wrap, rx);
         if (hit is null) { SetMessage(_loc.Format("msg.search.miss", _lastSearch)); return; }
         (_row, _col) = (hit.Value.row, hit.Value.col);
-        _sel.Clear(); // прыжок снимает выделение
+        _sel.Clear(); // Jump clears the selection
         UnfoldPath();
         TrackCol();
         int total = _buf.CountMatches(_lastSearch, mc, ww, rx);
@@ -164,7 +164,7 @@ internal sealed partial class TuiEditor
 
     internal static bool ShouldConfirmReplace(int count) => count > ReplaceConfirmThreshold;
 
-    /// <summary>Мгновенная замена по всему документу за один шаг undo.</summary>
+    /// <summary>Replaces across the whole document instantly in one undo step.</summary>
     private void Replace()
     {
         string? term = Prompt(_loc["prompt.replace.find"], _lastSearch, liveHighlight: true, showOptions: true);
@@ -197,7 +197,7 @@ internal sealed partial class TuiEditor
             : _loc.Format("msg.search.miss", term));
     }
 
-    /// <summary>Разбор «N» / «N:M» / «$» (1-based; null — мусор).</summary>
+    /// <summary>Parses "N" / "N:M" / "$" (1-based; returns null for junk).</summary>
     internal static (int line, int col)? ParseGoTo(string s)
     {
         string t = s.Trim();
@@ -219,12 +219,12 @@ internal sealed partial class TuiEditor
         if (ParseGoTo(s) is (int line, int col))
         {
             GoToPosition(line, col);
-            _sel.Clear(); // прыжок снимает выделение
+            _sel.Clear(); // Jump clears the selection
         }
         else SetMessage(_loc["msg.notnumber"]);
     }
 
-    /// <summary>Переключить опцию поиска (Alt+C/W/R в промпте). True — клавиша съедена.</summary>
+    /// <summary>Toggles a search option (Alt+C/W/R in the prompt). Returns <see langword="true"/> if the key was consumed; otherwise, <see langword="false"/>.</summary>
     internal bool ToggleSearchOption(ConsoleKey key)
     {
         switch (key)

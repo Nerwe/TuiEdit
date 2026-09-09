@@ -36,7 +36,7 @@ internal sealed partial class TuiEditor
         return _buf.Count - 1;
     }
 
-    /// <summary>Клик в контентных координатах: vis — строка от верха текста, vc — визуальная колонка.</summary>
+    /// <summary>Locates a click in content coordinates: vis is the row from the text top, vc is the visual column.</summary>
     internal static (int Row, int Col) LocateClick(
         IReadOnlyList<string> lines, SortedSet<int> folds,
         int top, int topSeg, bool wrap, int contentWidth, int left,
@@ -65,7 +65,7 @@ internal sealed partial class TuiEditor
             fileLine++;
             firstSeg = 0;
         }
-        return (last, lines.Count == 0 ? 0 : lines[last].Length); // ниже текста — конец
+        return (last, lines.Count == 0 ? 0 : lines[last].Length); // Below text means end
     }
 
     internal static int FoldStartAt(IReadOnlyList<string> lines, SortedSet<int> folds, int row)
@@ -81,7 +81,7 @@ internal sealed partial class TuiEditor
         return start;
     }
 
-    /// <summary>Визуальная колонка — индекс символа (табы как в отрисовке).</summary>
+    /// <summary>Maps a visual column to a character index (tabs as in rendering).</summary>
     internal static int ColumnAt(string line, int target)
     {
         if (target <= 0)
@@ -102,7 +102,7 @@ internal sealed partial class TuiEditor
     {
         ClampCursor();
         if (FoldHidden(_row))
-            UnfoldPath(); // страховка: курсор всегда на видимой строке
+            UnfoldPath(); // Safety: cursor always lands on a visible row
         while (_top < _buf.Count - 1 && FoldHidden(_top))
         {
             _top++;
@@ -126,11 +126,11 @@ internal sealed partial class TuiEditor
             if (_left < 0) _left = 0;
             return;
         }
-        _left = 0; // переносы вместо горизонтального скролла
+        _left = 0; // Wraps replace horizontal scrolling
         if (_row != _top) _topSeg = 0;
         if (_row < _top) { _top = _row; _topSeg = 0; }
         int rows = CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, true, textHeight, folds);
-        if (rows < 0) // курсор выше видимого (сдвиг внутри длинной строки)
+        if (rows < 0) // Cursor is above the visible area (shift inside a long row)
         {
             _top = _row; _topSeg = 0;
             rows = CursorVisualRow(_buf.Lines, _top, 0, _row, _col, contentWidth, true, textHeight, folds);
@@ -144,7 +144,7 @@ internal sealed partial class TuiEditor
             }
             else
             {
-                // Курсор на дальнем сегменте длинной строки — показываем её хвост.
+                // Cursor sits on a far segment of a long row - shows its tail.
                 _topSeg = Math.Max(0, CursorSeg(_buf.GetLine(_row), _col, contentWidth) - textHeight + 1);
                 break;
             }
@@ -160,8 +160,8 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>
-    /// Визуальная строка курсора: сегменты [top, row) минус прокрученные плюс сегмент курсора.
-    /// Точность выше cap не гарантируется (экрану достаточно cap=textHeight).
+    /// Computes the cursor visual row: segments [top, row) minus scrolled plus the cursor segment.
+    /// Accuracy above cap is not guaranteed (cap=textHeight suffices for the screen).
     /// </summary>
     internal static int CursorVisualRow(IReadOnlyList<string> lines, int top, int topSeg,
         int row, int col, int contentWidth, bool wrap, int cap = int.MaxValue, SortedSet<int>? folds = null)
@@ -225,10 +225,10 @@ internal sealed partial class TuiEditor
         if (_screen.Width != w || _screen.Height != h)
             _screen.Resize(w, h);
 
-        // Меню-бар (строка 0).
+        // Menu bar (row 0).
         DrawMenuBar(w);
 
-        // Неактивные панели — из снапшотов вкладок, активная — из полей (кэш).
+        // Inactive panes render from tab snapshots, the active one from fields (cache).
         int savedPane = _pane;
         SaveTabState();
         for (int i = 0; i < _panes.Count; i++)
@@ -263,7 +263,7 @@ internal sealed partial class TuiEditor
             _git.StatusSegment(_buf.FilePath), _active, _docs.Count, _pane, _panes.Count);
         _screen.Text(0, h - 1, StatusBar.Build(left, right, w), _theme.StatusFg, _theme.StatusBg);
 
-        // Поверх текста: раскрытое меню и активное диалоговое окно.
+        // Over text: open menu and active dialog.
         DrawDropdown(w, h);
         if (_dialog is ModalDialog mdd)
         {
@@ -274,7 +274,7 @@ internal sealed partial class TuiEditor
 
         _screen.Flush();
 
-        // Аппаратный курсор — один раз за кадр (прячем под меню, диалогом, панелью).
+        // Hardware cursor - once per frame (hides under menu, dialog, panel).
         bool uiOpen = _menu is not null || _dialog is not null || _sidebarFocus;
         string curLine = _buf.GetLine(_row);
         int vcolCur = TabStops.VisualWidth(curLine, _col);
@@ -319,15 +319,15 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>
-    /// Текст посимвольно: цвет ячейки — выделение / поиск / текущая строка / синтаксис.
-    /// x0 — сдвиг на ширину панели, y0 — первая строка текста.
+    /// Draws text character by character: cell color follows selection / search / current row / syntax.
+    /// x0 offsets by pane width, y0 is the first text row.
     /// </summary>
-    /// <summary>Цвет номера строки: закладка/свёртка — акцент, иначе git-метка, иначе гуттер.</summary>
+    /// <summary>Gets the row number color: bookmark/fold gets accent, else git mark, else gutter.</summary>
     private Rgb GitGutterFg(
         (IReadOnlySet<int> added, IReadOnlySet<int> modified)? marks, int fileLine, int seg, bool pinned)
     {
         if (seg != 0)
-            return _theme.GutterFg; // продолжение wrap-строки — как было
+            return _theme.GutterFg; // Wrapped-row continuation stays as before
         if (pinned)
             return _theme.AccentFg;
         if (marks is (var added, var modified))
@@ -452,7 +452,7 @@ internal sealed partial class TuiEditor
                         break;
                     ci++;
                 }
-                // Хвост строки — пробелы обычным цветом.
+                // Pads the row tail with spaces in the normal color.
                 int filled = Math.Clamp(vpos - @base, 0, contentWidth);
                 (Rgb tailFg, Rgb tailBg) = isCur
                     ? (_theme.CurLineFg, _theme.CurLineBg)
@@ -472,8 +472,8 @@ internal sealed partial class TuiEditor
 
     /// <summary>
     /// <summary>
-    /// Панель файлов слева: заголовок + список со скроллом.
-    /// Типы цветом: папки, «..», скрытые, исполняемые, файлы.
+    /// Draws the file panel on the left: header plus scrolling list.
+    /// Colors by kind: folders, "..", hidden, executables, files.
     /// </summary>
     private void DrawSidebar(int y0, int textHeight)
     {
@@ -512,7 +512,7 @@ internal sealed partial class TuiEditor
             _screen.Text(0, row, new string(' ', inner) + "│", _theme.EditorFg, _theme.EditorBg);
     }
 
-    /// <summary>Цвет записи сайдбара по типу (выбранная красится отдельно).</summary>
+    /// <summary>Gets the sidebar entry color by kind (the selected entry paints separately).</summary>
     internal static Rgb EntryFg(Theme theme, SidebarEntry e)
     {
         if (e.Name == "..")
@@ -527,8 +527,8 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>
-    /// Строка вкладок в регионе панели: активная подсвечена, у грязных — «*»,
-    /// длинный ряд — окном (активная всегда видна). Чужая панель — приглушена.
+    /// Draws the tab row in a pane region: highlights the active tab, marks dirty tabs with "*",
+    /// windows long rows (the active tab stays visible). Dims foreign panes.
     /// </summary>
     private void DrawTabs(int px, int pw, bool focused)
     {
@@ -578,7 +578,7 @@ internal sealed partial class TuiEditor
                 _screen.Set(paneXs[i], y, '│', _theme.GutterFg, _theme.EditorBg);
     }
 
-    /// <summary>Начало видимого окна вкладок: сдвигаем, пока активная не влезет.</summary>
+    /// <summary>Computes the visible tab window start: shifts until the active tab fits.</summary>
     internal static int TabWindowStart(IReadOnlyList<int> widths, int active, int start, int w)
     {
         if (widths.Count == 0)

@@ -1,8 +1,8 @@
 namespace TuiEdit;
 
 /// <summary>
-/// Натуральное сравнение имён (<c>file2</c> перед <c>file10</c>):
-/// runs цифр — численно, остальное — текстом без учёта регистра.
+/// Provides natural name comparison (<c>file2</c> before <c>file10</c>):
+/// compares digit runs numerically and other text case-insensitively.
 /// </summary>
 public static class NaturalSort
 {
@@ -16,7 +16,7 @@ public static class NaturalSort
         if (b is null)
             return 1;
         int c = CompareCore(a, b);
-        // Всё равно без учёта регистра — детерминированный тайбрейк регистром.
+        // Still case-insensitive — breaks ties deterministically by case.
         return c != 0 ? c : string.Compare(a, b, StringComparison.Ordinal);
     }
 
@@ -36,7 +36,7 @@ public static class NaturalSort
                 continue;
             }
             if (da != db)
-                return da ? -1 : 1; // цифры раньше букв (как в проводнике)
+                return da ? -1 : 1; // Sorts digits before letters (like Explorer)
             int i0 = i, j0 = j;
             while (i < a.Length && !char.IsAsciiDigit(a[i]))
                 i++;
@@ -46,12 +46,12 @@ public static class NaturalSort
                 StringComparison.OrdinalIgnoreCase);
             if (c != 0)
                 return c;
-            // Общая часть равна — дальше разберёт цикл (run за runом) или длина.
+            // Shared prefix matches — the loop (run by run) or length decides next.
         }
         return a.Length.CompareTo(b.Length);
     }
 
-    /// <summary>Числа любой длины: сначала значение, при равенстве — меньше нулей впереди.</summary>
+    /// <summary>Compares numbers of any length: by value first, then by fewer leading zeros on ties.</summary>
     private static int CompareNumbers(string a, ref int i, string b, ref int j)
     {
         int i0 = i, j0 = j;
@@ -59,7 +59,7 @@ public static class NaturalSort
             i++;
         while (j < b.Length && char.IsAsciiDigit(b[j]))
             j++;
-        // Значение без ведущих нулей: длиннее — больше.
+        // Compares values without leading zeros: longer means larger.
         int ia = i0, ja = j0;
         while (ia + 1 < i && a[ia] == '0')
             ia++;
@@ -71,7 +71,7 @@ public static class NaturalSort
         c = string.Compare(a, ia, b, ja, i - ia, StringComparison.Ordinal);
         if (c != 0)
             return c;
-        // Значение равно — короче запись (меньше нулей) раньше.
+        // Values match — shorter notation (fewer zeros) sorts first.
         return (i - i0).CompareTo(j - j0);
     }
 }
