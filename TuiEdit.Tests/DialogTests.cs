@@ -390,43 +390,46 @@ public sealed class DialogTests : IDisposable
     }
 
     [Fact]
-    public void PaletteFiltersRows()
+    public void PaletteCoversMenusCommandsSettings()
     {
         var loc = Loc.Load("en");
         var settings = new AppSettings();
-        var st = new CommandPaletteState();
-        st.Refilter(settings, loc);
-        Assert.Equal(SettingsModel.Count, st.View.Count);
-        st.SetFilter("mouse");
-        st.Refilter(settings, loc);
-        Assert.Equal([9], st.View);
-        st.SetFilter("copy");
-        st.Refilter(settings, loc);
-        Assert.Equal([10], st.View);
-        st.SetFilter("zzz");
-        st.Refilter(settings, loc);
-        Assert.Empty(st.View);
+        List<PaletteEntry> all = CommandPaletteDialog.AllEntries(settings, loc);
+        Assert.True(all.Count > 40);
+        Assert.DoesNotContain(all, e => e is CommandEntry c && c.Command == EditorCommand.None);
+        Assert.Contains(all, e => e is SettingEntry s && s.Row == 9);
+        Assert.Contains(all, e => e is CommandEntry c && c.Command == EditorCommand.CopyLine);
+        Assert.Contains(all, e => e is CommandEntry c && c.Command == EditorCommand.ListTabs);
+        // Фильтр: подпись, значение настройки и шорткат команды.
+        Assert.Equal([new SettingEntry(9)],
+            CommandPaletteDialog.ApplyFilter(all, "mouse", settings, loc));
+        Assert.Equal([new CommandEntry(EditorCommand.CopyLine, "Edit: Copy line", "^C"), new SettingEntry(10)],
+            CommandPaletteDialog.ApplyFilter(all, "copy", settings, loc));
+        List<PaletteEntry> byShortcut =
+            CommandPaletteDialog.ApplyFilter(all, "ctrl+p", settings, loc);
+        Assert.Contains(byShortcut, e => e is CommandEntry c && c.Command == EditorCommand.ListTabs);
+        Assert.Empty(CommandPaletteDialog.ApplyFilter(all, "zzz", settings, loc));
+        Assert.Equal(all.Count, CommandPaletteDialog.ApplyFilter(all, "", settings, loc).Count);
     }
 
     [Fact]
     public void PaletteKeepsRowAndWindow()
     {
-        var loc = Loc.Load("en");
-        var settings = new AppSettings();
         var st = new CommandPaletteState();
-        st.Refilter(settings, loc);
-        st.MoveTo(5, 3);
-        Assert.Equal(5, st.Selected);
-        st.Refilter(settings, loc); // тот же фильтр — строка жива
-        Assert.Equal(5, st.Selected);
-        st.MoveTo(10, 3);
-        Assert.Equal(10, st.Selected);
-        Assert.Equal(8, st.Top); // окно дотянулось
-        st.Move(-1, 3);
-        Assert.Equal(9, st.Selected);
-        st.SetFilter("zzz");
-        st.Refilter(settings, loc);
-        st.MoveTo(4, 3); // пусто — безопасно
+        var view = new List<PaletteEntry>
+            { new SettingEntry(0), new SettingEntry(1), new SettingEntry(2), new SettingEntry(3) };
+        st.ReplaceView(view, fresh: true);
+        st.MoveTo(2, 2);
+        Assert.Equal(2, st.Selected);
+        st.ReplaceView(view, fresh: false); // тот же фильтр — строка жива
+        Assert.Equal(2, st.Selected);
+        st.MoveTo(3, 2);
+        Assert.Equal(3, st.Selected);
+        Assert.Equal(2, st.Top); // окно дотянулось
+        st.Move(-1, 2);
+        Assert.Equal(2, st.Selected);
+        st.ReplaceView([], fresh: false); // пусто — безопасно
+        st.MoveTo(1, 2);
         Assert.Equal(0, st.Selected);
     }
 
@@ -436,7 +439,8 @@ public sealed class DialogTests : IDisposable
         var settings = new AppSettings();
         var store = new SettingsStore(Path.Combine(_cfgDir, "pal.json"));
         bool changed = false;
-        var dlg = new CommandPaletteDialog(settings, store, () => { changed = true; });
+        EditorCommand? picked = null;
+        var dlg = new CommandPaletteDialog(settings, store, () => { changed = true; }, cmd => picked = cmd);
         Assert.Equal(MouseLevel.Off, settings.Mouse);
         dlg.Paste("мышь"); // ru-локаль фикстуры
         var scr = new Screen();
@@ -449,7 +453,28 @@ public sealed class DialogTests : IDisposable
         dlg.HandleClick(box.Value.X0 + 2, box.Value.Y0 + 2, 80, 24, _loc);
         Assert.Equal(MouseLevel.Basic, settings.Mouse);
         Assert.True(changed);
+        Assert.Null(picked); // настройка — остаёмся открытыми
+        Assert.False(dlg.Closed);
         Assert.True(File.Exists(Path.Combine(_cfgDir, "pal.json")));
+    }
+
+    [Fact]
+    public void PaletteCommandPickCloses()
+    {
+        var settings = new AppSettings();
+        var store = new SettingsStore(Path.Combine(_cfgDir, "pal4.json"));
+        EditorCommand? picked = null;
+        var dlg = new CommandPaletteDialog(settings, store, () => { }, cmd => picked = cmd);
+        dlg.Paste("ctrl+p"); // шорткат списка вкладок
+        var scr = new Screen();
+        scr.Resize(80, 24);
+        var box = (DialogBox?)typeof(Dialog)
+            .GetMethod("Measure", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(dlg, [80, 24, _loc]);
+        Assert.NotNull(box);
+        dlg.HandleClick(box.Value.X0 + 2, box.Value.Y0 + 2, 80, 24, _loc);
+        Assert.Equal(EditorCommand.ListTabs, picked);
+        Assert.True(dlg.Closed);
     }
 
     [Fact]
@@ -457,7 +482,7 @@ public sealed class DialogTests : IDisposable
     {
         var settings = new AppSettings();
         var store = new SettingsStore(Path.Combine(_cfgDir, "pal2.json"));
-        var dlg = new CommandPaletteDialog(settings, store, () => { });
+        var dlg = new CommandPaletteDialog(settings, store, () => { }, _ => { });
         dlg.Paste("мышь");
         dlg.HandleKey(K('\x1B', ConsoleKey.Escape));
         Assert.False(dlg.Closed); // первый Esc — чистит фильтр
@@ -474,11 +499,11 @@ public sealed class DialogTests : IDisposable
     {
         var settings = new AppSettings();
         var store = new SettingsStore(Path.Combine(_cfgDir, "pal3.json"));
-        var dlg = new CommandPaletteDialog(settings, store, () => { });
+        var dlg = new CommandPaletteDialog(settings, store, () => { }, _ => { });
         var scr = new Screen();
         scr.Resize(80, 24);
         dlg.Paste("мышь"); // 4 символа, одна строка
-        var probe = new CommandPaletteDialog(settings, store, () => { });
+        var probe = new CommandPaletteDialog(settings, store, () => { }, _ => { });
         probe.Paste("zzz"); // 3 символа, ноль строк — та же высота бокса
         var scr2 = new Screen();
         scr2.Resize(80, 24);

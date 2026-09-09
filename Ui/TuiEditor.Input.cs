@@ -455,7 +455,10 @@ internal sealed partial class TuiEditor
                 return;
             case EditorCommand.Settings: RunSettings(); return;
             case EditorCommand.CommandPalette:
-                RunDialog(new CommandPaletteDialog(_settings, _store, ApplySettings));
+                EditorCommand? picked = null;
+                RunDialog(new CommandPaletteDialog(_settings, _store, ApplySettings, cmd => picked = cmd));
+                if (picked is { } pc)
+                    Execute(pc, k); // команда — после закрытия палитры (без вложенности)
                 return;
             case EditorCommand.Find: Find(); return;
             case EditorCommand.Grep: GrepFlow(); return;
@@ -602,7 +605,7 @@ internal sealed partial class TuiEditor
     private static string? Hint(string? literal, EditorCommand cmd) =>
         KeyMap.HintFor(cmd) ?? literal;
 
-    private static List<TopMenu> BuildMenus(Loc loc) => new()
+    internal static List<TopMenu> BuildMenus(Loc loc) => new()
     {
         new TopMenu(loc["menu.file"], 'F', new List<MenuItem>
         {

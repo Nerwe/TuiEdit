@@ -1,14 +1,43 @@
 namespace TuiEdit;
 
+/// <summary>Строка палитры: настройка (со значением) или команда (с шорткатом).</summary>
+internal abstract record PaletteEntry
+{
+    public abstract string Label(AppSettings settings, Loc loc);
+
+    public abstract string Value(AppSettings settings, Loc loc);
+
+    /// <summary>Текст для фильтра: подпись + значение/шорткат.</summary>
+    public string MatchText(AppSettings settings, Loc loc) =>
+        Label(settings, loc) + " " + Value(settings, loc);
+}
+
+/// <summary>Строка настройки (индекс — как в <see cref="SettingsModel"/>).</summary>
+internal sealed record SettingEntry(int Row) : PaletteEntry
+{
+    public override string Label(AppSettings settings, Loc loc) => SettingsModel.Label(Row, loc);
+
+    public override string Value(AppSettings settings, Loc loc) => SettingsModel.Value(Row, settings, loc);
+}
+
+/// <summary>Строка команды (подпись и шорткат уже локализованы вызывающим).</summary>
+internal sealed record CommandEntry(EditorCommand Command, string LabelText, string? Shortcut) : PaletteEntry
+{
+    public override string Label(AppSettings settings, Loc loc) => LabelText;
+
+    public override string Value(AppSettings settings, Loc loc) =>
+        KeyMap.HintFor(Command) ?? Shortcut ?? string.Empty;
+}
+
 /// <summary>
-/// Состояние палитры: фильтр + видимые строки + курсор. Чистое, без консоли.
+/// Состояние палитры: фильтр + видимые записи + курсор. Чистое, без консоли.
 /// </summary>
 internal sealed class CommandPaletteState
 {
     public string Filter { get; private set; } = string.Empty;
 
-    /// <summary>Индексы строк настроек под фильтром (порядок — как в диалоге).</summary>
-    public List<int> View { get; private set; } = AllRows();
+    /// <summary>Записи под фильтром (порядок — как в полном списке).</summary>
+    public List<PaletteEntry> View { get; private set; } = [];
 
     /// <summary>Курсор (индекс в <see cref="View"/>).</summary>
     public int Selected { get; private set; }
@@ -16,49 +45,30 @@ internal sealed class CommandPaletteState
     /// <summary>Начало видимого окна.</summary>
     public int Top { get; private set; }
 
-    private string _builtFor = "\0"; // фильтр, под который собран View
-
-    private static List<int> AllRows()
+    public void SetFilter(string filter)
     {
-        var rows = new List<int>(SettingsModel.Count);
-        for (int i = 0; i < SettingsModel.Count; i++)
-            rows.Add(i);
-        return rows;
+        Filter = filter;
     }
 
     /// <summary>
-    /// Пересчитать видимые строки (подстрока по подписи и значению).
-    /// Новый фильтр — курсор в начало; тот же — держим строку, если жива.
+    /// Подменить видимый список: новый фильтр — курсор в начало,
+    /// тот же (значения поменялись) — держим запись, если жива.
     /// </summary>
-    public void Refilter(AppSettings settings, Loc loc)
+    public void ReplaceView(List<PaletteEntry> view, bool fresh)
     {
-        int? prevRow = View.Count > 0 && Selected >= 0 && Selected < View.Count
+        PaletteEntry? prev = !fresh && Selected >= 0 && Selected < View.Count
             ? View[Selected]
             : null;
-        bool fresh = _builtFor != Filter;
-        View = [];
-        for (int i = 0; i < SettingsModel.Count; i++)
-        {
-            if (Filter.Length == 0
-                || SettingsModel.Label(i, loc).Contains(Filter, StringComparison.OrdinalIgnoreCase)
-                || SettingsModel.Value(i, settings, loc).Contains(Filter, StringComparison.OrdinalIgnoreCase))
-                View.Add(i);
-        }
-        _builtFor = Filter;
-        if (fresh || prevRow is null)
+        View = view;
+        if (prev is null)
         {
             Selected = 0;
             Top = 0;
             return;
         }
-        int at = View.IndexOf(prevRow.Value);
+        int at = View.IndexOf(prev);
         Selected = at >= 0 ? at : 0;
         Top = 0;
-    }
-
-    public void SetFilter(string filter)
-    {
-        Filter = filter;
     }
 
     /// <summary>Двинуть курсор на delta (окно дотягивается).</summary>
@@ -82,8 +92,8 @@ internal sealed class CommandPaletteState
 }
 
 /// <summary>
-/// Палитра команд (пока — поиск по настройкам): строка фильтра + список,
-/// Enter — следующее значение (как стрелка вправо в диалоге настроек).
+/// Палитра команд: строка фильтра + единый список (меню, команды, настройки).
+/// Настройка — шагнуть и остаться, команда — закрыть и выполнить.
 /// </summary>
 internal sealed class CommandPaletteDialog : Dialog
 {
@@ -91,15 +101,82 @@ internal sealed class CommandPaletteDialog : Dialog
     private readonly AppSettings _settings;
     private readonly SettingsStore _store;
     private readonly Action _onChanged;
+    private readonly Action<EditorCommand> _onCommand;
     private Loc? _loc;
+    private string _builtFilter = "\0"; // фильтр, под который собран View
     private int _cursorX = -1;
     private int _cursorY = -1;
 
-    public CommandPaletteDialog(AppSettings settings, SettingsStore store, Action onChanged)
+    public CommandPaletteDialog(
+        AppSettings settings, SettingsStore store, Action onChanged, Action<EditorCommand> onCommand)
     {
         _settings = settings;
         _store = store;
         _onChanged = onChanged;
+        _onCommand = onCommand;
+    }
+
+    /// <summary>
+    /// Полный список записей: меню (подписи и шорткаты уже локализованы),
+    /// затем команды без меню, затем настройки.
+    /// </summary>
+    internal static List<PaletteEntry> AllEntries(AppSettings settings, Loc loc)
+    {
+        var all = new List<PaletteEntry>();
+        foreach (TopMenu menu in TuiEditor.BuildMenus(loc))
+        {
+            foreach (MenuItem item in menu.Items)
+            {
+                if (item.IsSeparator)
+                    continue;
+                all.Add(new CommandEntry(item.Command, menu.Label + ": " + item.Label, item.Shortcut));
+            }
+        }
+        all.Add(new CommandEntry(EditorCommand.ToggleSidebar, loc["palette.cmd.togglesidebar"], "Ctrl+B"));
+        all.Add(new CommandEntry(EditorCommand.ToggleLineNumbers, loc["palette.cmd.togglelinenumbers"], "Alt+N"));
+        all.Add(new CommandEntry(EditorCommand.ToggleWrap, loc["palette.cmd.togglewrap"], "Alt+Z"));
+        all.Add(new CommandEntry(EditorCommand.ToggleWhitespace, loc["palette.cmd.togglewhitespace"], "Alt+."));
+        all.Add(new CommandEntry(EditorCommand.ToggleFold, loc["palette.cmd.togglefold"], "Alt+-"));
+        all.Add(new CommandEntry(EditorCommand.ToggleBookmark, loc["palette.cmd.togglebookmark"], "F2"));
+        all.Add(new CommandEntry(EditorCommand.NextBookmark, loc["palette.cmd.nextbookmark"], "Shift+F2"));
+        all.Add(new CommandEntry(EditorCommand.CompleteWord, loc["palette.cmd.completeword"], "Ctrl+Space"));
+        all.Add(new CommandEntry(EditorCommand.DocStats, loc["palette.cmd.docstats"], "F4"));
+        all.Add(new CommandEntry(EditorCommand.MoveLineUp, loc["palette.cmd.movelineup"], "Alt+↑"));
+        all.Add(new CommandEntry(EditorCommand.MoveLineDown, loc["palette.cmd.movelinedown"], "Alt+↓"));
+        all.Add(new CommandEntry(EditorCommand.FindNext, loc["palette.cmd.findnext"], "F3"));
+        all.Add(new CommandEntry(EditorCommand.FindPrev, loc["palette.cmd.findprev"], "Shift+F3"));
+        all.Add(new CommandEntry(EditorCommand.ListTabs, loc["palette.cmd.listtabs"], "Ctrl+P"));
+        all.Add(new CommandEntry(EditorCommand.NextTab, loc["palette.cmd.nexttab"], "Ctrl+PgDn"));
+        all.Add(new CommandEntry(EditorCommand.PrevTab, loc["palette.cmd.prevtab"], "Ctrl+PgUp"));
+        all.Add(new CommandEntry(EditorCommand.SplitPane, loc["palette.cmd.splitpane"], "Alt+S"));
+        all.Add(new CommandEntry(EditorCommand.NextPane, loc["palette.cmd.nextpane"], "F6"));
+        all.Add(new CommandEntry(EditorCommand.PrevPane, loc["palette.cmd.prevpane"], "Shift+F6"));
+        for (int i = 0; i < SettingsModel.Count; i++)
+            all.Add(new SettingEntry(i));
+        return all;
+    }
+
+    /// <summary>Чистый фильтр записей (подстрока по подписи и значению/шорткату).</summary>
+    internal static List<PaletteEntry> ApplyFilter(
+        IReadOnlyList<PaletteEntry> all, string filter, AppSettings settings, Loc loc)
+    {
+        var view = new List<PaletteEntry>();
+        foreach (PaletteEntry e in all)
+        {
+            if (filter.Length == 0
+                || e.MatchText(settings, loc).Contains(filter, StringComparison.OrdinalIgnoreCase))
+                view.Add(e);
+        }
+        return view;
+    }
+
+    /// <summary>Пересобрать View под текущий фильтр (держит курсор при том же фильтре).</summary>
+    private void Rebuild(Loc loc)
+    {
+        bool fresh = _builtFilter != _state.Filter;
+        List<PaletteEntry> view = ApplyFilter(AllEntries(_settings, loc), _state.Filter, _settings, loc);
+        _builtFilter = _state.Filter;
+        _state.ReplaceView(view, fresh);
     }
 
     protected override string GetTitle(Loc loc) => loc["palette.title"];
@@ -109,12 +186,12 @@ internal sealed class CommandPaletteDialog : Dialog
         if (screenW < 20 || screenH < 5)
             return null;
         _loc = loc;
-        _state.Refilter(_settings, loc);
+        Rebuild(loc);
         int labelW = 0, valW = 0;
-        for (int i = 0; i < SettingsModel.Count; i++)
+        foreach (PaletteEntry e in AllEntries(_settings, loc))
         {
-            labelW = Math.Max(labelW, SettingsModel.Label(i, loc).Length);
-            valW = Math.Max(valW, SettingsModel.Value(i, _settings, loc).Length);
+            labelW = Math.Max(labelW, e.Label(_settings, loc).Length);
+            valW = Math.Max(valW, e.Value(_settings, loc).Length);
         }
         string hint = loc["palette.hint"];
         int inner = Math.Max(1 + 2 + labelW + 2 + (valW + 4) + 1,
@@ -133,7 +210,7 @@ internal sealed class CommandPaletteDialog : Dialog
     protected override void DrawContent(Screen screen, Theme theme, Loc loc, Rgb fg, Rgb bg, DialogBox box)
     {
         _loc = loc;
-        _state.Refilter(_settings, loc);
+        Rebuild(loc);
         int maxList = MaxList(screen.Height);
         _state.MoveTo(_state.Selected, maxList);
         int x0 = box.X0, y0 = box.Y0, inner = box.W - 2;
@@ -147,9 +224,7 @@ internal sealed class CommandPaletteDialog : Dialog
         screen.Text(x0, y0 + 1, "│", fg, bg);
         screen.Text(x0 + 1, y0 + 1, cell, promptFg, bg);
         screen.Text(x0 + box.W - 1, y0 + 1, "│", fg, bg);
-        int ncx = x0 + 1 + prompt.Length + _state.Filter.Length;
-        if (empty)
-            ncx = x0 + 1 + prompt.Length;
+        int ncx = x0 + 1 + prompt.Length + (empty ? 0 : _state.Filter.Length);
         _cursorX = ncx >= x0 + 1 && ncx < x0 + box.W - 1 ? ncx : -1;
         _cursorY = y0 + 1;
 
@@ -159,8 +234,8 @@ internal sealed class CommandPaletteDialog : Dialog
         int end = Math.Min(_state.View.Count, _state.Top + maxList);
         for (int i = _state.Top; i < end; i++)
         {
-            labels.Add(SettingsModel.Label(_state.View[i], loc));
-            values.Add(SettingsModel.Value(_state.View[i], _settings, loc));
+            labels.Add(_state.View[i].Label(_settings, loc));
+            values.Add(_state.View[i].Value(_settings, loc));
         }
         if (labels.Count == 0)
         {
@@ -244,26 +319,31 @@ internal sealed class CommandPaletteDialog : Dialog
     }
 
     private static int MaxList(int screenH) =>
-        Math.Max(3, Math.Min(SettingsModel.Count, screenH - 10));
+        Math.Max(3, Math.Min(60, screenH - 10));
 
     /// <summary>Окно списка неизвестно без размеров экрана — оценка для клавиш (Draw доклампит).</summary>
-    private static int MaxListFallback() => SettingsModel.Count;
+    private static int MaxListFallback() => 60;
 
-    /// <summary>Применить выбранную строку (следующее значение) и остаться открытым.</summary>
+    /// <summary>Настройка — шагнуть и остаться, команда — закрыть и отдать редактору.</summary>
     private void Activate()
     {
         if (_state.View.Count == 0)
             return;
         _state.MoveTo(_state.Selected, MaxListFallback());
-        int row = _state.View[_state.Selected];
-        SettingsModel.Cycle(_settings, row, 1);
-        _store.Save(_settings);
-        _onChanged();
-        if (_loc is not null)
+        PaletteEntry e = _state.View[_state.Selected];
+        if (e is SettingEntry s)
         {
-            _state.Refilter(_settings, _loc);
-            int at = _state.View.IndexOf(row);
-            _state.MoveTo(at >= 0 ? at : 0, MaxListFallback());
+            SettingsModel.Cycle(_settings, s.Row, 1);
+            _store.Save(_settings);
+            _onChanged();
+            if (_loc is not null)
+                Rebuild(_loc); // значения поменялись — курсор держим по записи
+            return;
+        }
+        if (e is CommandEntry c)
+        {
+            Closed = true;
+            _onCommand(c.Command);
         }
     }
 }
