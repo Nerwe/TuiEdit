@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace TuiEdit;
 
 /// <summary>
@@ -12,7 +10,6 @@ namespace TuiEdit;
 internal static class GitStatus
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan ProcTimeout = TimeSpan.FromSeconds(10);
 
     private static readonly object Gate = new();
     private static string? _dir; // папка, для которой посчитано
@@ -105,7 +102,9 @@ internal static class GitStatus
     /// <summary>Один спавн: ветка из заголовка ##, грязь — непустые строки ниже.</summary>
     private static Info? QueryCombined(string dir)
     {
-        string? output = Run("status", "-sb --porcelain=v1 --untracked-files=no", dir);
+        if (!GitProcess.HasRepoRoot(dir))
+            return null; // вне репо git без консоли виснет — даже не спавним
+        string? output = GitProcess.Run(dir, "status", "-sb", "--porcelain=v1", "--untracked-files=no");
         if (output is null)
             return null;
         string[] lines = output.Split('\n');
@@ -133,35 +132,5 @@ internal static class GitStatus
                 break;
             }
         return new Info(branch, dirty);
-    }
-
-    private static string? Run(string command, string args, string dir)
-    {
-        try
-        {
-            using var p = new Process();
-            p.StartInfo = new ProcessStartInfo("git", $"{command} {args}")
-            {
-                WorkingDirectory = dir,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            };
-            if (!p.Start())
-                return null;
-            // Читаем вывод до ожидания: иначе deadlock при переполнении буфера.
-            string output = p.StandardOutput.ReadToEnd();
-            if (!p.WaitForExit((int)ProcTimeout.TotalMilliseconds))
-            {
-                try { p.Kill(entireProcessTree: true); } catch { }
-                return null;
-            }
-            return p.ExitCode == 0 ? output : null;
-        }
-        catch
-        {
-            return null; // нет git в PATH, не репо, нет прав — просто без сегмента
-        }
     }
 }

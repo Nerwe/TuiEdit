@@ -73,6 +73,33 @@ public sealed class GitStatusTests
     }
 
     [Fact]
+    public void HasRepoRootWalksUp()
+    {
+        string dir = NewDir();
+        try
+        {
+            Assert.False(GitProcess.HasRepoRoot(dir)); // пусто — сразу false, без спавна
+            Directory.CreateDirectory(Path.Combine(dir, "sub", "deep"));
+            Assert.False(GitProcess.HasRepoRoot(Path.Combine(dir, "sub", "deep")));
+            Directory.CreateDirectory(Path.Combine(dir, ".git"));
+            Assert.True(GitProcess.HasRepoRoot(Path.Combine(dir, "sub", "deep")));
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
+    public void HasRepoRootSeesWorktreeFile()
+    {
+        string dir = NewDir();
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, ".git"), "gitdir: elsewhere");
+            Assert.True(GitProcess.HasRepoRoot(dir));
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
     public void NullAndNonRepoGiveNull()
     {
         Assert.Null(GitStatus.ForFileSync(null));

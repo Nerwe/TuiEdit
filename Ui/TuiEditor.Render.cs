@@ -322,8 +322,27 @@ internal sealed partial class TuiEditor
     /// Текст посимвольно: цвет ячейки — выделение / поиск / текущая строка / синтаксис.
     /// x0 — сдвиг на ширину панели, y0 — первая строка текста.
     /// </summary>
+    /// <summary>Цвет номера строки: закладка/свёртка — акцент, иначе git-метка, иначе гуттер.</summary>
+    private Rgb GitGutterFg(
+        (IReadOnlySet<int> added, IReadOnlySet<int> modified)? marks, int fileLine, int seg, bool pinned)
+    {
+        if (seg != 0)
+            return _theme.GutterFg; // продолжение wrap-строки — как было
+        if (pinned)
+            return _theme.AccentFg;
+        if (marks is (var added, var modified))
+        {
+            if (added.Contains(fileLine))
+                return _theme.GitAddFg;
+            if (modified.Contains(fileLine))
+                return _theme.GitModFg;
+        }
+        return _theme.GutterFg;
+    }
+
     private void DrawText(int x0, int y0, int w, int textHeight, int contentWidth, int gutterWidth, int numWidth, bool wrap)
     {
+        var gitMarks = _settings.GitGutter ? GitDiff.MarksFor(_buf.FilePath) : default((IReadOnlySet<int>, IReadOnlySet<int>)?);
         int y = y0;
         int fileLine = _top;
         int firstSeg = _topSeg;
@@ -359,7 +378,9 @@ internal sealed partial class TuiEditor
                         : new string(' ', numWidth);
                     _screen.Text(x0, y, marked ? "●" : folded ? "▸" : " ",
                         marked || folded ? _theme.AccentFg : _theme.GutterFg, _theme.EditorBg);
-                    _screen.Text(x0 + 1, y, num + " │ ", _theme.GutterFg, _theme.EditorBg);
+                    _screen.Text(x0 + 1, y, num + " │ ",
+                        GitGutterFg(gitMarks, fileLine, s, marked || folded),
+                        _theme.EditorBg);
                 }
                 bool[] isMatch = FindMatches(TabStops.Slice(line, @base, contentWidth),
                     EffectiveSearchTerm, _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex);

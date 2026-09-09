@@ -690,6 +690,87 @@ public sealed class DialogTests : IDisposable
     }
 
     [Fact]
+    public void GitDiffParsesZeroContextHunks()
+    {
+        string diff = """
+            diff --git a/f.txt b/f.txt
+            --- a/f.txt
+            +++ b/f.txt
+            @@ -0,0 +1,2 @@
+            +new1
+            +new2
+            @@ -5,3 +7,4 @@
+            -old
+            +newa
+            +newb
+            @@ -10 +12,0 @@
+            -gone
+            """;
+        (var added, var modified) = GitDiff.Parse(diff);
+        Assert.Equal([0, 1], added.Order().ToList());
+        Assert.Equal([6, 7, 8, 9], modified.Order().ToList());
+        Assert.Empty(GitDiff.Parse(null).added);
+        Assert.Empty(GitDiff.Parse("").modified);
+    }
+
+    [Fact]
+    public void GitDiffOutsideRepoIsEmpty()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "tui_nogit_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            string f = Path.Combine(dir, "a.txt");
+            File.WriteAllText(f, "x");
+            var (added, modified) = GitDiff.MarksForSync(f);
+            Assert.Empty(added);
+            Assert.Empty(modified);
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
+    public void CommandLineParses()
+    {
+        Assert.IsType<CommandLineOp.Save>(CommandLine.Parse("save"));
+        Assert.IsType<CommandLineOp.Save>(CommandLine.Parse("  W  "));
+        Assert.IsType<CommandLineOp.Quit>(CommandLine.Parse("q"));
+        Assert.Equal(new CommandLineOp.Goto(10, 4),
+            Assert.IsType<CommandLineOp.Goto>(CommandLine.Parse("goto 10:4")));
+        Assert.Equal("hello world",
+            Assert.IsType<CommandLineOp.Find>(CommandLine.Parse("find hello world")).Term);
+        Assert.Equal(new CommandLineOp.Set("wrap", null),
+            Assert.IsType<CommandLineOp.Set>(CommandLine.Parse("set wrap")));
+        Assert.Equal(new CommandLineOp.Set("mouse", "motion"),
+            Assert.IsType<CommandLineOp.Set>(CommandLine.Parse("SET mouse motion")));
+        Assert.Null(CommandLine.Parse(""));
+        Assert.Null(CommandLine.Parse("frobnicate"));
+        Assert.Null(CommandLine.Parse("goto x"));
+        Assert.Null(CommandLine.Parse("save now"));
+    }
+
+    [Fact]
+    public void CommandLineAppliesSet()
+    {
+        var s = new AppSettings();
+        Assert.Null(CommandLine.ApplySet(s, "wrap", null)); // тогл
+        Assert.True(s.WordWrap);
+        Assert.Null(CommandLine.ApplySet(s, "wrap", "off"));
+        Assert.False(s.WordWrap);
+        Assert.Equal("cmdline.set.badvalue", CommandLine.ApplySet(s, "wrap", "maybe"));
+        Assert.Null(CommandLine.ApplySet(s, "mouse", "motion"));
+        Assert.Equal(MouseLevel.Motion, s.Mouse);
+        Assert.Equal("cmdline.set.novalue", CommandLine.ApplySet(s, "theme", null));
+        Assert.Equal("cmdline.set.unknown", CommandLine.ApplySet(s, "nope", "1"));
+        Assert.Null(CommandLine.ApplySet(s, "ruler", "100"));
+        Assert.Equal(100, s.RulerColumn);
+        Assert.Null(CommandLine.ApplySet(s, "pairs", "off"));
+        Assert.False(s.AutoPairs);
+        Assert.Null(CommandLine.ApplySet(s, "gutter", "on"));
+        Assert.True(s.GitGutter);
+    }
+
+    [Fact]
     public void PaletteBoundToF5()
     {
         Assert.Equal(EditorCommand.CommandPalette,

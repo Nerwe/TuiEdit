@@ -81,7 +81,7 @@ public sealed class WrapTests
     [Fact]
     public void ViewDefaults()
     {
-        Assert.Equal(12, SettingsDialogState.RowCount);
+        Assert.Equal(13, SettingsDialogState.RowCount);
     }
 
     [Fact]

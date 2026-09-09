@@ -7,6 +7,20 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+### Added
+- Natural file sorting (`file2` before `file10`) in manager and panel.
+- CLI takes several files (`tui-edit a b:10:2`) and a start directory.
+- `Go to line` accepts `line:col` (and `$`).
+- Quick-open project files (`Alt+O`) with name filter.
+- Auto-pairs for brackets/quotes (toggle in Settings).
+- Git diff gutter (added/modified line marks, toggle in Settings).
+- Command line (`F12`): `set`, `goto`, `find`, `save`, `quit`.
+
+### Fixed
+- git subprocess could hang forever without an attached console when
+  outside a repo: `.git` pre-check plus a fully bounded spawn with
+  kill-on-timeout (shared `GitProcess` runner).
+
 ## [0.4.0] - 2026-09-09
 
 ### Added

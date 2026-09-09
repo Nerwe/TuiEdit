@@ -88,6 +88,47 @@ internal sealed partial class TuiEditor
         }
     }
 
+    /// <summary>Командная строка (F12): set/goto/find/save/quit.</summary>
+    private void CommandLineFlow()
+    {
+        string? s = Prompt(_loc["cmdline.title"], string.Empty);
+        if (s is null)
+            return; // Esc — тихо
+        switch (CommandLine.Parse(s))
+        {
+            case null:
+                SetMessage(_loc["cmdline.unknown"]);
+                return;
+            case CommandLineOp.Set set:
+                string? err = CommandLine.ApplySet(_settings, set.Key, set.Value);
+                if (err is not null)
+                {
+                    SetMessage(_loc[err]);
+                    return;
+                }
+                _store.Save(_settings);
+                ApplySettings();
+                SetMessage(_loc.Format("cmdline.set.done", set.Key));
+                return;
+            case CommandLineOp.Goto g:
+                GoToPosition(g.Line, g.Col);
+                _sel.Clear();
+                return;
+            case CommandLineOp.Find f:
+                if (BadPattern(f.Term))
+                    return;
+                _lastSearch = f.Term;
+                JumpSearch(wrap: true, backward: false);
+                return;
+            case CommandLineOp.Save:
+                Save();
+                return;
+            case CommandLineOp.Quit:
+                TryQuit();
+                return;
+        }
+    }
+
     private void OpenGrepHit(int index)
     {
         if (index < 0 || index >= _grepHits.Count)

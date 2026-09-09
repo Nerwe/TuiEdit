@@ -169,6 +169,7 @@ internal sealed class CommandPaletteDialog : Dialog
         all.Add(new CommandEntry(EditorCommand.FindPrev, loc["palette.cmd.findprev"], "Shift+F3"));
         all.Add(new CommandEntry(EditorCommand.ListTabs, loc["palette.cmd.listtabs"], "Ctrl+P"));
         all.Add(new CommandEntry(EditorCommand.QuickOpen, loc["palette.cmd.quickopen"], "Alt+O"));
+        all.Add(new CommandEntry(EditorCommand.CommandLine, loc["palette.cmd.cmdline"], "F12"));
         all.Add(new CommandEntry(EditorCommand.NextTab, loc["palette.cmd.nexttab"], "Ctrl+PgDn"));
         all.Add(new CommandEntry(EditorCommand.PrevTab, loc["palette.cmd.prevtab"], "Ctrl+PgUp"));
         all.Add(new CommandEntry(EditorCommand.SplitPane, loc["palette.cmd.splitpane"], "Alt+S"));

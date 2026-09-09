@@ -8,13 +8,15 @@ namespace TuiEdit;
 /// </summary>
 internal static class SettingsModel
 {
-    public const int Count = 12;
+    public const int Count = 13;
 
     public const int MouseRow = 9;
 
     public const int CopyOnSelectRow = 10;
 
     public const int AutoPairsRow = 11;
+
+    public const int GitGutterRow = 12;
 
     public static string Label(int row, Loc loc) => row switch
     {
@@ -29,7 +31,8 @@ internal static class SettingsModel
         8 => loc["settings.session"],
         9 => loc["settings.mouse"],
         10 => loc["settings.copyselect"],
-        _ => loc["settings.autopairs"],
+        11 => loc["settings.autopairs"],
+        _ => loc["settings.gitgutter"],
     };
 
     public static string Value(int row, AppSettings settings, Loc loc) => row switch
@@ -47,7 +50,8 @@ internal static class SettingsModel
         8 => OnOff(loc, settings.RestoreSession),
         9 => MouseName(loc, settings.Mouse),
         10 => OnOff(loc, settings.CopyOnSelect),
-        _ => OnOff(loc, settings.AutoPairs),
+        11 => OnOff(loc, settings.AutoPairs),
+        _ => OnOff(loc, settings.GitGutter),
     };
 
     /// <summary>Шагнуть значение строки (dir +1/-1); сохранение — на вызывающем.</summary>
@@ -99,8 +103,11 @@ internal static class SettingsModel
             case 10:
                 settings.CopyOnSelect = !settings.CopyOnSelect;
                 break;
-            default:
+            case 11:
                 settings.AutoPairs = !settings.AutoPairs;
+                break;
+            default:
+                settings.GitGutter = !settings.GitGutter;
                 break;
         }
     }

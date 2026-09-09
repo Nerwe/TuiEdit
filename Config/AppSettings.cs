@@ -53,6 +53,9 @@ public sealed class AppSettings
     /// <summary>Автопары скобок и кавычек при вводе (по умолчанию да).</summary>
     public bool AutoPairs { get; set; } = true;
 
+    /// <summary>Git-метки в гуттере (добавлено/изменено, по умолчанию да).</summary>
+    public bool GitGutter { get; set; } = true;
+
     /// <summary>Старый флаг мыши (до уровней): только миграция в <see cref="Normalize"/>.</summary>
     public bool EnableMouse { get; set; }
 
