@@ -209,16 +209,13 @@ internal sealed partial class TuiEditor
         }
 
         int sideW = _sidebar is null ? 0 : SidebarState.Width;
-        int[] paneWs = PaneWidths(w - sideW, _panes.Count);
-        int[] paneXs = new int[_panes.Count];
-        for (int i = 0, x = sideW; i < paneXs.Length; i++)
-        {
-            paneXs[i] = x;
-            x += paneWs[i];
-        }
-        int tabH = _panes.Any(p => p.Docs.Count > 1) ? 1 : 0;
-        int textHeight = h - 2 - tabH;
-        int y0 = 1 + tabH;
+        EditorLayout layout = EditorLayout.Compute(
+            w, h, sideW, _panes.Count, _panes.Any(p => p.Docs.Count > 1));
+        int[] paneWs = layout.PaneWs;
+        int[] paneXs = layout.PaneXs;
+        int tabH = layout.TabH;
+        int textHeight = layout.TextHeight;
+        int y0 = layout.Y0;
         bool wrap = _settings.WordWrap;
         int aNumWidth = Math.Max(4, _buf.Count.ToString(CultureInfo.InvariantCulture).Length);
         int aGutter = _settings.ShowLineNumbers ? aNumWidth + 4 : 0;

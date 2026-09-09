@@ -40,8 +40,28 @@ internal sealed partial class TuiEditor
         // Будущие типы событий — игнор, а не каст (мышь уже роняла это место).
     }
 
-    /// <summary>Мышь: движение — только hover, модалки и меню — по кнопкам, текст — курсор/колесо.</summary>
+    /// <summary>Мышь: размеры — из консоли, дальше — чистая логика.</summary>
     private void HandleMouse(MouseInput m)
+    {
+        int w, h;
+        try
+        {
+            w = Console.WindowWidth;
+            h = Console.WindowHeight;
+        }
+        catch
+        {
+            return;
+        }
+        HandleMouseAt(m, w, h);
+    }
+
+    /// <summary>
+    /// Мышь: движение — только hover; модалка — кнопки/колесо/фон-закрыть;
+    /// меню — по кнопкам; табы/панели — фокус; колесо мимо — скролл активной панели.
+    /// Приоритет: модалка → диалог → меню → бар → табы/текст.
+    /// </summary>
+    internal void HandleMouseAt(MouseInput m, int w, int h)
     {
         if (!InputReader.MouseEnabled)
             return;
@@ -61,17 +81,11 @@ internal sealed partial class TuiEditor
             }
             if (m.Action != MouseAction.LeftPress)
                 return; // средняя/правая — потребителей нет
-            int dw, dh;
-            try
+            if (!md.HandleClick(m.X, m.Y, w, h, _loc))
             {
-                dw = Console.WindowWidth;
-                dh = Console.WindowHeight;
+                // Мимо бокса — как Esc: отмена без исхода (была фокус-ловушка).
+                md.HandleKey(new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
             }
-            catch
-            {
-                return;
-            }
-            md.HandleClick(m.X, m.Y, dw, dh, _loc);
             if (ReferenceEquals(_dialog, md) && md.Closed)
                 _dialog = null; // как клавиатурный путь: исход без нового диалога — убрать
             return;
@@ -81,16 +95,6 @@ internal sealed partial class TuiEditor
         if (_menu is not null && HandleMenuMouse(m))
             return;
         // Мимо меню (закрыли) — клик доезжает до текста, как клавиша в HandleMenuKey.
-        int w, h;
-        try
-        {
-            w = Console.WindowWidth;
-            h = Console.WindowHeight;
-        }
-        catch
-        {
-            return;
-        }
         if (w < 20 || h < 5)
             return;
         if (_menu is null && m.Y == 0 && m.Action == MouseAction.LeftPress)
@@ -103,38 +107,79 @@ internal sealed partial class TuiEditor
                 return;
             }
         }
-        // Зеркало раскладки из Render (держать в sync).
         int sideW = _sidebar is null ? 0 : SidebarState.Width;
-        int[] paneWs = PaneWidths(w - sideW, _panes.Count);
-        int[] paneXs = new int[_panes.Count];
-        for (int i = 0, x = sideW; i < paneXs.Length; i++)
-        {
-            paneXs[i] = x;
-            x += paneWs[i];
-        }
-        int tabH = _panes.Any(p => p.Docs.Count > 1) ? 1 : 0;
-        int textHeight = h - 2 - tabH;
-        int y0 = 1 + tabH;
-        int numWidth = Math.Max(4, _buf.Count.ToString(CultureInfo.InvariantCulture).Length);
-        int gutterWidth = _settings.ShowLineNumbers ? numWidth + 4 : 0;
-        int contentWidth = Math.Max(1, paneWs[_pane] - gutterWidth);
-        int cx0 = paneXs[_pane] + gutterWidth;
-        if (m.X < cx0 || m.X >= paneXs[_pane] + paneWs[_pane] || m.Y < y0 || m.Y >= y0 + textHeight)
-            return; // v1: мимо текста активной панели — мимо
+        EditorLayout layout = EditorLayout.Compute(
+            w, h, sideW, _panes.Count, _panes.Any(p => p.Docs.Count > 1));
         if (m.Action is MouseAction.WheelUp or MouseAction.WheelDown)
         {
+            // Колесо вне модалки/меню — всегда скролл активной панели,
+            // даже над гуттером, сайдбаром и статусбаром (fallback).
             ScrollWheel(m.Action == MouseAction.WheelDown ? 1 : -1, m.Count);
             return;
         }
         if (m.Action != MouseAction.LeftPress)
             return; // средняя/правая — потребителей нет
+        if (layout.TabH == 1 && m.Y == 1)
+        {
+            int tp = layout.PaneAt(m.X);
+            if (tp < 0)
+                return;
+            if (tp != _pane)
+                SwitchPane(tp);
+            if (_docs.Count > 1)
+            {
+                int? tab = TabHit(
+                    _docs.Select(d => d.TabTitle(_loc)).ToList(),
+                    _active, _tabLeft, layout.PaneWs[tp], m.X - layout.PaneXs[tp]);
+                if (tab is not null)
+                    SwitchTab(tab.Value);
+            }
+            return;
+        }
+        int pane = layout.PaneAt(m.X);
+        if (pane < 0)
+            return; // сайдбар: кликов нет
+        if (pane != _pane)
+            SwitchPane(pane); // клик в чужую панель — сначала фокус
+        int numWidth = Math.Max(4, _buf.Count.ToString(CultureInfo.InvariantCulture).Length);
+        int gutterWidth = _settings.ShowLineNumbers ? numWidth + 4 : 0;
+        int contentWidth = Math.Max(1, layout.PaneWs[pane] - gutterWidth);
+        int cx0 = layout.PaneXs[pane] + gutterWidth;
+        if (m.X < cx0 || m.X >= layout.PaneXs[pane] + layout.PaneWs[pane]
+            || m.Y < layout.Y0 || m.Y >= layout.Y0 + layout.TextHeight)
+            return; // гуттер/разделитель/статусбар: кликов нет
         (int row, int col) = LocateClick(_buf.Lines, _docs[_active].Folds, _top, _topSeg,
-            _settings.WordWrap, contentWidth, _left, m.Y - y0, m.X - cx0);
+            _settings.WordWrap, contentWidth, _left, m.Y - layout.Y0, m.X - cx0);
         _sel.Clear();
         _row = row;
         _col = col;
         ClampCursor();
         TrackCol();
+    }
+
+    /// <summary>
+    /// Вкладка под координатой X внутри панели (зеркало DrawTabs).
+    /// Возвращает индекс или null (мимо/одна вкладка).
+    /// </summary>
+    internal static int? TabHit(
+        IReadOnlyList<string> titles, int active, int tabLeft, int paneW, int x)
+    {
+        if (titles.Count <= 1 || x < 0 || x >= paneW)
+            return null;
+        int[] widths = new int[titles.Count];
+        for (int i = 0; i < titles.Count; i++)
+            widths[i] = (i > 0 ? 1 : 0) + titles[i].Length + 2;
+        int tl = Math.Clamp(TabWindowStart(widths, active, tabLeft, paneW), 0, titles.Count - 1);
+        int xx = 0;
+        for (int i = tl; i < titles.Count && xx < paneW; i++)
+        {
+            if (xx + widths[i] > paneW)
+                break;
+            if (x >= xx && x < xx + widths[i])
+                return i;
+            xx += widths[i];
+        }
+        return null;
     }
 
     /// <summary>

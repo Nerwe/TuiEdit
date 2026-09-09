@@ -116,6 +116,111 @@ public sealed class PanesTests
         Assert.NotNull(Get(ed, "_dialog")); // спросили: грязь в первой панели
     }
 
+    private static MouseInput Click(int x, int y) =>
+        new(x, y, MouseAction.LeftPress, MouseButton.Left);
+
+    private static MouseInput WheelDown(int x, int y) =>
+        new(x, y, MouseAction.WheelDown);
+
+    [Fact]
+    public void EditorLayoutSingleSource()
+    {
+        EditorLayout l = EditorLayout.Compute(80, 24, 0, 2, false);
+        Assert.Equal([0, 40], l.PaneXs);
+        Assert.Equal([40, 40], l.PaneWs);
+        Assert.Equal(0, l.TabH);
+        Assert.Equal(1, l.Y0);
+        Assert.Equal(22, l.TextHeight);
+        Assert.Equal(0, l.PaneAt(0));
+        Assert.Equal(0, l.PaneAt(39));
+        Assert.Equal(1, l.PaneAt(40));
+        Assert.Equal(-1, l.PaneAt(-1));
+        Assert.Equal(-1, l.PaneAt(80));
+        EditorLayout s = EditorLayout.Compute(80, 24, 24, 1, true);
+        Assert.Equal([24], s.PaneXs);
+        Assert.Equal(1, s.TabH);
+        Assert.Equal(2, s.Y0);
+        Assert.Equal(-1, s.PaneAt(10)); // сайдбар
+    }
+
+    [Fact]
+    public void TabHitMirrorsDrawTabs()
+    {
+        Assert.Equal(0, TuiEditor.TabHit(["aaa", "bb"], 1, 0, 80, 2));
+        Assert.Equal(1, TuiEditor.TabHit(["aaa", "bb"], 1, 0, 80, 6));
+        Assert.Null(TuiEditor.TabHit(["aaa", "bb"], 1, 0, 80, 79));
+        Assert.Null(TuiEditor.TabHit(["only"], 0, 0, 80, 2));
+        Assert.Null(TuiEditor.TabHit(["aaa", "bb"], 1, 0, 80, -1));
+    }
+
+    [Fact]
+    public void ClickFocusesPane()
+    {
+        var ed = NewEditor();
+        ActiveBuf(ed).InsertChar(0, 0, 'x');
+        ed.SplitPane();
+        Assert.Equal(1, ed.ActivePane);
+        InputReader.MouseLevel = MouseLevel.Basic;
+        try
+        {
+            ed.HandleMouseAt(Click(10, 5), 80, 24);
+            Assert.Equal(0, ed.ActivePane);
+            Assert.Equal("x", ActiveBuf(ed).GetLine(0));
+        }
+        finally { InputReader.MouseLevel = MouseLevel.Off; }
+    }
+
+    [Fact]
+    public void WheelOverGutterScrolls()
+    {
+        var ed = NewEditor();
+        ActiveBuf(ed).InsertText(0, 0, "a\nb\n");
+        Assert.Equal(3, ActiveBuf(ed).Count);
+        InputReader.MouseLevel = MouseLevel.Basic;
+        try
+        {
+            ed.HandleMouseAt(WheelDown(0, 5), 80, 24); // гуттер, не текст
+            Assert.Equal(2, Get(ed, "_row"));
+        }
+        finally { InputReader.MouseLevel = MouseLevel.Off; }
+    }
+
+    [Fact]
+    public void TabClickSwitches()
+    {
+        var ed = NewEditor();
+        ActiveBuf(ed).InsertChar(0, 0, 'x'); // грязная — NewTab не откажет
+        ed.NewTab();
+        Assert.Equal(2, ed.TabCount);
+        Assert.Equal(1, ed.ActiveTab);
+        InputReader.MouseLevel = MouseLevel.Basic;
+        try
+        {
+            ed.HandleMouseAt(Click(0, 1), 80, 24); // первая вкладка
+            Assert.Equal(0, ed.ActiveTab);
+            ed.HandleMouseAt(Click(79, 1), 80, 24); // мимо спанов — стоим
+            Assert.Equal(0, ed.ActiveTab);
+        }
+        finally { InputReader.MouseLevel = MouseLevel.Off; }
+    }
+
+    [Fact]
+    public void ModalBackdropClickCancels()
+    {
+        var ed = NewEditor();
+        ActiveBuf(ed).InsertChar(0, 0, 'x');
+        ed.CloseTab(); // модалка «несохранённые изменения»
+        Assert.NotNull(Get(ed, "_dialog"));
+        InputReader.MouseLevel = MouseLevel.Basic;
+        try
+        {
+            ed.HandleMouseAt(Click(79, 23), 80, 24); // мимо бокса — как Esc
+            Assert.Null(Get(ed, "_dialog"));
+            Assert.Equal("x", ActiveBuf(ed).GetLine(0)); // вкладка жива, выхода нет
+        }
+        finally { InputReader.MouseLevel = MouseLevel.Off; }
+    }
+
     [Fact]
     public void SplitViaKeys()
     {

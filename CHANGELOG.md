@@ -27,6 +27,11 @@ when a `v*` tag is pushed.
 - Focus tracking with DEC-mode restore: on focus-in the active mouse,
   focus and bracketed-paste modes are re-emitted (Windows Terminal /
   ConPTY silently reset them).
+- Single `EditorLayout` source for Render and mouse hit-testing
+  (no more mirrored geometry).
+- Click focuses panes and switches tabs; wheel outside modal/menu
+  scrolls the active pane (gutter/sidebar/statusbar included);
+  backdrop click cancels a modal like Esc.
 
 ## [0.3.0] - 2026-09-08
 
