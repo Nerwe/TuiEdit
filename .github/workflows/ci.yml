@@ -34,6 +34,7 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
       - run: dotnet restore TuiEdit.csproj
       - run: dotnet restore TuiEdit.Tests/TuiEdit.Tests.csproj
+      - run: dotnet restore TuiEdit.Bench/TuiEdit.Bench.csproj
       - run: dotnet build --no-restore --nologo
       - run: dotnet format TuiEdit.csproj --verify-no-changes --no-restore --verbosity minimal
       - run: dotnet format TuiEdit.Tests/TuiEdit.Tests.csproj --verify-no-changes --no-restore --verbosity minimal
