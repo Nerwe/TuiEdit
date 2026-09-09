@@ -8,11 +8,13 @@ namespace TuiEdit;
 /// </summary>
 internal static class SettingsModel
 {
-    public const int Count = 11;
+    public const int Count = 12;
 
     public const int MouseRow = 9;
 
     public const int CopyOnSelectRow = 10;
+
+    public const int AutoPairsRow = 11;
 
     public static string Label(int row, Loc loc) => row switch
     {
@@ -26,7 +28,8 @@ internal static class SettingsModel
         7 => loc["settings.guides"],
         8 => loc["settings.session"],
         9 => loc["settings.mouse"],
-        _ => loc["settings.copyselect"],
+        10 => loc["settings.copyselect"],
+        _ => loc["settings.autopairs"],
     };
 
     public static string Value(int row, AppSettings settings, Loc loc) => row switch
@@ -43,7 +46,8 @@ internal static class SettingsModel
         7 => OnOff(loc, settings.ShowIndentGuides),
         8 => OnOff(loc, settings.RestoreSession),
         9 => MouseName(loc, settings.Mouse),
-        _ => OnOff(loc, settings.CopyOnSelect),
+        10 => OnOff(loc, settings.CopyOnSelect),
+        _ => OnOff(loc, settings.AutoPairs),
     };
 
     /// <summary>Шагнуть значение строки (dir +1/-1); сохранение — на вызывающем.</summary>
@@ -92,8 +96,11 @@ internal static class SettingsModel
             case 9:
                 settings.Mouse = (MouseLevel)SettingsDialogState.Cycle((int)settings.Mouse, 4, dir);
                 break;
-            default:
+            case 10:
                 settings.CopyOnSelect = !settings.CopyOnSelect;
+                break;
+            default:
+                settings.AutoPairs = !settings.AutoPairs;
                 break;
         }
     }

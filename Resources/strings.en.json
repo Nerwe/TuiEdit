@@ -188,6 +188,7 @@
   "settings.mouse.drag": "Drag",
   "settings.mouse.motion": "Motion",
   "settings.copyselect": "Copy on select",
+  "settings.autopairs": "Auto pairs",
   "palette.title": "Command palette",
   "palette.filter": "Type to filter settings…",
   "palette.hint": "`↑↓` — move • `←→` — change • `Enter` — apply • `Esc` — close",

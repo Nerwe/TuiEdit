@@ -369,6 +369,30 @@ internal sealed class TextBuffer
         return (row - 1, prev.Length);
     }
 
+    /// <summary>
+    /// Вставить пару целиком за один шаг undo; курсор — между (`(|)`).
+    /// </summary>
+    public (int row, int col) InsertPair(int row, int col, char open, char close)
+    {
+        PushUndo();
+        string line = Lines[row];
+        Lines[row] = line.Insert(col, new string([open, close]));
+        return (row, col + 1);
+    }
+
+    /// <summary>
+    /// Backspace между парой (`(|)` — стереть обе за один шаг); null — не пара.
+    /// </summary>
+    public (int row, int col)? DeletePair(int row, int col)
+    {
+        if (AutoPair.PairDeleteCol(Lines[row], col) is not int nc)
+            return null;
+        PushUndo();
+        string line = Lines[row];
+        Lines[row] = line.Remove(nc, 2);
+        return (row, nc);
+    }
+
     public (int row, int col) Delete(int row, int col)
     {
         string line = Lines[row];

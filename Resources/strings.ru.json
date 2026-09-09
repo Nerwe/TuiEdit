@@ -188,6 +188,7 @@
   "settings.mouse.drag": "Drag",
   "settings.mouse.motion": "Движение",
   "settings.copyselect": "Копия при выделении",
+  "settings.autopairs": "Автопары",
   "palette.title": "Палитра команд",
   "palette.filter": "Фильтр настроек…",
   "palette.hint": "`↑↓` — выбор • `←→` — изменить • `Enter` — применить • `Esc` — закрыть",

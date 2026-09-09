@@ -50,6 +50,9 @@ public sealed class AppSettings
     /// <summary>Копировать в буфер при отпускании мышиного выделения (по умолчанию да).</summary>
     public bool CopyOnSelect { get; set; } = true;
 
+    /// <summary>Автопары скобок и кавычек при вводе (по умолчанию да).</summary>
+    public bool AutoPairs { get; set; } = true;
+
     /// <summary>Старый флаг мыши (до уровней): только миграция в <see cref="Normalize"/>.</summary>
     public bool EnableMouse { get; set; }
 

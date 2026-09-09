@@ -237,6 +237,29 @@ internal sealed partial class TuiEditor
         SetMessage(_loc.Format("status.sel", SelectionLength(0, 0, _row, _col)));
     }
 
+    /// <summary>
+    /// Ввод с автопарами: закрывающий поверх своего — шаг вправо,
+    /// открывающий — вставить пару. True — обработано.
+    /// </summary>
+    private bool TryAutoPair(char c)
+    {
+        string line = _buf.GetLine(_row);
+        if (AutoPair.ShouldSkip(line, _col, c))
+        {
+            _col++;
+            TrackCol();
+            return true;
+        }
+        char closer = AutoPair.CloserFor(c);
+        if (closer != '\0' && AutoPair.ShouldPair(line, _col, c))
+        {
+            (_row, _col) = _buf.InsertPair(_row, _col, c, closer);
+            TrackCol();
+            return true;
+        }
+        return false;
+    }
+
     private void ClampCursor()
     {
         _row = Math.Clamp(_row, 0, _buf.Count - 1);

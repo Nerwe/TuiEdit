@@ -503,6 +503,12 @@ internal sealed partial class TuiEditor
                 return;
             case EditorCommand.InsertBackspace:
                 if (DeleteSelection()) return; // стереть выделение вместо символа
+                if (_settings.AutoPairs && _buf.DeletePair(_row, _col) is (int ar, int ac))
+                {
+                    (_row, _col) = (ar, ac);
+                    TrackCol();
+                    return;
+                }
                 {
                     int br = _row, bc = _col;
                     (_row, _col) = _buf.Backspace(_row, _col);
@@ -537,6 +543,8 @@ internal sealed partial class TuiEditor
             case EditorCommand.SelectAll: SelectAll(); return;
             case EditorCommand.InsertChar:
                 DeleteSelection(); // замена выделения вводом
+                if (_settings.AutoPairs && TryAutoPair(k.KeyChar))
+                    return;
                 _buf.InsertChar(_row, _col, k.KeyChar);
                 _col++;
                 TrackCol();
