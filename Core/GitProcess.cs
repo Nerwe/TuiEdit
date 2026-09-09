@@ -55,63 +55,82 @@ internal static class GitProcess
         using var cts = new CancellationTokenSource(Timeout);
         try
         {
-            using var p = new Process();
-            p.StartInfo = new ProcessStartInfo("git")
-            {
-                WorkingDirectory = dir,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                RedirectStandardInput = true,
-            };
-            // Enforces non-interactive mode: no pagers, prompts, or locks from us.
-            p.StartInfo.Environment["GIT_PAGER"] = "cat";
-            p.StartInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
-            p.StartInfo.Environment["GIT_OPTIONAL_LOCKS"] = "0";
-            foreach (string a in args)
-                p.StartInfo.ArgumentList.Add(a);
-            if (!p.Start())
-                return null;
-            try
-            {
-                p.StandardInput.Close();
-            }
-            catch
-            {
-            }
-            Task<string> stdout = p.StandardOutput.ReadToEndAsync(cts.Token);
-            Task<string> stderr = p.StandardError.ReadToEndAsync(cts.Token);
-            try
-            {
-                p.WaitForExitAsync(cts.Token).GetAwaiter().GetResult();
-            }
-            catch (OperationCanceledException)
-            {
-                try
-                {
-                    p.Kill(entireProcessTree: true);
-                }
-                catch
-                {
-                }
-                return null;
-            }
-            bool drained = false;
-            try
-            {
-                drained = Task.WaitAll([stdout, stderr], Timeout);
-            }
-            catch
-            {
-            }
-            if (!drained || !stdout.IsCompletedSuccessfully)
-                return null;
-            return p.ExitCode == 0 ? stdout.Result : null;
+            return RunAsync(dir, cts.Token, args).GetAwaiter().GetResult();
         }
         catch
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Async core of <see cref="Run"/>: never blocks a thread, honors cancellation
+    /// (kills the process tree on cancel). Returns stdout on exit 0, null otherwise.
+    /// </summary>
+    /// <param name="dir">The working directory (already vetted by <see cref="HasRepoRoot"/>).</param>
+    /// <param name="ct">Cancels the wait and kills the process.</param>
+    /// <param name="args">Git arguments.</param>
+    internal static async Task<string?> RunAsync(string dir, CancellationToken ct, params string[] args)
+    {
+        using var p = new Process();
+        p.StartInfo = new ProcessStartInfo("git")
+        {
+            WorkingDirectory = dir,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+        };
+        // Enforces non-interactive mode: no pagers, prompts, or locks from us.
+        p.StartInfo.Environment["GIT_PAGER"] = "cat";
+        p.StartInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
+        p.StartInfo.Environment["GIT_OPTIONAL_LOCKS"] = "0";
+        foreach (string a in args)
+            p.StartInfo.ArgumentList.Add(a);
+        try
+        {
+            if (!p.Start())
+                return null;
+        }
+        catch
+        {
+            return null;
+        }
+        try
+        {
+            p.StandardInput.Close();
+        }
+        catch
+        {
+        }
+        Task<string> stdout = p.StandardOutput.ReadToEndAsync(ct);
+        Task<string> stderr = p.StandardError.ReadToEndAsync(ct);
+        try
+        {
+            await p.WaitForExitAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                p.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+            }
+            return null;
+        }
+        try
+        {
+            await Task.WhenAll(stdout, stderr).WaitAsync(Timeout, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+        if (!stdout.IsCompletedSuccessfully)
+            return null;
+        return p.ExitCode == 0 ? stdout.Result : null;
     }
 }

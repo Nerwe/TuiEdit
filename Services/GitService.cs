@@ -38,7 +38,7 @@ internal sealed class GitService : IGitService
     private string? _statusDir;
     private StatusInfo? _statusCached; // null is cached too (not a repo), to avoid useless forks
     private DateTime _statusAt = DateTime.MinValue;
-    private bool _statusRefreshing;
+    private CancellationTokenSource? _statusCts; // latest refresh; superseded refreshes are cancelled
 
     private readonly object _diffGate = new();
     private string? _diffFile;
@@ -46,7 +46,7 @@ internal sealed class GitService : IGitService
     private HashSet<int> _diffAdded = [];
     private HashSet<int> _diffModified = [];
     private DateTime _diffAt = DateTime.MinValue;
-    private bool _diffRefreshing;
+    private CancellationTokenSource? _diffCts; // latest refresh; superseded refreshes are cancelled
 
     /// <inheritdoc/>
     public string? StatusSegment(string? filePath)
@@ -62,36 +62,8 @@ internal sealed class GitService : IGitService
                 _statusCached = null;
                 _statusAt = DateTime.MinValue; // new location — refresh immediately
             }
-            if (DateTime.UtcNow - _statusAt >= Ttl && !_statusRefreshing)
-            {
-                _statusRefreshing = true;
-                string snapshot = dir;
-                Task.Run(() =>
-                {
-                    try
-                    {
-                        StatusInfo? fresh = QueryStatus(snapshot);
-                        lock (_statusGate)
-                        {
-                            if (snapshot == _statusDir)
-                            {
-                                _statusCached = fresh;
-                                _statusAt = DateTime.UtcNow;
-                            }
-                        }
-                    }
-                    catch
-                    {
-                    }
-                    finally
-                    {
-                        lock (_statusGate)
-                        {
-                            _statusRefreshing = false;
-                        }
-                    }
-                });
-            }
+            if (DateTime.UtcNow - _statusAt >= Ttl)
+                TriggerStatusRefresh(dir);
             return _statusCached is null ? null : Segment(_statusCached.Branch, _statusCached.Dirty);
         }
     }
@@ -122,37 +94,8 @@ internal sealed class GitService : IGitService
                 _diffModified = [];
                 _diffAt = DateTime.MinValue; // new location — refresh immediately
             }
-            if (DateTime.UtcNow - _diffAt >= Ttl && !_diffRefreshing)
-            {
-                _diffRefreshing = true;
-                string snapshot = full;
-                Task.Run(() =>
-                {
-                    try
-                    {
-                        var (added, modified) = QueryDiff(snapshot);
-                        lock (_diffGate)
-                        {
-                            if (snapshot == _diffFile)
-                            {
-                                _diffAdded = added;
-                                _diffModified = modified;
-                                _diffAt = DateTime.UtcNow;
-                            }
-                        }
-                    }
-                    catch
-                    {
-                    }
-                    finally
-                    {
-                        lock (_diffGate)
-                        {
-                            _diffRefreshing = false;
-                        }
-                    }
-                });
-            }
+            if (DateTime.UtcNow - _diffAt >= Ttl)
+                TriggerDiffRefresh(full);
             return (_diffAdded, _diffModified);
         }
     }
@@ -163,18 +106,24 @@ internal sealed class GitService : IGitService
         string? dir = DirOf(filePath);
         if (dir is null)
             return null;
-        StatusInfo? fresh = QueryStatus(dir);
         lock (_statusGate)
         {
             _statusDir = dir;
-            _statusCached = fresh;
-            _statusAt = DateTime.UtcNow;
+            _statusCached = null;
+            _statusAt = DateTime.MinValue;
         }
-        return fresh is null ? null : Segment(fresh.Branch, fresh.Dirty);
+        try
+        {
+            return RefreshStatusAsync(dir, CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>Synchronous diff query (for tests).</summary>
-    internal static (IReadOnlySet<int> added, IReadOnlySet<int> modified) DiffMarksSync(string? filePath)
+    internal (IReadOnlySet<int> added, IReadOnlySet<int> modified) DiffMarksSync(string? filePath)
     {
         string? full;
         try
@@ -187,7 +136,104 @@ internal sealed class GitService : IGitService
         {
             return (Empty, Empty);
         }
-        return QueryDiff(full);
+        lock (_diffGate)
+        {
+            _diffFile = full;
+            try
+            {
+                _diffMtime = File.GetLastWriteTimeUtc(full);
+            }
+            catch
+            {
+            }
+            _diffAdded = [];
+            _diffModified = [];
+            _diffAt = DateTime.MinValue;
+        }
+        try
+        {
+            return RefreshDiffAsync(full, CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            return (Empty, Empty);
+        }
+    }
+
+    /// <summary>Starts a cancellable background status refresh, superseding the previous one.</summary>
+    private void TriggerStatusRefresh(string dir)
+    {
+        _statusCts?.Cancel();
+        _statusCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _statusCts = cts;
+        _ = RefreshStatusAsync(dir, cts.Token);
+    }
+
+    /// <summary>Starts a cancellable background diff refresh, superseding the previous one.</summary>
+    private void TriggerDiffRefresh(string full)
+    {
+        _diffCts?.Cancel();
+        _diffCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _diffCts = cts;
+        _ = RefreshDiffAsync(full, cts.Token);
+    }
+
+    /// <summary>
+    /// Refreshes the status cache without blocking: queries git asynchronously and stores
+    /// the result only if still current (not superseded or cancelled). Never throws.
+    /// </summary>
+    /// <param name="dir">The directory to query.</param>
+    /// <param name="ct">Cancels the query (superseded refresh).</param>
+    internal async Task<string?> RefreshStatusAsync(string dir, CancellationToken ct)
+    {
+        StatusInfo? fresh;
+        try
+        {
+            fresh = await QueryStatusAsync(dir, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+        lock (_statusGate)
+        {
+            if (ct.IsCancellationRequested || dir != _statusDir)
+                return null; // superseded — drop silently
+            _statusCached = fresh;
+            _statusAt = DateTime.UtcNow;
+        }
+        return fresh is null ? null : Segment(fresh.Branch, fresh.Dirty);
+    }
+
+    /// <summary>
+    /// Refreshes the diff cache without blocking: queries git asynchronously and stores
+    /// the result only if still current (not superseded or cancelled). Never throws.
+    /// </summary>
+    /// <param name="full">The full file path to query.</param>
+    /// <param name="ct">Cancels the query (superseded refresh).</param>
+    internal async Task<(IReadOnlySet<int> added, IReadOnlySet<int> modified)> RefreshDiffAsync(
+        string full, CancellationToken ct)
+    {
+        (HashSet<int> added, HashSet<int> modified) fresh;
+        try
+        {
+            fresh = await QueryDiffAsync(full, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            return (Empty, Empty);
+        }
+        lock (_diffGate)
+        {
+            if (ct.IsCancellationRequested || full != _diffFile)
+                return (Empty, Empty); // superseded — drop silently
+            _diffAdded = fresh.added;
+            _diffModified = fresh.modified;
+            _diffAt = DateTime.UtcNow;
+        }
+        return fresh;
     }
 
     private static string? DirOf(string? filePath)
@@ -210,11 +256,14 @@ internal sealed class GitService : IGitService
     private sealed record StatusInfo(string Branch, bool Dirty);
 
     /// <summary>Single spawn: branch from the ## header, dirt from non-empty lines below.</summary>
-    private static StatusInfo? QueryStatus(string dir)
+    private static async Task<StatusInfo?> QueryStatusAsync(string dir, CancellationToken ct)
     {
         if (!GitProcess.HasRepoRoot(dir))
             return null; // outside a repo a console-less git hangs — don't even spawn
-        string? output = GitProcess.Run(dir, "status", "-sb", "--porcelain=v1", "--untracked-files=no");
+        using var timeout = new CancellationTokenSource(GitProcess.Timeout);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
+        string? output = await GitProcess.RunAsync(
+            dir, linked.Token, "status", "-sb", "--porcelain=v1", "--untracked-files=no").ConfigureAwait(false);
         if (output is null)
             return null;
         string[] lines = output.Split('\n');
@@ -244,7 +293,8 @@ internal sealed class GitService : IGitService
         return new StatusInfo(branch, dirty);
     }
 
-    private static (HashSet<int> added, HashSet<int> modified) QueryDiff(string full)
+    private static async Task<(HashSet<int> added, HashSet<int> modified)> QueryDiffAsync(
+        string full, CancellationToken ct)
     {
         (HashSet<int> added, HashSet<int> modified) empty = ([], []);
         string? dir;
@@ -260,8 +310,10 @@ internal sealed class GitService : IGitService
         }
         if (!GitProcess.HasRepoRoot(dir))
             return empty; // outside a repo a console-less git hangs — don't even spawn
-        return GitDiff.Parse(GitProcess.Run(dir,
+        using var timeout = new CancellationTokenSource(GitProcess.Timeout);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
+        return GitDiff.Parse(await GitProcess.RunAsync(dir, linked.Token,
             "-c", "core.quotepath=false",
-            "diff", "--no-color", "--no-ext-diff", "--unified=0", "--", full));
+            "diff", "--no-color", "--no-ext-diff", "--unified=0", "--", full).ConfigureAwait(false));
     }
 }

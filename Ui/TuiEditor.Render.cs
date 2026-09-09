@@ -350,6 +350,7 @@ internal sealed partial class TuiEditor
         int fileLine = _top;
         int firstSeg = _topSeg;
         CompiledGrammar? grammar = CurrentGrammar();
+        _docs[_active].Highlight.EnsurePrefetched(_buf, grammar);
         var bracket = BracketPair();
         while (y < y0 + textHeight && fileLine < _buf.Count)
         {
@@ -363,7 +364,7 @@ internal sealed partial class TuiEditor
             bool isCur = fileLine == _row;
             GetRowSelection(fileLine, line.Length, out int selA, out int selB);
             IReadOnlyList<SyntaxToken> synToks =
-                _docs[_active].Highlighter.GetLine(_buf, grammar, fileLine);
+                _docs[_active].Highlight.GetLine(_buf, grammar, fileLine);
             int synIdx = 0;
             List<int> starts = wrap ? WordWrap.SegmentStarts(line, contentWidth) : SingleSegment;
             for (int s = firstSeg; s < starts.Count && y < y0 + textHeight; s++)

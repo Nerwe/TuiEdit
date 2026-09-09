@@ -212,7 +212,10 @@ internal sealed class InputReader
             {
                 if (sw.ElapsedMilliseconds > 1500)
                     return sb.ToString();
-                Thread.Sleep(1);
+                if (OperatingSystem.IsWindows())
+                    Terminal.WaitForInput((int)Math.Min(50, 1500 - sw.ElapsedMilliseconds));
+                else
+                    Thread.Sleep(1); // no blocking console wait off Windows — keep the slice tiny
             }
             char c = TakeKey().KeyChar;
             sb.Append(c);

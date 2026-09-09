@@ -13,7 +13,7 @@ internal static class GitDiff
 
     /// <summary>Gets the same marks synchronously (for tests).</summary>
     internal static (IReadOnlySet<int> added, IReadOnlySet<int> modified) MarksForSync(string? filePath) =>
-        GitService.DiffMarksSync(filePath);
+        GitService.Shared.DiffMarksSync(filePath);
 
     /// <summary>Parses `git diff --unified=0` output (pure, for tests).</summary>
     internal static (HashSet<int> added, HashSet<int> modified) Parse(string? output)

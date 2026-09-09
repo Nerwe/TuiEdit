@@ -28,6 +28,9 @@ internal sealed class DocTab
     /// <summary>Gets the tab syntax highlighting (the cache invalidates on buffer version changes).</summary>
     public SyntaxHighlighter Highlighter { get; } = new();
 
+    /// <summary>Gets the rendering highlight with background prefetch (brackets keep <see cref="Highlighter"/>).</summary>
+    public HighlightService Highlight { get; } = new();
+
     /// <summary>Gets bookmarks: lines (0-based). Shifts via Shift/Drop/Move on edits.</summary>
     public SortedSet<int> Bookmarks { get; } = new();
 
