@@ -167,7 +167,8 @@ internal abstract class Dialog
             int y = box.Y0 + 1 + i;
             screen.Text(box.X0, y, "│", fg, bg);
             // Значение — в ровной колонке акцентным (на выбранной строке — инверсия).
-            int valX = 1 + 1 + 2 + labelW + 2;
+            // Сдвиг: " "(1) + маркер(2) + подпись + "  "(2) — ровно начало val.
+            int valX = 1 + 2 + labelW + 2;
             for (int k = 0; k < cell.Length && k < inner; k++)
             {
                 bool isVal = k >= valX && k < valX + val.Length;

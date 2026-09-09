@@ -555,6 +555,21 @@ public sealed class DialogTests : IDisposable
     }
 
     [Fact]
+    public void OptionValueAccentCoversExactlyValue()
+    {
+        var scr = new Screen();
+        scr.Resize(60, 10);
+        var box = new DialogBox(5, 1, 40, 6);
+        Dialog.DrawOptionRows(scr, _theme, box, ["A", "Longer"], ["x", "yy"], 0);
+        // labelW=6: значение "< yy >" невыбранной строки 2 начинается на x=17.
+        Assert.Equal('<', CellAt(scr, 17, 3));
+        Assert.Equal(_theme.AccentFg, FgAt(scr, 17, 3));
+        Assert.Equal(_theme.AccentFg, FgAt(scr, 22, 3)); // '>'
+        Assert.Equal(_theme.ModalFg, FgAt(scr, 16, 3)); // пробел до — обычный
+        Assert.Equal(_theme.ModalFg, FgAt(scr, 23, 3)); // пробел после — обычный
+    }
+
+    [Fact]
     public void OptionValueArrowsOnlyWhenCyclable()
     {
         Assert.Equal("< On >", Dialog.FormatOptionValue("On", plain: false));
