@@ -65,7 +65,7 @@ internal sealed partial class TuiEditor
 
     /// <summary>Версия из сборки (csproj Version); fallback — на случай ручной сборки.</summary>
     internal static string AppVersion { get; } =
-        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.3.0";
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.0";
 
     /// <summary>Отложенное действие после диалога «несохранённые изменения».</summary>
     private enum PendingOp { None, Quit, Open, CloseTab }

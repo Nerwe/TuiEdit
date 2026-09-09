@@ -7,6 +7,8 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-09
+
 ### Added
 - Mouse input keeps button and modifier data (SGR bits and conhost
   `ControlKeyState`); middle/right presses are still ignored downstream.
