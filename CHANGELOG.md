@@ -7,6 +7,25 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-09
+
+### Changed
+- Code-quality pass: command dispatch is table-driven (`ICommandDispatcher`
+  with exhaustive coverage test); git, clipboard, keybindings and highlight
+  are explicit services composed in `Program` (no DI container).
+- `TuiEditor` god-object split: combined mark shifts, shared cell/path helpers.
+- All code comments in English; assembly API surface is `internal`
+  (single-file app, no public consumers).
+- Git status/diff refresh is async with supersede-cancellation; syntax
+  highlight prefetches in the background with version-checked swap;
+  bracketed-paste wait no longer spin-sleeps on Windows.
+- Hot paths allocation-free: `Append(char)`, shared no-wrap segment list,
+  counter-only wrap segments.
+- Tests: `TempDir` fixture, `Integration` traits (fast unit-only leg:
+  221 tests in <1s), data-driven cases, async cancellation tests.
+- CI: BenchmarkDotNet project (`TuiEdit.Bench`, 8 core benchmarks),
+  coverage collection with a 60% line-rate gate (baseline 62.5%).
+
 ### Added
 - Natural file sorting (`file2` before `file10`) in manager and panel.
 - CLI takes several files (`tui-edit a b:10:2`) and a start directory.
