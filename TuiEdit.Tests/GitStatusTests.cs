@@ -5,6 +5,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Git status-bar segment: branch and tracked-file dirt.</summary>
+[Trait("Category", "Integration")]
 public sealed class GitStatusTests
 {
     private static bool HaveGit()

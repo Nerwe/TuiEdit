@@ -4,6 +4,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Regex search and replace.</summary>
+[Trait("Category", "Integration")]
 public sealed class RegexTests
 {
     private static TextBuffer Buf(params string[] lines)

@@ -4,6 +4,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 // Async pipelines must honor cancellation: no hangs, no throws, no partial state.
+[Trait("Category", "Integration")]
 public sealed class AsyncServiceTests
 {
     [Fact]

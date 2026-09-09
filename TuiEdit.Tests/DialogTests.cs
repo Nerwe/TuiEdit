@@ -5,31 +5,26 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Unified dialog mechanism.</summary>
-public sealed class DialogTests : IDisposable
+[Trait("Category", "Integration")]
+public sealed class DialogTests : IClassFixture<TempDir>
 {
+    private readonly TempDir _tmp;
     private readonly string _dir;
     private readonly string _cfgDir;
     private readonly Screen _scr;
     private readonly Theme _theme;
     private readonly Loc _loc;
 
-    public DialogTests()
+    public DialogTests(TempDir tmp)
     {
-        _dir = Path.Combine(Path.GetTempPath(), "tui_dlg_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_dir);
+        _tmp = tmp;
+        _dir = tmp.NewDir("dlg");
         File.WriteAllText(Path.Combine(_dir, "a.txt"), "x");
-        _cfgDir = Path.Combine(Path.GetTempPath(), "tui_dlgcfg_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_cfgDir);
+        _cfgDir = tmp.NewDir("dlgcfg");
         _scr = new Screen();
         _scr.Resize(96, 28);
         _theme = Themes.Get("dark");
         _loc = Loc.Load("ru");
-    }
-
-    public void Dispose()
-    {
-        try { Directory.Delete(_dir, true); } catch { }
-        try { Directory.Delete(_cfgDir, true); } catch { }
     }
 
     private static ConsoleKeyInfo K(char c, ConsoleKey k, bool shift = false, bool alt = false, bool ctrl = false)
@@ -639,24 +634,19 @@ public sealed class DialogTests : IDisposable
     [Fact]
     public void FileIndexSkipsHiddenAndSortsNaturally()
     {
-        string dir = Path.Combine(Path.GetTempPath(), "tui_idx_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(dir, "sub"));
-            File.WriteAllText(Path.Combine(dir, "file10.txt"), "x");
-            File.WriteAllText(Path.Combine(dir, "file2.txt"), "x");
-            File.WriteAllText(Path.Combine(dir, "sub", "a.cs"), "x");
-            File.WriteAllText(Path.Combine(dir, ".hidden"), "x");
-            Directory.CreateDirectory(Path.Combine(dir, ".git"));
-            File.WriteAllText(Path.Combine(dir, ".git", "objects"), "x");
-            List<string> files = FileIndex.EnumerateFiles(dir);
-            Assert.Equal(3, files.Count);
-            Assert.Equal(
-                ["file2.txt", "file10.txt", Path.Combine("sub", "a.cs")],
-                files.Select(f => Path.GetRelativePath(dir, f)).ToList());
-        }
-        finally { try { Directory.Delete(dir, true); } catch { } }
+        string dir = _tmp.NewDir("idx");
+        Directory.CreateDirectory(Path.Combine(dir, "sub"));
+        File.WriteAllText(Path.Combine(dir, "file10.txt"), "x");
+        File.WriteAllText(Path.Combine(dir, "file2.txt"), "x");
+        File.WriteAllText(Path.Combine(dir, "sub", "a.cs"), "x");
+        File.WriteAllText(Path.Combine(dir, ".hidden"), "x");
+        Directory.CreateDirectory(Path.Combine(dir, ".git"));
+        File.WriteAllText(Path.Combine(dir, ".git", "objects"), "x");
+        List<string> files = FileIndex.EnumerateFiles(dir);
+        Assert.Equal(3, files.Count);
+        Assert.Equal(
+            ["file2.txt", "file10.txt", Path.Combine("sub", "a.cs")],
+            files.Select(f => Path.GetRelativePath(dir, f)).ToList());
     }
 
     [Fact]
@@ -716,17 +706,12 @@ public sealed class DialogTests : IDisposable
     [Fact]
     public void GitDiffOutsideRepoIsEmpty()
     {
-        string dir = Path.Combine(Path.GetTempPath(), "tui_nogit_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        try
-        {
-            string f = Path.Combine(dir, "a.txt");
-            File.WriteAllText(f, "x");
-            var (added, modified) = GitDiff.MarksForSync(f);
-            Assert.Empty(added);
-            Assert.Empty(modified);
-        }
-        finally { try { Directory.Delete(dir, true); } catch { } }
+        string dir = _tmp.NewDir("nogit");
+        string f = Path.Combine(dir, "a.txt");
+        File.WriteAllText(f, "x");
+        var (added, modified) = GitDiff.MarksForSync(f);
+        Assert.Empty(added);
+        Assert.Empty(modified);
     }
 
     [Fact]

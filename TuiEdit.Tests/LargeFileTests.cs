@@ -5,6 +5,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Large-file guard: confirm dialog over the limit.</summary>
+[Trait("Category", "Integration")]
 public sealed class LargeFileTests : IDisposable
 {
     private readonly string _dir;

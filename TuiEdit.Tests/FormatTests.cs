@@ -4,6 +4,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
+[Trait("Category", "Integration")]
 public sealed class FormatTests
 {
     [Fact]

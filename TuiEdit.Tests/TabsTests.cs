@@ -5,6 +5,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Tabs: model, stateful switching, closing, keys.</summary>
+[Trait("Category", "Integration")]
 public sealed class TabsTests : IDisposable
 {
     private readonly string _dir;
@@ -163,16 +164,23 @@ public sealed class TabsTests : IDisposable
         Assert.Equal(0, ed.ActiveTab);
     }
 
-    [Fact]
-    public void TabWindowScroll()
+    [Theory]
+    // Three tabs of 10 columns, screen 25: two fit.
+    [InlineData(0, 0, 25, 0)]
+    [InlineData(1, 0, 25, 0)]
+    [InlineData(2, 0, 25, 1)]
+    [InlineData(2, 1, 25, 1)]
+    [InlineData(0, 1, 25, 0)] // backwards — window moves
+    public void TabWindowScroll(int active, int left, int width, int want)
     {
-        // Three tabs of 10 columns, screen 25: two fit.
         var widths = new List<int> { 10, 10, 10 };
-        Assert.Equal(0, TuiEditor.TabWindowStart(widths, 0, 0, 25));
-        Assert.Equal(0, TuiEditor.TabWindowStart(widths, 1, 0, 25));
-        Assert.Equal(1, TuiEditor.TabWindowStart(widths, 2, 0, 25));
-        Assert.Equal(1, TuiEditor.TabWindowStart(widths, 2, 1, 25));
-        Assert.Equal(0, TuiEditor.TabWindowStart(widths, 0, 1, 25)); // backwards — window moves
+        Assert.Equal(want, TuiEditor.TabWindowStart(widths, active, left, width));
+    }
+
+    [Fact]
+    public void TabWindowScrollEdgeCases()
+    {
+        var widths = new List<int> { 10, 10, 10 };
         Assert.Equal(0, TuiEditor.TabWindowStart(widths, 0, 0, 100)); // everything fits
         Assert.Equal(0, TuiEditor.TabWindowStart(new List<int>(), 0, 0, 25));
     }

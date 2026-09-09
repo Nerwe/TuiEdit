@@ -5,6 +5,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Split view: panes with their own tabs, focus, closing, keys.</summary>
+[Trait("Category", "Integration")]
 public sealed class PanesTests
 {
     private static ConsoleKeyInfo K(char c, ConsoleKey k, bool shift = false, bool alt = false, bool ctrl = false)

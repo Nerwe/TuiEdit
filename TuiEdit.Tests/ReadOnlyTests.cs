@@ -3,6 +3,7 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
+[Trait("Category", "Integration")]
 public sealed class ReadOnlyTests : IDisposable
 {
     private readonly string _dir;

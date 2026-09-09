@@ -5,6 +5,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Incremental search: the live term beats the last one (we do not move the cursor).</summary>
+[Trait("Category", "Integration")]
 public sealed class LiveSearchTests : IDisposable
 {
     private readonly string _cfgDir;

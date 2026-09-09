@@ -5,7 +5,8 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Drafts and the restore popup.</summary>
-public sealed class DraftRestoreTests
+[Trait("Category", "Integration")]
+public sealed class DraftRestoreTests(TempDir tmp) : IClassFixture<TempDir>
 {
     [Theory]
     [InlineData(null)]
@@ -18,9 +19,9 @@ public sealed class DraftRestoreTests
     [Fact]
     public void KeyForStableSha1()
     {
-        string dir = Path.Combine(Path.GetTempPath(), "tui_dr_" + Guid.NewGuid().ToString("N"));
-        string k1 = DraftStore.KeyFor(Path.Combine(dir, "a.txt"));
-        string k2 = DraftStore.KeyFor(Path.Combine(dir, "a.txt"));
+        string p = Path.Combine(tmp.Path, "a.txt");
+        string k1 = DraftStore.KeyFor(p);
+        string k2 = DraftStore.KeyFor(p);
         Assert.Equal(k1, k2);
         Assert.Equal(40, k1.Length);
         Assert.NotEqual("untitled", k1);
@@ -29,33 +30,28 @@ public sealed class DraftRestoreTests
     [Fact]
     public void WriteReadDeleteRoundtrip()
     {
-        string dir = Path.Combine(Path.GetTempPath(), "tui_dr_" + Guid.NewGuid().ToString("N"));
-        try
-        {
-            var ds = new DraftStore(dir);
-            ds.Write(Path.Combine(dir, "a.txt"), new List<string> { "one", "two" }, 1, 2);
-            ds.Write(null, new List<string> { "scratch" }, 0, 7);
-            var all = ds.ReadAll();
-            Assert.Equal(2, all.Count);
-            var named = all.First(x => x.draft.File is not null);
-            Assert.Equal(new List<string> { "one", "two" }, named.draft.Lines);
-            Assert.Equal(1, named.draft.Row);
-            Assert.Equal(2, named.draft.Col);
-            Assert.Contains(all, x => x.draft.File is null && x.key == "untitled");
-            ds.Delete(Path.Combine(dir, "a.txt"));
-            Assert.Single(ds.ReadAll());
-            ds.DeleteKey("untitled");
-            Assert.Empty(ds.ReadAll());
-            ds.Delete(Path.Combine(dir, "nope.txt"));
-        }
-        finally { try { Directory.Delete(dir, true); } catch { } }
+        string dir = tmp.NewDir();
+        var ds = new DraftStore(dir);
+        ds.Write(Path.Combine(dir, "a.txt"), new List<string> { "one", "two" }, 1, 2);
+        ds.Write(null, new List<string> { "scratch" }, 0, 7);
+        var all = ds.ReadAll();
+        Assert.Equal(2, all.Count);
+        var named = all.First(x => x.draft.File is not null);
+        Assert.Equal(new List<string> { "one", "two" }, named.draft.Lines);
+        Assert.Equal(1, named.draft.Row);
+        Assert.Equal(2, named.draft.Col);
+        Assert.Contains(all, x => x.draft.File is null && x.key == "untitled");
+        ds.Delete(Path.Combine(dir, "a.txt"));
+        Assert.Single(ds.ReadAll());
+        ds.DeleteKey("untitled");
+        Assert.Empty(ds.ReadAll());
+        ds.Delete(Path.Combine(dir, "nope.txt"));
     }
 
     [Fact]
     public void EmergencyDumpWritesModifiedTabsOnly()
     {
-        string dir = Path.Combine(Path.GetTempPath(), "tui_dr_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = tmp.NewDir();
         string target = Path.Combine(dir, "work.txt");
         File.WriteAllText(target, "v1");
         var ds = new DraftStore(DraftStore.DefaultDir());
@@ -77,22 +73,17 @@ public sealed class DraftRestoreTests
         finally
         {
             try { ds.Delete(target); } catch { }
-            try { Directory.Delete(dir, true); } catch { }
         }
     }
 
     [Fact]
     public void BadJsonSkipped()
     {
-        string dir = Path.Combine(Path.GetTempPath(), "tui_dr_" + Guid.NewGuid().ToString("N"));
-        try
-        {
-            var ds = new DraftStore(dir);
-            ds.Write(Path.Combine(dir, "ok.txt"), new List<string> { "x" }, 0, 0);
-            File.WriteAllText(Path.Combine(dir, "junk.json"), "{not json");
-            Assert.Single(ds.ReadAll());
-        }
-        finally { try { Directory.Delete(dir, true); } catch { } }
+        string dir = tmp.NewDir();
+        var ds = new DraftStore(dir);
+        ds.Write(Path.Combine(dir, "ok.txt"), new List<string> { "x" }, 0, 0);
+        File.WriteAllText(Path.Combine(dir, "junk.json"), "{not json");
+        Assert.Single(ds.ReadAll());
     }
 
     [Fact]

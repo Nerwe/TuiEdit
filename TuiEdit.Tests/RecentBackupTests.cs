@@ -4,6 +4,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Recent files, .bak, and the Recent popup.</summary>
+[Trait("Category", "Integration")]
 public sealed class RecentBackupTests
 {
     private static ConsoleKeyInfo Arrow(ConsoleKey k) => new('\0', k, false, false, false);

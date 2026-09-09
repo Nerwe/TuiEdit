@@ -5,6 +5,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>File panel: model, Ctrl+B, focus and opening (fixed width).</summary>
+[Trait("Category", "Integration")]
 public sealed class SidebarTests : IDisposable
 {
     private readonly string _root;

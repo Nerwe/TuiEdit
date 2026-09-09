@@ -4,6 +4,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Modular highlighting: grammars, tokenizer, cache, registry.</summary>
+[Trait("Category", "Integration")]
 public sealed class SyntaxTests
 {
     private static readonly string SeedDir =

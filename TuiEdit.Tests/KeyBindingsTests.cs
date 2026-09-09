@@ -4,6 +4,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Hotkey notation: parser, formatter, loading, seeding.</summary>
+[Trait("Category", "Integration")]
 public sealed class KeyBindingsTests
 {
     [Theory]

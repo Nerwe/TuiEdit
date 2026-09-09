@@ -4,6 +4,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Clicks on option rows (settings/format) and prompt toggles.</summary>
+[Trait("Category", "Integration")]
 public sealed class OptionClickTests
 {
     private const int W = 80;

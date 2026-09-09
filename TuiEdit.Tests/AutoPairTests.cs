@@ -5,6 +5,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Auto-pairs for brackets and quotes.</summary>
+[Trait("Category", "Integration")]
 public sealed class AutoPairTests
 {
     [Theory]

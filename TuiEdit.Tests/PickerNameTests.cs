@@ -4,6 +4,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Manager name field: selection, words, navigation.</summary>
+[Trait("Category", "Integration")]
 public sealed class PickerNameTests : IDisposable
 {
     private readonly string _root;

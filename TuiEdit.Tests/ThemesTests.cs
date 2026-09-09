@@ -4,6 +4,7 @@ using Xunit;
 namespace TuiEdit.Tests;
 
 /// <summary>Custom themes from config: hex, catalog, resolve, dialog.</summary>
+[Trait("Category", "Integration")]
 public sealed class ThemesTests : IDisposable
 {
     private readonly string _cfgDir;
