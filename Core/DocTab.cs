@@ -57,6 +57,34 @@ internal sealed class DocTab
     /// <summary>Выкинуть закладки за пределами документа (после undo и т.п.).</summary>
     public void ClampBookmarks(int count) => Bookmarks.RemoveWhere(r => r < 0 || r >= count);
 
+    /// <summary>Shifts bookmarks and fold starts together (single call for paired edits).</summary>
+    public void ShiftMarks(int fromRow, int delta)
+    {
+        ShiftBookmarks(fromRow, delta);
+        ShiftFolds(fromRow, delta);
+    }
+
+    /// <summary>Drops bookmarks and fold starts in [first, last] together.</summary>
+    public void DropMarks(int first, int last)
+    {
+        DropBookmarks(first, last);
+        DropFolds(first, last);
+    }
+
+    /// <summary>Moves bookmarks and fold starts with block [s, e] together.</summary>
+    public void MoveMarks(int s, int e, int dir)
+    {
+        MoveBookmarks(s, e, dir);
+        MoveFolds(s, e, dir);
+    }
+
+    /// <summary>Clamps bookmarks and fold starts to the document together.</summary>
+    public void ClampMarks(int count)
+    {
+        ClampBookmarks(count);
+        ClampFolds(count);
+    }
+
     /// <summary>Сдвинуть старты свёрток (концы пересчитываются по отступу).</summary>
     public void ShiftFolds(int fromRow, int delta) => ShiftSet(Folds, fromRow, delta);
 

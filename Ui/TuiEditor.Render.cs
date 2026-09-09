@@ -487,7 +487,7 @@ internal sealed partial class TuiEditor
             _sidebar.CurrentDir.TrimEnd(Path.DirectorySeparatorChar));
         if (title.Length > inner)
             title = "…" + title[^(inner - 1)..];
-        _screen.Text(0, y0, title.PadRight(inner)[..inner] + "│", _theme.MenuOpenFg, _theme.MenuOpenBg);
+        _screen.Text(0, y0, Dialog.FitCell(title, inner) + "│", _theme.MenuOpenFg, _theme.MenuOpenBg);
         int visCount = Math.Max(1, textHeight - 1);
         int vis = Math.Min(visCount, _sidebar.Entries.Count - _sidebar.Top);
         for (int vi = 0; vi < vis; vi++)
@@ -501,7 +501,7 @@ internal sealed partial class TuiEditor
                 label = label[..^1] + "↑";
             if (vi == vis - 1 && _sidebar.Top + vis < _sidebar.Entries.Count)
                 label = label[..^1] + "↓";
-            string cell = label.PadRight(inner)[..inner] + "│";
+            string cell = Dialog.FitCell(label, inner) + "│";
             int row = y0 + 1 + vi;
             if (i == _sidebar.Selected)
                 _screen.Text(0, row, cell, _theme.ButtonSelFg, _theme.ButtonSelBg);

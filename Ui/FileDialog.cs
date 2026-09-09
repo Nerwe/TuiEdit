@@ -39,7 +39,7 @@ internal sealed class FileDialog : Dialog
 
         string dirLabel = p.CurrentDir == "" ? loc["picker.drives"] : p.CurrentDir;
         string dirRow = loc["picker.dir"] + MiddleTruncate(dirLabel, Math.Max(0, inner - loc["picker.dir"].Length));
-        screen.Text(x0, y0 + 1, "│" + dirRow.PadRight(inner)[..inner] + "│", fg, bg);
+        screen.Text(x0, y0 + 1, "│" + Dialog.FitCell(dirRow, inner) + "│", fg, bg);
 
         string nameTag = loc["picker.name"];
         string full = nameTag + p.Name;
@@ -83,7 +83,7 @@ internal sealed class FileDialog : Dialog
                 if (label.Length > room)
                     label = label[..Math.Max(0, room)];
                 screen.Text(x0, yy, "│", fg, bg);
-                screen.Text(x0 + 1, yy, label.PadRight(room)[..Math.Max(0, room)], efg, ebg);
+                screen.Text(x0 + 1, yy, Dialog.FitCell(label, room), efg, ebg);
                 if (size.Length > 0)
                     screen.Text(x0 + 1 + room + 1, yy, size,
                         sel ? efg : theme.PickerHintFg, ebg);
@@ -94,7 +94,7 @@ internal sealed class FileDialog : Dialog
                 string empty = p.Error == "BadPath" ? loc["picker.badpath"]
                     : p.Error ?? (p.Entries.Count == 0 ? loc["picker.empty"] : "");
                 Rgb efg = p.Error is null ? theme.PickerEmptyFg : theme.PickerErrorFg;
-                screen.Text(x0, yy, "│" + empty.PadRight(inner)[..inner] + "│", efg, bg);
+                screen.Text(x0, yy, "│" + Dialog.FitCell(empty, inner) + "│", efg, bg);
             }
         }
 

@@ -22,8 +22,7 @@ internal sealed partial class TuiEditor
             (_row, _col) = _buf.InsertText(_row, _col, paste.Text);
             if (_buf.Count > pbefore)
             {
-                _docs[_active].ShiftBookmarks(pr + 1, _buf.Count - pbefore);
-                _docs[_active].ShiftFolds(pr + 1, _buf.Count - pbefore);
+                _docs[_active].ShiftMarks(pr + 1, _buf.Count - pbefore);
             }
             ClampCursor();
             TrackCol();
@@ -506,8 +505,7 @@ internal sealed partial class TuiEditor
         {
             DeleteSelection(); // замена выделения
             (_row, _col) = _buf.SplitLine(_row, _col);
-            _docs[_active].ShiftBookmarks(_row, 1);
-            _docs[_active].ShiftFolds(_row, 1);
+            _docs[_active].ShiftMarks(_row, 1);
             TrackCol();
         },
         [EditorCommand.InsertBackspace] = _ =>
@@ -522,10 +520,7 @@ internal sealed partial class TuiEditor
             int br = _row, bc = _col;
             (_row, _col) = _buf.Backspace(_row, _col);
             if (br > 0 && bc == 0)
-            {
-                _docs[_active].ShiftBookmarks(br, -1);
-                _docs[_active].ShiftFolds(br, -1);
-            }
+                _docs[_active].ShiftMarks(br, -1);
             TrackCol();
         },
         [EditorCommand.InsertDelete] = _ =>
@@ -534,10 +529,7 @@ internal sealed partial class TuiEditor
             int dr = _row, dc = _col, dl = _buf.GetLine(dr).Length, dn = _buf.Count;
             (_row, _col) = _buf.Delete(_row, _col);
             if (dc >= dl && dr + 1 < dn)
-            {
-                _docs[_active].ShiftBookmarks(dr + 1, -1);
-                _docs[_active].ShiftFolds(dr + 1, -1);
-            }
+                _docs[_active].ShiftMarks(dr + 1, -1);
             TrackCol();
         },
         [EditorCommand.InsertTab] = _ =>

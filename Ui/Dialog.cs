@@ -192,6 +192,10 @@ internal abstract class Dialog
         return new string(' ', left) + s + new string(' ', width - s.Length - left);
     }
 
+    /// <summary>Fits text into exactly <paramref name="width"/> cells (pads or truncates; never throws).</summary>
+    internal static string FitCell(string s, int width) =>
+        width <= 0 ? string.Empty : s.PadRight(width)[..width];
+
     internal static string MiddleTruncate(string s, int width)
     {
         if (s.Length <= width)

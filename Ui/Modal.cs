@@ -191,8 +191,7 @@ public sealed class ModalState
             maxVisibleButtons: 10);
     }
 
-    private static string ShortGrepPath(string path) =>
-        path.Length <= 40 ? path : "..." + path[^37..];
+    private static string ShortGrepPath(string path) => Shorten(path, 40);
 
     /// <summary>Попап недавних файлов: каждый файл — кнопка-строка с хоткеем 1..9,0; видно разом 5, остальные — скроллом; пустой список запрещён.</summary>
     public static ModalState Recent(Loc loc, List<string> files)
@@ -209,8 +208,11 @@ public sealed class ModalState
             maxVisibleButtons: 5);
     }
 
-    private static string ShortPath(string path) =>
-        path.Length <= 48 ? path : "..." + path[^45..];
+    private static string ShortPath(string path) => Shorten(path, 48);
+
+    /// <summary>Shortens a path from the left, keeping a "..." + tail of <paramref name="max"/>.</summary>
+    private static string Shorten(string path, int max) =>
+        path.Length <= max ? path : "..." + path[^(max - 3)..];
 
     /// <summary>Хоткей кнопки по индексу: 1..9,0, дальше — без хоткея.</summary>
     private static char NumberHotkey(int i) => i < 9 ? (char)('1' + i) : i == 9 ? '0' : '\0';

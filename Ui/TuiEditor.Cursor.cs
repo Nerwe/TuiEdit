@@ -21,10 +21,8 @@ internal sealed partial class TuiEditor
         if (er > sr)
         {
             DocTab t = _docs[_active];
-            t.DropBookmarks(sr + 1, er);
-            t.ShiftBookmarks(sr + 1, sr - er);
-            t.DropFolds(sr + 1, er);
-            t.ShiftFolds(sr + 1, sr - er);
+            t.DropMarks(sr + 1, er);
+            t.ShiftMarks(sr + 1, sr - er);
         }
         _sel.Clear();
         TrackCol();
@@ -97,7 +95,7 @@ internal sealed partial class TuiEditor
     internal void ToggleBookmark()
     {
         DocTab t = _docs[_active];
-        t.ClampBookmarks(_buf.Count);
+        t.ClampMarks(_buf.Count);
         bool set = t.ToggleBookmark(_row);
         SetMessage(set ? _loc["msg.bookmark.set"] : _loc["msg.bookmark.cleared"]);
     }
@@ -105,7 +103,7 @@ internal sealed partial class TuiEditor
     internal void NextBookmark()
     {
         DocTab t = _docs[_active];
-        t.ClampBookmarks(_buf.Count);
+        t.ClampMarks(_buf.Count);
         if (t.Bookmarks.Count == 0)
         {
             SetMessage(_loc["msg.bookmark.none"]);
@@ -129,7 +127,7 @@ internal sealed partial class TuiEditor
     internal void ToggleFold()
     {
         DocTab t = _docs[_active];
-        t.ClampFolds(_buf.Count);
+        t.ClampMarks(_buf.Count);
         if (t.Folds.Remove(_row))
         {
             SetMessage(_loc["msg.fold.opened"]);
@@ -364,8 +362,7 @@ internal sealed partial class TuiEditor
             (_row, _col) = _buf.Backspace(_row, _col);
             if (wr > 0)
             {
-                _docs[_active].ShiftBookmarks(wr, -1);
-                _docs[_active].ShiftFolds(wr, -1);
+                _docs[_active].ShiftMarks(wr, -1);
             }
             TrackCol();
             return;
@@ -387,8 +384,7 @@ internal sealed partial class TuiEditor
             (_row, _col) = _buf.Delete(_row, _col);
             if (dr + 1 < dn)
             {
-                _docs[_active].ShiftBookmarks(dr + 1, -1);
-                _docs[_active].ShiftFolds(dr + 1, -1);
+                _docs[_active].ShiftMarks(dr + 1, -1);
             }
             TrackCol();
             return;
@@ -412,8 +408,7 @@ internal sealed partial class TuiEditor
     {
         var (s, e) = LineBlock();
         int copy = _buf.DuplicateLines(s, e);
-        _docs[_active].ShiftBookmarks(e + 1, e - s + 1);
-        _docs[_active].ShiftFolds(e + 1, e - s + 1);
+        _docs[_active].ShiftMarks(e + 1, e - s + 1);
         _row = copy + (_row - s);
         _sel.Clear();
         ClampCursor();
@@ -435,8 +430,7 @@ internal sealed partial class TuiEditor
         var (s, e) = LineBlock();
         bool ok = dir < 0 ? _buf.MoveLinesUp(s, e) : _buf.MoveLinesDown(s, e);
         if (!ok) return;
-        _docs[_active].MoveBookmarks(s, e, dir);
-        _docs[_active].MoveFolds(s, e, dir);
+        _docs[_active].MoveMarks(s, e, dir);
         _row += dir;
         _sel.Clear();
         ClampCursor();
@@ -461,10 +455,8 @@ internal sealed partial class TuiEditor
         _clipboard.Add(_buf.CutLine(_row));
         if (_buf.Count < cbefore)
         {
-            _docs[_active].DropBookmarks(crow, crow);
-            _docs[_active].ShiftBookmarks(crow + 1, -1);
-            _docs[_active].DropFolds(crow, crow);
-            _docs[_active].ShiftFolds(crow + 1, -1);
+            _docs[_active].DropMarks(crow, crow);
+            _docs[_active].ShiftMarks(crow + 1, -1);
         }
         _row = Math.Clamp(_row, 0, _buf.Count - 1);
         _col = Math.Min(_col, _buf.GetLine(_row).Length);
@@ -499,8 +491,7 @@ internal sealed partial class TuiEditor
         if (_clipboard.Count == 1) _col += _clipboard[0].Length;
         else
         {
-            _docs[_active].ShiftBookmarks(pr + 1, _clipboard.Count - 1);
-            _docs[_active].ShiftFolds(pr + 1, _clipboard.Count - 1);
+            _docs[_active].ShiftMarks(pr + 1, _clipboard.Count - 1);
             _row += _clipboard.Count - 1; _col = _clipboard[^1].Length;
         }
         TrackCol();
