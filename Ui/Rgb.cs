@@ -7,6 +7,16 @@ public readonly record struct Rgb(byte R, byte G, byte B)
 
     public string ToAnsiBg() => $"\x1b[48;2;{R};{G};{B}m";
 
+    /// <summary>Смешать с другим цветом (t=0 — этот, t=1 — other).</summary>
+    public Rgb Blend(Rgb other, double t)
+    {
+        double k = Math.Clamp(t, 0, 1);
+        return new Rgb(
+            (byte)(R + (other.R - R) * k),
+            (byte)(G + (other.G - G) * k),
+            (byte)(B + (other.B - B) * k));
+    }
+
     /// <summary>Ближайший из 16 цветов консоли (fallback без VT).</summary>
     public ConsoleColor ToConsoleColor()
     {

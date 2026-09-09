@@ -37,6 +37,9 @@ when a `v*` tag is pushed.
   `CopyOnSelect` is set, otherwise the selection stays for keyboard
   ops. Right-click copies a live selection; activation stays on
   press, so a drag-release can never fire a control.
+- Dialog look: dimmed backdrop (truecolor only), top-weighted
+  placement, `esc` hint in the title row. All MS Edit/nano
+  references removed; standalone wording throughout.
 
 ## [0.3.0] - 2026-09-08
 

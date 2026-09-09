@@ -28,7 +28,7 @@ internal sealed class FileDialog : Dialog
     {
         int bw = Math.Min(Math.Max(screenW - 10, 30), screenW);
         int bh = Math.Min(Math.Max(screenH - 8, 14), screenH);
-        return new DialogBox(Math.Max(0, (screenW - bw) / 2), Math.Max(0, (screenH - bh) / 2), bw, bh);
+        return new DialogBox(Math.Max(0, (screenW - bw) / 2), TopY(screenH, bh), bw, bh);
     }
 
     protected override void DrawContent(Screen screen, Theme theme, Loc loc, Rgb fg, Rgb bg, DialogBox box)

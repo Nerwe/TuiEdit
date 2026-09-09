@@ -51,6 +51,14 @@ public sealed class DialogTests : IDisposable
         return (Rgb)cell!.GetType().GetProperty("Fg")!.GetValue(cell)!;
     }
 
+    private static Rgb BgAt(Screen scr, int x, int y)
+    {
+        var cur = (Array)typeof(Screen).GetField("_cur", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(scr)!;
+        object? cell = cur.GetValue(x, y);
+        return (Rgb)cell!.GetType().GetProperty("Bg")!.GetValue(cell)!;
+    }
+
     [Fact]
     public void SpanHelpers()
     {
@@ -341,6 +349,44 @@ public sealed class DialogTests : IDisposable
         Assert.Contains("0.1.0", m.Lines[0]);
         Assert.Equal(string.Empty, m.Hint);
         Assert.Single(m.Buttons);
+    }
+
+    [Fact]
+    public void BlendMathAndTopY()
+    {
+        Assert.Equal(new Rgb(50, 50, 50), new Rgb(100, 100, 100).Blend(new Rgb(0, 0, 0), 0.5));
+        Assert.Equal(new Rgb(100, 100, 100), new Rgb(100, 100, 100).Blend(new Rgb(0, 0, 0), 0));
+        Assert.Equal(new Rgb(0, 0, 0), new Rgb(100, 100, 100).Blend(new Rgb(0, 0, 0), 1));
+        Assert.Equal(6, Dialog.TopY(24, 10)); // min(7, 6) — ниже центра
+        Assert.Equal(0, Dialog.TopY(24, 30)); // высокое окно — не выше нуля
+        Assert.Equal(7, Dialog.TopY(28, 6)); // min(11, 7)
+        DialogBox? box = Dialog.MeasureOptions(80, 24, "T", ["A", "B", "C"], ["x", "y", "z"]);
+        Assert.NotNull(box);
+        Assert.Equal(6, box.Value.Y0); // bh=5: min(9, 6)
+    }
+
+    [Fact]
+    public void DrawDimsBackdropAndHintsEsc()
+    {
+        var scr = new Screen();
+        scr.Resize(96, 28);
+        scr.Text(0, 0, "x", new Rgb(255, 255, 255), new Rgb(100, 100, 100));
+        var probe = new ProbeDialog { WantW = 30, WantH = 8 };
+        probe.Draw(scr, _theme, _loc);
+        Assert.Equal('x', CellAt(scr, 0, 0)); // символ цел, цвета пригашены
+        Assert.Equal(new Rgb(255, 255, 255).Blend(new Rgb(0, 0, 0), 0.55), FgAt(scr, 0, 0));
+        Assert.Equal(new Rgb(100, 100, 100).Blend(new Rgb(0, 0, 0), 0.55), BgAt(scr, 0, 0));
+        // esc справа в строке заголовка (бокс x0=33,w=30 → 59..61,y=10)
+        Assert.Equal('e', CellAt(scr, 59, 10));
+        Assert.Equal('s', CellAt(scr, 60, 10));
+        Assert.Equal('c', CellAt(scr, 61, 10));
+
+        var legacy = new Screen();
+        legacy.Resize(96, 28);
+        legacy.TrueColor = false;
+        legacy.Text(0, 0, "x", new Rgb(255, 255, 255), new Rgb(100, 100, 100));
+        probe.Draw(legacy, _theme, _loc);
+        Assert.Equal(new Rgb(100, 100, 100), BgAt(legacy, 0, 0)); // legacy — без затемнения
     }
 
     private sealed class ProbeDialog : Dialog

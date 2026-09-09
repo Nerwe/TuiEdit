@@ -34,6 +34,10 @@ public sealed class Screen
             _cur[x, y] = new Cell(ch, fg, bg);
     }
 
+    /// <summary>Прочитать ячейку (для затемнения фона под диалогами).</summary>
+    public Cell At(int x, int y) =>
+        (uint)x < (uint)Width && (uint)y < (uint)Height ? _cur[x, y] : default;
+
     public void Text(int x, int y, string text, Rgb fg, Rgb bg)
     {
         ArgumentNullException.ThrowIfNull(text);

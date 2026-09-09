@@ -50,7 +50,7 @@ internal sealed class HelpDialog : Dialog
         if (boxH < 5)
             return null;
         int x0 = Math.Max(0, (screenW - boxW) / 2);
-        int y0 = Math.Max(0, (screenH - boxH) / 2);
+        int y0 = TopY(screenH, boxH);
         if (y0 + boxH > screenH)
             return null;
         return new DialogBox(x0, y0, boxW, boxH);

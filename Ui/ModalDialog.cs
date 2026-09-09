@@ -20,6 +20,9 @@ internal sealed class ModalDialog : Dialog
     protected override Rgb TitleFg(Theme theme) =>
         _state.Danger ? theme.ModalDangerFg : theme.AccentFg;
 
+    protected override Rgb HintFg(Theme theme) =>
+        _state.Danger ? theme.ModalHintDangerFg : theme.ModalHintFg;
+
     protected override DialogBox? Measure(int screenW, int screenH, Loc loc)
     {
         bool vertical = _state.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs or ModalKind.Complete or ModalKind.Grep;
@@ -39,7 +42,7 @@ internal sealed class ModalDialog : Dialog
         int hintRows = _state.Hint.Length > 0 ? 1 : 0;
         int boxH = 1 + _state.Lines.Count + btnRows + hintRows + 1;
         int x0 = Math.Max(0, (screenW - boxW) / 2);
-        int y0 = Math.Max(0, (screenH - boxH) / 2);
+        int y0 = TopY(screenH, boxH);
         if (y0 + boxH > screenH)
             return null;
         return new DialogBox(x0, y0, boxW, boxH);
