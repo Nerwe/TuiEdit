@@ -126,17 +126,29 @@ internal sealed partial class TuiEditor
             : _loc.Format("msg.search.miss", term));
     }
 
+    /// <summary>Разбор «N» / «N:M» / «$» (1-based; null — мусор).</summary>
+    internal static (int line, int col)? ParseGoTo(string s)
+    {
+        string t = s.Trim();
+        if (t == "$")
+            return (int.MaxValue, 0);
+        int c = t.IndexOf(':');
+        if (c < 0)
+            return int.TryParse(t, out int n) && n > 0 ? (n, 0) : null;
+        if (int.TryParse(t[..c], out int line) && line > 0
+            && int.TryParse(t[(c + 1)..], out int col) && col > 0)
+            return (line, col);
+        return null;
+    }
+
     private void GoToLine()
     {
         string? s = Prompt(_loc.Format("prompt.goto", _buf.Count), string.Empty);
         if (s is null) return;
-        if (int.TryParse(s.Trim(), out int n))
+        if (ParseGoTo(s) is (int line, int col))
         {
-            _row = Math.Clamp(n - 1, 0, _buf.Count - 1);
-            _col = Math.Min(_col, _buf.GetLine(_row).Length);
+            GoToPosition(line, col);
             _sel.Clear(); // прыжок снимает выделение
-            UnfoldPath();
-            TrackCol();
         }
         else SetMessage(_loc["msg.notnumber"]);
     }

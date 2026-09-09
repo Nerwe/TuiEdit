@@ -74,6 +74,52 @@ internal sealed partial class TuiEditor
         _store.Save(_settings);
     }
 
+    /// <summary>Прыжок на 1-based строку и колонку (0 — соответствующую не двигать).</summary>
+    internal void GoToPosition(int line, int col)
+    {
+        if (_buf.Count == 0)
+            return;
+        if (line > 0)
+            _row = Math.Clamp(line - 1, 0, _buf.Count - 1);
+        _col = col > 0
+            ? Math.Clamp(col - 1, 0, _buf.GetLine(_row).Length)
+            : Math.Min(_col, _buf.GetLine(_row).Length);
+        UnfoldPath();
+        TrackCol();
+    }
+
+    /// <summary>Открыть файл старта новой вкладкой (CLI-список).</summary>
+    internal void OpenStartupFile(string path, int line, int col)
+    {
+        try
+        {
+            SaveTabState();
+            _docs.Add(new DocTab(new TextBuffer(path)));
+            _active = _docs.Count - 1;
+            LoadTabState();
+            if (line > 0)
+                GoToPosition(line, col);
+            TouchRecent(path);
+            SaveTabState();
+        }
+        catch
+        {
+        }
+    }
+
+    /// <summary>Открыть панель файлов с корнем (старт с папкой).</summary>
+    internal void OpenSidebarRoot(string dir)
+    {
+        try
+        {
+            _sidebar = new SidebarState(Path.GetFullPath(dir));
+            _sidebarFocus = true;
+        }
+        catch
+        {
+        }
+    }
+
     /// <summary>Переключиться на вкладку (по кругу).</summary>
     internal void SwitchTab(int index)
     {

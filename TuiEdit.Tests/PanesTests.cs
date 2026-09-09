@@ -304,6 +304,49 @@ public sealed class PanesTests
     }
 
     [Fact]
+    public void StartupFilesOpenAsTabs()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "tui_start_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "a.txt"), "aaa\nbbb\nccc\n");
+            File.WriteAllText(Path.Combine(dir, "b.txt"), "111\n222\n");
+            var ed = NewEditor();
+            ed.OpenStartupFile(Path.Combine(dir, "a.txt"), 0, 0);
+            ed.OpenStartupFile(Path.Combine(dir, "b.txt"), 2, 2);
+            Assert.Equal(3, ed.TabCount);
+            Assert.Equal(2, ed.ActiveTab);
+            Assert.Equal(1, Get(ed, "_row"));
+            Assert.Equal(1, Get(ed, "_col"));
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
+    public void GoToPositionClamps()
+    {
+        var ed = NewEditor();
+        ActiveBuf(ed).InsertText(0, 0, "aaa\nbbb");
+        ed.GoToPosition(2, 5);
+        Assert.Equal(1, Get(ed, "_row"));
+        Assert.Equal(3, Get(ed, "_col")); // "bbb".Length
+        ed.GoToPosition(99, 99);
+        Assert.Equal(1, Get(ed, "_row"));
+        ed.GoToPosition(1, 0); // колонку не двигаем
+        Assert.Equal(3, Get(ed, "_col"));
+    }
+
+    [Fact]
+    public void OpenSidebarRootFocusesPanel()
+    {
+        var ed = NewEditor();
+        ed.OpenSidebarRoot(Path.GetTempPath());
+        Assert.True((bool)Get(ed, "_sidebarFocus")!);
+        Assert.NotNull(Get(ed, "_sidebar"));
+    }
+
+    [Fact]
     public void SplitViaKeys()
     {
         var ed = NewEditor();

@@ -53,8 +53,8 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
     {
     }
 
-    string? file = null;
-    int gotoLine = 0;
+    var files = new List<(string path, int line, int col)>();
+    string? startDir = null;
     foreach (string a in args)
     {
         switch (a)
@@ -94,8 +94,19 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
             case ['-', ..]:
                 break;
             default:
-                if (file is null)
-                    (file, gotoLine) = CliArgs.SplitFileLine(a);
+                var (p, ln, cn) = CliArgs.SplitFileLine(a);
+                try
+                {
+                    if (ln == 0 && cn == 0 && Directory.Exists(p))
+                    {
+                        startDir ??= p; // папка — корень панели (без файлов)
+                        break;
+                    }
+                }
+                catch
+                {
+                }
+                files.Add((p, ln, cn));
                 break;
         }
     }
@@ -109,12 +120,22 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
     }
 
     InputReader.MouseLevel = settings.Mouse; // мышь выкл по умолчанию
-    var buffer = new TextBuffer(file);
+    string? firstPath = files.Count > 0 ? files[0].path : null;
+    var buffer = new TextBuffer(firstPath);
     var editor = new TuiEditor(buffer, settings, store);
-    if (file is null)
+    if (firstPath is null)
+    {
         editor.RestoreSessionTabs();
-    else if (gotoLine > 0)
-        editor.GoToLineNumber(gotoLine);
+        if (startDir is not null)
+            editor.OpenSidebarRoot(startDir);
+    }
+    else
+    {
+        if (files[0].line > 0)
+            editor.GoToPosition(files[0].line, files[0].col);
+        for (int i = 1; i < files.Count; i++)
+            editor.OpenStartupFile(files[i].path, files[i].line, files[i].col);
+    }
     editor.Run();
     return (loc, 0, editor);
 }

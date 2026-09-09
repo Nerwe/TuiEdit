@@ -141,11 +141,8 @@ public sealed class FilePickerState
         {
             Error = ex.Message;
         }
-        static int Order(PickerEntry a, PickerEntry b)
-        {
-            int c = string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
-            return c != 0 ? c : string.Compare(a.Name, b.Name, StringComparison.Ordinal);
-        }
+        static int Order(PickerEntry a, PickerEntry b) =>
+            NaturalSort.Compare(a.Name, b.Name);
         dirs.Sort(Order);
         files.Sort(Order);
         Entries = up.Concat(dirs).Concat(files).ToList();

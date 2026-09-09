@@ -50,8 +50,8 @@ public sealed class SidebarState
                 if (Directory.Exists(e)) dirs.Add(e);
                 else files.Add(e);
             }
-            dirs.Sort(StringComparer.OrdinalIgnoreCase);
-            files.Sort(StringComparer.OrdinalIgnoreCase);
+            dirs.Sort(NaturalSort.Comparer);
+            files.Sort(NaturalSort.Comparer);
             foreach (string d in dirs) Entries.Add(Classify(d, isDir: true));
             foreach (string f in files) Entries.Add(Classify(f, isDir: false));
         }
