@@ -5,7 +5,7 @@ namespace TuiEdit;
 /// (tab width is <see cref="Width"/>), other characters are width 1.
 /// Buffers store lines as-is (with tabs); expansion applies to rendering only.
 /// </summary>
-public static class TabStops
+internal static class TabStops
 {
     public const int Width = 4;
 
@@ -49,7 +49,12 @@ public static class TabStops
             int s = Math.Max(pos, startVisual);
             int e = Math.Min(pos + w, end);
             if (e > s)
-                sb.Append(c == '\t' ? new string(' ', e - s) : c.ToString());
+            {
+                if (c == '\t')
+                    sb.Append(' ', e - s);
+                else
+                    sb.Append(c);
+            }
             pos += w;
             if (pos >= end)
                 break;
@@ -62,7 +67,7 @@ public static class TabStops
 /// Wraps lines softly: a tab that does not fit in the segment remainder moves entirely
 /// to the next segment — segment boundaries always align with character starts.
 /// </summary>
-public static class WordWrap
+internal static class WordWrap
 {
     /// <summary>Gets segment starts in visual columns (the first is always 0).</summary>
     public static List<int> SegmentStarts(string line, int width)
@@ -81,7 +86,28 @@ public static class WordWrap
         return starts;
     }
 
-    public static int SegmentCount(string line, int width) => SegmentStarts(line, width).Count;
+    public static int SegmentCount(string line, int width) => CountSegments(line, width);
+
+    /// <summary>Counts segments like <see cref="SegmentStarts"/> but without allocating.</summary>
+    public static int CountSegments(string line, int width)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+        if (width < 1) width = 1;
+        int count = 1;
+        int lastStart = 0;
+        int vpos = 0;
+        foreach (char c in line)
+        {
+            int cw = c == '\t' ? TabStops.Width - vpos % TabStops.Width : 1;
+            if (vpos > lastStart && vpos + cw - lastStart > width)
+            {
+                lastStart = vpos;
+                count++;
+            }
+            vpos += cw;
+        }
+        return count;
+    }
 
     public static int SegmentAt(List<int> starts, int vcol)
     {

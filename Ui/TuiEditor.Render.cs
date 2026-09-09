@@ -37,6 +37,9 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>Locates a click in content coordinates: vis is the row from the text top, vc is the visual column.</summary>
+    /// <summary>Shared single-segment list for the no-wrap path (read-only, never mutated).</summary>
+    private static readonly List<int> SingleSegment = [0];
+
     internal static (int Row, int Col) LocateClick(
         IReadOnlyList<string> lines, SortedSet<int> folds,
         int top, int topSeg, bool wrap, int contentWidth, int left,
@@ -52,7 +55,7 @@ internal sealed partial class TuiEditor
                 firstSeg = 0;
                 continue;
             }
-            List<int> starts = wrap ? WordWrap.SegmentStarts(lines[fileLine], contentWidth) : new List<int> { 0 };
+            List<int> starts = wrap ? WordWrap.SegmentStarts(lines[fileLine], contentWidth) : SingleSegment;
             for (int s = firstSeg; s < starts.Count; s++)
             {
                 if (vis == visTarget)
@@ -181,7 +184,7 @@ internal sealed partial class TuiEditor
         {
             if (folds is not null && Folding.IsHidden(lines, folds, r))
                 continue;
-            rows += WordWrap.SegmentCount(lines[r], contentWidth);
+            rows += WordWrap.CountSegments(lines[r], contentWidth);
         }
         if (rows >= cap) return rows;
         return rows + CursorSeg(lines[row], col, contentWidth);
@@ -362,7 +365,7 @@ internal sealed partial class TuiEditor
             IReadOnlyList<SyntaxToken> synToks =
                 _docs[_active].Highlighter.GetLine(_buf, grammar, fileLine);
             int synIdx = 0;
-            List<int> starts = wrap ? WordWrap.SegmentStarts(line, contentWidth) : new List<int> { 0 };
+            List<int> starts = wrap ? WordWrap.SegmentStarts(line, contentWidth) : SingleSegment;
             for (int s = firstSeg; s < starts.Count && y < y0 + textHeight; s++)
             {
                 int segStart = starts[s];

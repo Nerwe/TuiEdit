@@ -1,9 +1,9 @@
 namespace TuiEdit;
 
-public sealed record SidebarEntry(string Name, bool IsDir, bool IsHidden = false, bool IsExe = false);
+internal sealed record SidebarEntry(string Name, bool IsDir, bool IsHidden = false, bool IsExe = false);
 
 /// <summary>Provides the file sidebar (fixed <see cref="Width"/> width): a flat list of the current folder (folders first, ".." goes up), highlight, scroll.</summary>
-public sealed class SidebarState
+internal sealed class SidebarState
 {
     public const int Width = 24;
 

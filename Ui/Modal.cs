@@ -1,7 +1,7 @@
 namespace TuiEdit;
 
 /// <summary>Specifies the modal popup kind (affects colors).</summary>
-public enum ModalKind
+internal enum ModalKind
 {
     /// <summary>Represents unsaved changes / confirmation (red - danger).</summary>
     UnsavedQuit,
@@ -28,9 +28,9 @@ public enum ModalKind
 }
 
 /// <summary>Represents a popup button: label and hotkey letter (without Enter). '\0' means no hotkey.</summary>
-public sealed record ModalButton(string Label, char Hotkey);
+internal sealed record ModalButton(string Label, char Hotkey);
 
-public readonly record struct ModalKeyOutcome(bool Done, bool Cancelled, int Button)
+internal readonly record struct ModalKeyOutcome(bool Done, bool Cancelled, int Button)
 {
     /// <summary>Gets an outcome that keeps the popup open (key swallowed).</summary>
     public static readonly ModalKeyOutcome Open = new(false, false, -1);
@@ -42,7 +42,7 @@ public readonly record struct ModalKeyOutcome(bool Done, bool Cancelled, int But
 }
 
 /// <summary>Represents a modal popup: titled frame, focus trap (swallows all input), Esc cancels, buttons activate via Enter, arrows, and single-key hotkeys.</summary>
-public sealed class ModalState
+internal sealed class ModalState
 {
     public ModalKind Kind { get; }
 

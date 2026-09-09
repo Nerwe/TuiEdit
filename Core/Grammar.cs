@@ -8,7 +8,7 @@ namespace TuiEdit;
 /// Represents a highlighting rule: a single-line match (Match) or a multiline
 /// construct (Begin/End). Scope: keyword, string, comment, number, type.
 /// </summary>
-public sealed class GrammarRule
+internal sealed class GrammarRule
 {
     public string Scope { get; set; } = string.Empty;
     public string? Match { get; set; }
@@ -20,7 +20,7 @@ public sealed class GrammarRule
 /// Represents a language JSON grammar: name, extensions, case handling, and ordered rules.
 /// Earlier in the list means higher priority on ties, otherwise the earliest match wins.
 /// </summary>
-public sealed class Grammar
+internal sealed class Grammar
 {
     public string Name { get; set; } = string.Empty;
     public List<string> Extensions { get; set; } = new();

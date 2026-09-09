@@ -4,7 +4,7 @@ namespace TuiEdit;
 /// Represents a single-line input field: text, cursor, and selection anchor.
 /// Implements a pure model shared by the manager name field and prompts.
 /// </summary>
-public sealed class LineField
+internal sealed class LineField
 {
     public string Text { get; private set; } = string.Empty;
 

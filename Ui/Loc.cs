@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace TuiEdit;
 
 /// <summary>Provides UI localization: strings from embedded JSON resources (<c>Resources/strings.{lang}.json</c>).</summary>
-public sealed class Loc
+internal sealed class Loc
 {
     public static readonly string[] Supported = ["en", "ru"];
 

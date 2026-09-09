@@ -1,7 +1,7 @@
 namespace TuiEdit;
 
 /// <summary>Represents a screen frame: cells (character plus colors) with diff output; renders each frame to memory and sends only changed runs to the console, so there is no flicker.</summary>
-public sealed class Screen
+internal sealed class Screen
 {
     public readonly record struct Cell(char Ch, Rgb Fg, Rgb Bg);
 

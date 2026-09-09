@@ -3,7 +3,7 @@ namespace TuiEdit;
 /// <summary>
 /// Represents user settings (stored in JSON, see <see cref="SettingsStore"/>).
 /// </summary>
-public sealed class AppSettings
+internal sealed class AppSettings
 {
     /// <summary>Gets or sets the theme: dark | light | a custom one from Themes.</summary>
     public string Theme { get; set; } = "dark";
@@ -119,4 +119,4 @@ public sealed class AppSettings
 }
 
 /// <summary>Represents a previous session tab: path and cursor position.</summary>
-public sealed record SessionTab(string Path, int Row, int Col);
+internal sealed record SessionTab(string Path, int Row, int Col);

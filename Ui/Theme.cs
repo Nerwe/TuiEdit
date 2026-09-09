@@ -1,7 +1,7 @@
 namespace TuiEdit;
 
 /// <summary>Represents the interface palette: named roles instead of scattered colors; soft pastel tones (truecolor-ANSI, see <see cref="Rgb"/>).</summary>
-public sealed record Theme(
+internal sealed record Theme(
     string Name,
     // Editor
     Rgb EditorBg, Rgb EditorFg,
@@ -37,7 +37,7 @@ public sealed record Theme(
     Rgb RulerBg
 );
 
-public static class Themes
+internal static class Themes
 {
     public static readonly string[] Names = ["dark", "light", "3024 Night (dark)", "Paper (light)"];
 

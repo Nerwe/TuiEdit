@@ -8,7 +8,7 @@ namespace TuiEdit;
 /// Without this, terminal Ctrl+V pastes the system clipboard,
 /// which the editor does not track, so the copy is "lost".
 /// </summary>
-public static class SystemClipboard
+internal static class SystemClipboard
 {
     private const int MaxSyncChars = 128 * 1024; // Mirrors LARGE_CLIPBOARD_THRESHOLD in Edit
 

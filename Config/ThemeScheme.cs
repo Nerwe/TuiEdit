@@ -6,7 +6,7 @@ namespace TuiEdit;
 /// Represents a custom theme from config: name, base built-in theme,
 /// and role overrides with #rrggbb colors. Falls back to the base theme when unset.
 /// </summary>
-public sealed class ThemeScheme
+internal sealed class ThemeScheme
 {
     public string Name { get; set; } = string.Empty;
 
@@ -42,7 +42,7 @@ public sealed class ThemeScheme
 }
 
 /// <summary>Provides the theme catalog: built-in plus custom themes from settings.</summary>
-public static class ThemeCatalog
+internal static class ThemeCatalog
 {
     /// <summary>Lists names for enumeration: built-in first, then custom.</summary>
     public static List<string> Names(AppSettings settings)

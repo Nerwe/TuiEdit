@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-public readonly record struct DialogBox(int X0, int Y0, int W, int H);
+internal readonly record struct DialogBox(int X0, int Y0, int W, int H);
 
 /// <summary>Provides the base dialog window: centering, a titled frame, and an input loop with a focus trap.</summary>
 internal abstract class Dialog

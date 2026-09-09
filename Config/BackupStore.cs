@@ -6,7 +6,7 @@ namespace TuiEdit;
 /// Stores versioned copies of saved files in a central folder (keeps the project clean).
 /// Names files sha1(path)_timestamp.bak; keeps up to 5 recent copies per file and prunes copies older than 7 days.
 /// </summary>
-public sealed class BackupStore(string dir)
+internal sealed class BackupStore(string dir)
 {
     public const int MaxPerFile = 5;
 

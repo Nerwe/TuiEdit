@@ -3,7 +3,7 @@ namespace TuiEdit;
 /// <summary>
 /// Provides auto-pairing for brackets and quotes: pure decision logic (applied in the buffer/editor).
 /// </summary>
-public static class AutoPair
+internal static class AutoPair
 {
     /// <summary>Gets the matching closer (or '\0' for a non-pair).</summary>
     public static char CloserFor(char c) => c switch

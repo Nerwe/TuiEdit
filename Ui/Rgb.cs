@@ -1,7 +1,7 @@
 namespace TuiEdit;
 
 /// <summary>Represents an RGB color for truecolor-ANSI output: the only way to get soft pastel tones (the 16 console colors cannot do it).</summary>
-public readonly record struct Rgb(byte R, byte G, byte B)
+internal readonly record struct Rgb(byte R, byte G, byte B)
 {
     public string ToAnsiFg() => $"\x1b[38;2;{R};{G};{B}m";
 

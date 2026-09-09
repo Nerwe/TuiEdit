@@ -1,7 +1,7 @@
 namespace TuiEdit;
 
 /// <summary>Represents a selection: anchor (fixed end) plus cursor (active end).</summary>
-public sealed class TextSelection
+internal sealed class TextSelection
 {
     public int AnchorRow { get; set; }
 

@@ -1,6 +1,6 @@
 namespace TuiEdit;
 
-public enum CharClass
+internal enum CharClass
 {
     Whitespace,
     Separator,
@@ -12,7 +12,7 @@ public enum CharClass
 /// skips whitespace, then one word or separator
 /// (after a single separator — also the next word).
 /// </summary>
-public static class WordMotion
+internal static class WordMotion
 {
     private const string Separators = "`~!@#$%^&*()-=+[{]}\\|;:'\",.<>/?";
 

@@ -4,7 +4,7 @@ namespace TuiEdit;
 /// Provides natural name comparison (<c>file2</c> before <c>file10</c>):
 /// compares digit runs numerically and other text case-insensitively.
 /// </summary>
-public static class NaturalSort
+internal static class NaturalSort
 {
     public static IComparer<string> Comparer { get; } =
         Comparer<string>.Create((a, b) => Compare(a, b));

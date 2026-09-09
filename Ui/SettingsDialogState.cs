@@ -1,7 +1,7 @@
 namespace TuiEdit;
 
 /// <summary>Holds settings dialog state: the selected row (values live in <see cref="AppSettings"/>); row 0 is theme, 1 language, 2 line numbers, 3 word wrap, 4 whitespace, 5 ruler, 6 .bak backup, 7 guides, 8 session, 9 mouse.</summary>
-public sealed class SettingsDialogState
+internal sealed class SettingsDialogState
 {
     public const int RowCount = 13;
 

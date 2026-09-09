@@ -1,7 +1,7 @@
 namespace TuiEdit;
 
 /// <summary>Specifies the file manager mode.</summary>
-public enum PickerMode
+internal enum PickerMode
 {
     /// <summary>Selects an existing file.</summary>
     Open,
@@ -10,7 +10,7 @@ public enum PickerMode
 }
 
 /// <summary>Represents a directory entry: name (without slash), directory flag, and file size (-1 means directory/unknown).</summary>
-public sealed record PickerEntry(string Name, bool IsDir, long Size = -1)
+internal sealed record PickerEntry(string Name, bool IsDir, long Size = -1)
 {
     /// <summary>Gets the display name: directories get a slash (except ..).</summary>
     public string DisplayName =>
@@ -18,7 +18,7 @@ public sealed record PickerEntry(string Name, bool IsDir, long Size = -1)
 }
 
 /// <summary>Specifies the Enter outcome in the manager.</summary>
-public enum PickerEnterResult
+internal enum PickerEnterResult
 {
     /// <summary>Stays put (empty / unresolved).</summary>
     Stayed,
@@ -34,7 +34,7 @@ public enum PickerEnterResult
 /// with overwrite confirmed separately.
 /// Behaves as a pure model without console access - covered by unit tests.
 /// </summary>
-public sealed class FilePickerState
+internal sealed class FilePickerState
 {
     /// <summary>Gets the mode.</summary>
     public PickerMode Mode { get; }

@@ -8,7 +8,7 @@ namespace TuiEdit;
 /// Stores settings as JSON
 /// (<c>%APPDATA%\TuiEdit\settings.json</c>, on Linux — <c>~/.config/TuiEdit</c>).
 /// </summary>
-public sealed class SettingsStore(string path)
+internal sealed class SettingsStore(string path)
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
@@ -79,9 +79,9 @@ public sealed class SettingsStore(string path)
 }
 
 /// <summary>Represents a draft of an unsaved document for recovery after a crash.</summary>
-public sealed record DocDraft(string? File, List<string> Lines, int Row, int Col, DateTime SavedAt);
+internal sealed record DocDraft(string? File, List<string> Lines, int Row, int Col, DateTime SavedAt);
 
-public sealed class DraftStore(string dir)
+internal sealed class DraftStore(string dir)
 {
     public string Dir { get; } = dir;
 

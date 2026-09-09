@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace TuiEdit;
 
 /// <summary>Represents a file search match (public for the modal factory).</summary>
-public sealed record GrepHit(string File, int Row, int Col, string Text);
+internal sealed record GrepHit(string File, int Row, int Col, string Text);
 
 /// <summary>Searches files: recurses, skips hidden entries, and also skips binary and large files.</summary>
 internal static class Grep

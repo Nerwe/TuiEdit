@@ -1,7 +1,7 @@
 namespace TuiEdit;
 
 /// <summary>Represents an editor command derived from a key press or menu.</summary>
-public enum EditorCommand
+internal enum EditorCommand
 {
     None,
     MoveLeft, MoveRight, MoveUp, MoveDown,

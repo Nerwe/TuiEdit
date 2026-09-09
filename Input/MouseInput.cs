@@ -36,7 +36,7 @@ internal enum MouseModifiers
 /// Off — native terminal selection; Basic — clicks+wheel (?1000);
 /// Drag — plus motion with a held button (?1002); Motion — all motion (?1003).
 /// </summary>
-public enum MouseLevel
+internal enum MouseLevel
 {
     Off,
     Basic,

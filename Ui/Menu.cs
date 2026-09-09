@@ -2,16 +2,16 @@ namespace TuiEdit;
 
 /// <summary>Represents a dropdown menu item: label, hotkey (single letter without Enter), global shortcut text on the right, and command.</summary>
 /// <remarks>Activates on click, hotkey, or global shortcut.</remarks>
-public sealed record MenuItem(string Label, char Hotkey, string? Shortcut, EditorCommand Command)
+internal sealed record MenuItem(string Label, char Hotkey, string? Shortcut, EditorCommand Command)
 {
     public static MenuItem Separator => new(string.Empty, '\0', null, EditorCommand.None);
 
     public bool IsSeparator => Label.Length == 0;
 }
 
-public sealed record TopMenu(string Label, char Hotkey, List<MenuItem> Items);
+internal sealed record TopMenu(string Label, char Hotkey, List<MenuItem> Items);
 
-public sealed class MenuState
+internal sealed class MenuState
 {
     /// <summary>Gets all bar menus left to right.</summary>
     public List<TopMenu> Menus { get; }

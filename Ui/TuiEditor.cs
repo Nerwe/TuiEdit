@@ -82,6 +82,9 @@ internal sealed partial class TuiEditor
         ISystemClipboard? clipboard = null,
         KeyBindingTable? keys = null)
     {
+        ArgumentNullException.ThrowIfNull(buf);
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(store);
         _panes.Add(new Pane(new DocTab(buf)));
         _settings = settings;
         _store = store;

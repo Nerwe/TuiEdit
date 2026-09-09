@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace TuiEdit;
 
 /// <summary>Represents line endings in a file.</summary>
-public enum LineEnding
+internal enum LineEnding
 {
     Lf,
     CrLf,

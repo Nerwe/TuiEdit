@@ -1,7 +1,7 @@
 namespace TuiEdit;
 
 /// <summary>Builds the status bar row: text on the left, a pinned block on the right (encoding | line endings | indent | file).</summary>
-public static class StatusBar
+internal static class StatusBar
 {
     /// <summary>Builds a row exactly width wide; the right block stays visible, showing its tail on overflow.</summary>
     public static string Build(string left, string right, int width) => (left, right, width) switch
