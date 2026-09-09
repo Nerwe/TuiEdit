@@ -22,6 +22,10 @@ internal static class Terminal
     private const uint MOUSE_MOVED = 0x0001;
     private const uint MOUSE_WHEELED = 0x0004;
 
+    private const uint SHIFT_PRESSED = 0x0010;
+    private const uint ALT_PRESSED = 0x0001 | 0x0002; // left|right Alt
+    private const uint CTRL_PRESSED = 0x0004 | 0x0008; // left|right Ctrl
+
     private const uint WAIT_FAILED = 0xFFFFFFFF;
 
     private static uint _stdinOldMode;
@@ -265,26 +269,34 @@ internal static class Terminal
     /// <summary>MOUSE_EVENT_RECORD — событие v1 (клик/колесо, координаты уже 0-based).</summary>
     internal static MouseInput? TranslateMouse(MouseEventRecord r)
     {
+        int x = Math.Max(0, (int)r.MousePosition.X);
+        int y = Math.Max(0, (int)r.MousePosition.Y);
+        MouseModifiers mods = MouseModifiers.None;
+        if ((r.ControlKeyState & SHIFT_PRESSED) != 0)
+            mods |= MouseModifiers.Shift;
+        if ((r.ControlKeyState & ALT_PRESSED) != 0)
+            mods |= MouseModifiers.Alt;
+        if ((r.ControlKeyState & CTRL_PRESSED) != 0)
+            mods |= MouseModifiers.Ctrl;
         if ((r.EventFlags & MOUSE_WHEELED) != 0)
         {
             short delta = (short)((r.ButtonState >> 16) & 0xFFFF);
             if (delta == 0)
                 return null;
-            int x = Math.Max(0, (int)r.MousePosition.X);
-            int y = Math.Max(0, (int)r.MousePosition.Y);
-            return new MouseInput(x, y, delta > 0 ? MouseAction.WheelUp : MouseAction.WheelDown);
+            return new MouseInput(x, y, delta > 0 ? MouseAction.WheelUp : MouseAction.WheelDown,
+                MouseButton.None, mods);
         }
         if ((r.EventFlags & MOUSE_MOVED) != 0)
-            return new MouseInput(Math.Max(0, (int)r.MousePosition.X), Math.Max(0, (int)r.MousePosition.Y),
-                MouseAction.Move); // движение: hover; по одному за Read, потопа нет
+            return new MouseInput(x, y, MouseAction.Move, PressedButton(r.ButtonState), mods); // движение: hover
         if ((r.ButtonState & FROM_LEFT_1ST_BUTTON_PRESSED) == 0)
             return r.ButtonState == 0 && r.EventFlags == 0
-                ? new MouseInput(Math.Max(0, (int)r.MousePosition.X), Math.Max(0, (int)r.MousePosition.Y),
-                    MouseAction.Move) // отпускание: только позиция hover
+                ? new MouseInput(x, y, MouseAction.Move) // отпускание: только позиция hover
                 : null; // средняя/правая
-        return new MouseInput(Math.Max(0, (int)r.MousePosition.X), Math.Max(0, (int)r.MousePosition.Y),
-            MouseAction.LeftPress);
+        return new MouseInput(x, y, MouseAction.LeftPress, MouseButton.Left, mods);
     }
+
+    private static MouseButton PressedButton(uint buttons) =>
+        (buttons & FROM_LEFT_1ST_BUTTON_PRESSED) != 0 ? MouseButton.Left : MouseButton.None;
 
     /// <summary>
     /// Вкл/выкл мышь conhost-API (.NET ReadKey её не отдаёт). Выкл возвращает

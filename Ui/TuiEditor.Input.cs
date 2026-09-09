@@ -52,11 +52,15 @@ internal sealed partial class TuiEditor
             return; // hover подхватит Render
         if (_dialog is ModalDialog md)
         {
-            if (m.Action != MouseAction.LeftPress)
+            if (m.Action is MouseAction.WheelUp or MouseAction.WheelDown)
             {
-                md.ScrollList(m.Action == MouseAction.WheelDown ? 1 : -1);
+                int dir = m.Action == MouseAction.WheelDown ? 1 : -1;
+                for (int i = 0; i < m.Count; i++)
+                    md.ScrollList(dir);
                 return;
             }
+            if (m.Action != MouseAction.LeftPress)
+                return; // средняя/правая — потребителей нет
             int dw, dh;
             try
             {
@@ -119,9 +123,11 @@ internal sealed partial class TuiEditor
             return; // v1: мимо текста активной панели — мимо
         if (m.Action is MouseAction.WheelUp or MouseAction.WheelDown)
         {
-            ScrollWheel(m.Action == MouseAction.WheelDown ? 1 : -1);
+            ScrollWheel(m.Action == MouseAction.WheelDown ? 1 : -1, m.Count);
             return;
         }
+        if (m.Action != MouseAction.LeftPress)
+            return; // средняя/правая — потребителей нет
         (int row, int col) = LocateClick(_buf.Lines, _docs[_active].Folds, _top, _topSeg,
             _settings.WordWrap, contentWidth, _left, m.Y - y0, m.X - cx0);
         _sel.Clear();
@@ -178,13 +184,13 @@ internal sealed partial class TuiEditor
         return true;
     }
 
-    /// <summary>Колесо: курсор ±3 строки, вид дотягивается на следующем Render.</summary>
-    private void ScrollWheel(int dir)
+    /// <summary>Колесо: курсор ±3 строки за тик (steps — склейка пачки тиков).</summary>
+    private void ScrollWheel(int dir, int steps = 1)
     {
         if (_buf.Count == 0)
             return;
         _sel.Clear();
-        _row = Math.Clamp(_row + 3 * dir, 0, Math.Max(0, _buf.Count - 1));
+        _row = Math.Clamp(_row + 3 * dir * Math.Max(1, steps), 0, Math.Max(0, _buf.Count - 1));
         _col = Math.Min(_col, _buf.GetLine(_row).Length);
         ClampCursor();
         TrackCol();

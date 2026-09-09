@@ -14,6 +14,8 @@ public sealed class MouseInputTests
     [InlineData("[<65;5;5M", 4, 4, 2)] // WheelDown
     [InlineData("[<72;5;5M", 4, 4, 1)] // колесо + shift-модификатор
     [InlineData("[<0;11;6m", 10, 5, 3)] // отпускание: только позиция hover
+    [InlineData("[<1;11;6M", 10, 5, 4)] // средняя кнопка — событие, не null
+    [InlineData("[<2;11;6M", 10, 5, 5)] // правая кнопка — событие, не null
     public void ParseValid(string burst, int x, int y, int action)
     {
         MouseInput? m = MouseInput.TryParse(burst);
@@ -27,8 +29,6 @@ public sealed class MouseInputTests
     [InlineData("")]
     [InlineData("[200~")]
 
-    [InlineData("[<1;5;5M")] // средняя кнопка
-    [InlineData("[<2;5;5M")] // правая кнопка
     [InlineData("[<0;5M")] // мало частей
     [InlineData("[<0;5;5X")] // не M/m
     [InlineData("[<a;5;5M")] // не число
@@ -36,6 +36,38 @@ public sealed class MouseInputTests
     public void ParseInvalid(string burst)
     {
         Assert.Null(MouseInput.TryParse(burst));
+    }
+
+    [Fact]
+    public void ParseKeepsButtonAndModifiers()
+    {
+        MouseInput? left = MouseInput.TryParse("[<0;5;5M");
+        Assert.NotNull(left);
+        Assert.Equal(MouseButton.Left, left.Button);
+        Assert.Equal(MouseModifiers.None, left.Modifiers);
+        Assert.Equal(1, left.Count);
+
+        MouseInput? mid = MouseInput.TryParse("[<9;5;5M"); // средняя + alt (1|8)
+        Assert.NotNull(mid);
+        Assert.Equal(MouseAction.MiddlePress, mid.Action);
+        Assert.Equal(MouseButton.Middle, mid.Button);
+        Assert.Equal(MouseModifiers.Alt, mid.Modifiers);
+
+        MouseInput? right = MouseInput.TryParse("[<22;5;5M"); // правая + shift + ctrl (2|4|16)
+        Assert.NotNull(right);
+        Assert.Equal(MouseAction.RightPress, right.Action);
+        Assert.Equal(MouseButton.Right, right.Button);
+        Assert.Equal(MouseModifiers.Shift | MouseModifiers.Ctrl, right.Modifiers);
+
+        MouseInput? drag = MouseInput.TryParse("[<32;5;5M"); // motion с зажатой левой
+        Assert.NotNull(drag);
+        Assert.Equal(MouseAction.Move, drag.Action);
+        Assert.Equal(MouseButton.Left, drag.Button);
+
+        MouseInput? release = MouseInput.TryParse("[<0;5;5m");
+        Assert.NotNull(release);
+        Assert.Equal(MouseAction.Move, release.Action);
+        Assert.Equal(MouseButton.None, release.Button);
     }
 
     private static Terminal.MouseEventRecord Rec(uint buttons, uint flags, short x, short y) =>
@@ -64,6 +96,27 @@ public sealed class MouseInputTests
         Assert.Equal((MouseAction)action, m.Action);
         Assert.Equal(x, m.X);
         Assert.Equal(y, m.Y);
+    }
+
+    [Fact]
+    public void TranslateKeepsButtonAndModifiers()
+    {
+        Terminal.MouseEventRecord r = Rec(0x0001u, 0u, 4, 6);
+        r.ControlKeyState = 0x0010u; // Shift
+        MouseInput? m = Terminal.TranslateMouse(r);
+        Assert.NotNull(m);
+        Assert.Equal(MouseAction.LeftPress, m.Action);
+        Assert.Equal(MouseButton.Left, m.Button);
+        Assert.Equal(MouseModifiers.Shift, m.Modifiers);
+        Assert.Equal(1, m.Count);
+
+        Terminal.MouseEventRecord w = Rec(0x00780000u, 0x0004u, 3, 7);
+        w.ControlKeyState = 0x0004u | 0x0002u; // Ctrl + Alt
+        MouseInput? wm = Terminal.TranslateMouse(w);
+        Assert.NotNull(wm);
+        Assert.Equal(MouseAction.WheelUp, wm.Action);
+        Assert.Equal(MouseButton.None, wm.Button);
+        Assert.Equal(MouseModifiers.Ctrl | MouseModifiers.Alt, wm.Modifiers);
     }
 
     [Fact]

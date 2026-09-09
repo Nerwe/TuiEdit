@@ -17,8 +17,27 @@ internal sealed class InputReader
     /// <summary>Мышь включена (AppSettings.EnableMouse, выкл по умолчанию).</summary>
     public static bool MouseEnabled { get; set; }
 
+    /// <summary>Максимум символов хвоста после ESC (SGR-мышь реально короче).</summary>
+    private const int MaxBurst = 24;
+
+    /// <summary>Потолок склейки колеса: один тик — далеко, пачка тиков — одним событием.</summary>
+    private const int MaxWheelCoalesce = 32;
+
+    /// <summary>
+    /// Уже разобранные события, ждущие своей очереди (коалесцирование отложило «лишнее»).
+    /// </summary>
+    private static readonly Queue<InputEvent> _pendingEvents = new();
+
+    /// <summary>
+    /// Откат спекулятивного чтения: хвост без своего ESC хранится только вместе
+    /// с синтетическим ESC спереди (инвариант: очередь пуста или начинается с ESC).
+    /// </summary>
+    private static readonly Queue<ConsoleKeyInfo> _pendingKeys = new();
+
     public static InputEvent Read()
     {
+        if (_pendingEvents.Count > 0)
+            return _pendingEvents.Dequeue();
         if (MouseEnabled && OperatingSystem.IsWindows())
         {
             // Очередь conhost разбираем сами: .NET ReadKey события мыши глотает,
@@ -52,26 +71,122 @@ internal sealed class InputReader
                 break; // спереди key-down
             }
         }
-        ConsoleKeyInfo k = Console.ReadKey(intercept: true);
-        if (k.Key != ConsoleKey.Escape || !Console.KeyAvailable)
+        ConsoleKeyInfo k = TakeKey();
+        if (k.Key != ConsoleKey.Escape || !HasChar())
             return new KeyInput(k);
         var burst = new StringBuilder();
-        // Готовность — через IsKeyPending: голый KeyAvailable на Windows истинен
-        // и на мышиных записях, а ReadKey поверх них блокируется и ест клавиши.
-        while (Terminal.IsKeyPending() && burst.Length < 24)
+        // Читаем по одному и останавливаемся на первой полной последовательности:
+        // раньше пачка жадно глотала до 24 символов, и быстрый ввод/вставка
+        // после клика съедались и отбрасывались вместе с мусором.
+        while (HasChar() && burst.Length < MaxBurst)
         {
-            burst.Append(Console.ReadKey(intercept: true).KeyChar);
-            if (burst.Length >= 16 && (burst.Length < 2 || burst[1] != '<'))
-                break; // длиннее 16 — только хвост SGR-мыши, остальное как раньше
+            burst.Append(TakeKey().KeyChar);
+            string s = burst.ToString();
+            if (s.StartsWith("[200~", StringComparison.Ordinal))
+                return new PasteInput(ReadBracketedPaste(s[5..]));
+            if ("[200~".StartsWith(s, StringComparison.Ordinal))
+                continue; // строгий префикс маркера вставки — ждём хвост
+            if (MouseEnabled && s.Length >= 2 && s[0] == '[' && s[1] == '<')
+            {
+                if (s[^1] is 'M' or 'm')
+                    return FinishMouse(s, k);
+                continue; // SGR-мышь без терминатора — ждём
+            }
+            break; // неизвестный CSI — как раньше: отбросить, вернуть Esc
         }
-        string s = burst.ToString();
-        if (MouseEnabled && MouseInput.TryParse(s) is MouseInput m)
-            return m;
-        if (s.StartsWith("[200~", StringComparison.Ordinal))
-            return new PasteInput(ReadBracketedPaste(s[5..]));
         // Не paste — пачку отбрасываем, чтобы мусор не попал в текст.
         return new KeyInput(k);
     }
+
+    /// <summary>
+    /// Полная SGR-последовательность: разобрать, среднюю/правую отбросить в Esc
+    /// (как раньше), колесо и движение склеить с соседями из того же чанка.
+    /// </summary>
+    private static InputEvent FinishMouse(string s, ConsoleKeyInfo esc)
+    {
+        if (MouseInput.TryParse(s) is not MouseInput m)
+            return new KeyInput(esc); // битый SGR — как раньше: Esc
+        if (m.Action is MouseAction.MiddlePress or MouseAction.RightPress)
+            return new KeyInput(esc); // потребителей нет — как раньше: Esc
+        return Coalesce(m);
+    }
+
+    /// <summary>
+    /// Склейка событий из одного stdin-чанка: колесо одного направления — в Count,
+    /// движение — в последнюю позицию; чужое событие откладывается в очередь.
+    /// </summary>
+    private static MouseInput Coalesce(MouseInput first)
+    {
+        bool wheel = first.Action is MouseAction.WheelUp or MouseAction.WheelDown;
+        if (!wheel && first.Action != MouseAction.Move)
+            return first; // клики — сразу, задержка недопустима
+        int count = first.Count, x = first.X, y = first.Y;
+        while (HasChar())
+        {
+            string? seq = TakeRawSequence();
+            if (seq is null)
+                break; // не мышь или обрывок — хвост уже откачен, стоп
+            if (MouseInput.TryParse(seq) is not MouseInput m)
+                break; // битый SGR — отбросить, стоп
+            if (wheel && m.Action == first.Action && count < MaxWheelCoalesce)
+            {
+                count += m.Count;
+                x = m.X;
+                y = m.Y;
+                continue;
+            }
+            if (!wheel && m.Action == MouseAction.Move)
+            {
+                x = m.X;
+                y = m.Y; // hover: жива только последняя позиция
+                continue;
+            }
+            // Средняя/правая в середине пачки: как раньше — Esc, а не событие.
+            _pendingEvents.Enqueue(m.Action is MouseAction.MiddlePress or MouseAction.RightPress
+                ? new KeyInput(new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false))
+                : m);
+            break;
+        }
+        return first with { X = x, Y = y, Count = count };
+    }
+
+    /// <summary>
+    /// Спекулятивно забрать одну полную SGR-последовательность («[&lt;…M/m»).
+    /// Не мышь или обрывок — откатить всё назад (с синтетическим ESC спереди)
+    /// и вернуть null, ничего не потеряв.
+    /// </summary>
+    private static string? TakeRawSequence()
+    {
+        var sb = new StringBuilder();
+        while (HasChar() && sb.Length < MaxBurst)
+        {
+            sb.Append(TakeKey().KeyChar);
+            string s = sb.ToString();
+            if (s.Length >= 2 && (s[0] != '[' || s[1] != '<'))
+            {
+                PushBack(sb.ToString());
+                return null; // не мышь (стрелка, вставка, …) — откат
+            }
+            if (s.Length >= 2 && s[0] == '[' && s[1] == '<' && s[^1] is 'M' or 'm')
+                return s; // полная SGR-мышь
+        }
+        PushBack(sb.ToString());
+        return null; // обрывок или перебор — откат, разберём позже
+    }
+
+    private static void PushBack(string tail)
+    {
+        if (tail.Length == 0)
+            return;
+        _pendingKeys.Enqueue(new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
+        foreach (char c in tail)
+            _pendingKeys.Enqueue(new ConsoleKeyInfo(c, (ConsoleKey)c, false, false, false));
+    }
+
+    private static ConsoleKeyInfo TakeKey() =>
+        _pendingKeys.Count > 0 ? _pendingKeys.Dequeue() : Console.ReadKey(intercept: true);
+
+    private static bool HasChar() => _pendingKeys.Count > 0 || Terminal.IsKeyPending();
 
     private static string ReadBracketedPaste(string head)
     {
@@ -80,13 +195,13 @@ internal sealed class InputReader
         var sw = Stopwatch.StartNew();
         while (true)
         {
-            while (!Terminal.IsKeyPending())
+            while (!HasChar())
             {
                 if (sw.ElapsedMilliseconds > 1500)
                     return sb.ToString();
                 Thread.Sleep(1);
             }
-            char c = Console.ReadKey(intercept: true).KeyChar;
+            char c = TakeKey().KeyChar;
             sb.Append(c);
             tail.Append(c);
             if (tail.Length > 6)

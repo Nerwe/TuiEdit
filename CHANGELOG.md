@@ -7,6 +7,19 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+### Added
+- Mouse input keeps button and modifier data (SGR bits and conhost
+  `ControlKeyState`); middle/right presses are still ignored downstream.
+- Coalesced wheel ticks: one `MouseInput` carries a `Count`, so a fast
+  spin scrolls proportionally instead of queuing one render per tick.
+
+### Fixed
+- Mixed stdin chunks no longer eat input: the reader stops at the first
+  complete mouse/paste sequence, defers the rest, and drops nothing
+  silently (trailing keypresses/paste survive a click).
+- ANSI motion events are coalesced to the latest position (same
+  backpressure the Windows path already had).
+
 ## [0.3.0] - 2026-09-08
 
 ### Added
