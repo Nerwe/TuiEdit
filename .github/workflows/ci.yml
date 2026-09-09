@@ -67,7 +67,7 @@ jobs:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
-      - run: dotnet run -c Release --project TuiEdit.Bench -- --exporters json html --artifacts bench-results
+      - run: dotnet run -c Release --project TuiEdit.Bench -- --filter '*' --exporters json html --artifacts bench-results
       - uses: actions/upload-artifact@v5
         with:
           name: bench-results
