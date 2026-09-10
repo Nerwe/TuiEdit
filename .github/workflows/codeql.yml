@@ -9,6 +9,7 @@ on:
     - cron: '0 6 * * 1'
 
 permissions:
+  actions: read # CodeQL reads the workflow run (telemetry/status); without it SARIF upload 403s
   contents: read
   security-events: write
 
@@ -24,4 +25,5 @@ jobs:
         with:
           languages: csharp
       - run: dotnet build TuiEdit.csproj --nologo
+      - run: dotnet build TuiEdit.Tests/TuiEdit.Tests.csproj --nologo
       - uses: github/codeql-action/analyze@v3
