@@ -21,6 +21,13 @@ catch (Exception ex)
     try { dumped = editor?.EmergencyDump() ?? 0; } catch { }
     string msg = $"Unexpected error. Drafts dumped: {dumped}.";
     try { if (loc is not null) msg = loc.Format("error.crash", dumped); } catch { }
+    try
+    {
+        string? log = CrashLog.Write("fatal", ex);
+        if (log is not null)
+            msg += loc is not null ? " " + loc.Format("error.crashlog", log) : " Log: " + log;
+    }
+    catch { }
     try { Console.Error.WriteLine(msg); } catch { }
     try
     {

@@ -194,8 +194,19 @@ internal sealed partial class TuiEditor
                 {
                     return;
                 }
-                HandleInput(ev);
-                AutoDraft();
+                try
+                {
+                    HandleInput(ev);
+                    AutoDraft();
+                }
+                catch (Exception ex)
+                {
+                    // One bad event must not kill the session: log and keep editing.
+                    // (Read blocks on the console, so a repeatedly throwing state
+                    // still waits for keys instead of hot-spinning.)
+                    CrashLog.Write("event", ex);
+                    SetMessage(_loc["error.eventfailed"]);
+                }
             }
             SaveSessionTabs();
         }

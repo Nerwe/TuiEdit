@@ -53,7 +53,27 @@ internal sealed partial class TuiEditor
         {
             return;
         }
-        HandleMouseAt(m, w, h);
+        HandleMouseGuarded(m, w, h);
+    }
+
+    /// <summary>
+    /// Mouse entry with a session fallback: reports come from flaky terminal layers,
+    /// so a throwing mouse path parks the mouse for the rest of the session
+    /// instead of taking the editor down. Never throws.
+    /// </summary>
+    internal void HandleMouseGuarded(MouseInput m, int w, int h)
+    {
+        try
+        {
+            HandleMouseAt(m, w, h);
+        }
+        catch (Exception ex)
+        {
+            CrashLog.Write("mouse", ex);
+            _settings.Mouse = MouseLevel.Off;
+            ApplyMouseSetting();
+            SetMessage(_loc["error.mouseoff"]);
+        }
     }
 
     /// <summary>
