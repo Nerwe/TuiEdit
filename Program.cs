@@ -132,3 +132,5 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
 }
 
 static void RestoreTerminal() => Startup.RestoreTerminal();
+
+

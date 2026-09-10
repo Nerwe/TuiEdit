@@ -52,8 +52,9 @@ internal sealed class KeyBindingTable
         // Ctrl+Shift specials (before letters — as in the original code).
         new KeyRow(ConsoleKey.S, false, true, true, false, null, EditorCommand.SaveAs),
         new KeyRow(ConsoleKey.F, false, true, true, false, null, EditorCommand.Grep),
-        // Ctrl+/ arrives as Divide or 0x1F (depends on terminal and layout).
+        // Ctrl+/ arrives as Divide, Oem2, or 0x1F (depends on terminal and layout).
         R(ConsoleKey.Divide, EditorCommand.ToggleComment, ctrl: true),
+        R(ConsoleKey.Oem2, EditorCommand.ToggleComment, ctrl: true),
         new KeyRow(null, false, true, false, true, '\x1F', EditorCommand.ToggleComment),
         // Ctrl+Tab is intercepted by Windows Terminal — Ctrl+PgDn/PgUp is the main path.
         new KeyRow(ConsoleKey.Tab, false, true, true, false, null, EditorCommand.PrevTab),
