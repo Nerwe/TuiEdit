@@ -12,6 +12,12 @@ internal sealed class InputReader
     internal static InputParser Parser { get; } =
         new(Terminal.IsKeyPending, () => Console.ReadKey(intercept: true));
 
+    /// <summary>
+    /// Non-blocking poll for burst coalescing (held keys, paste floods):
+    /// the next event when input is already pending, null otherwise. Never blocks.
+    /// </summary>
+    public static InputEvent? TryReadPending() => Parser.TryRead(MouseEnabled);
+
     public static InputEvent Read()
     {
         if (MouseEnabled && OperatingSystem.IsWindows())

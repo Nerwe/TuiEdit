@@ -15,17 +15,7 @@ internal sealed partial class TuiEditor
                 return;
             }
             _menu = null;
-            DeleteSelection();
-            ClampCursor();
-            int pr = _row;
-            int pbefore = _buf.Count;
-            (_row, _col) = _buf.InsertText(_row, _col, paste.Text);
-            if (_buf.Count > pbefore)
-            {
-                _docs[_active].ShiftMarks(pr + 1, _buf.Count - pbefore);
-            }
-            ClampCursor();
-            TrackCol();
+            InsertPastedText(paste.Text + DrainPasteRun());
             return;
         }
         if (input is MouseInput mouse)
@@ -376,6 +366,14 @@ internal sealed partial class TuiEditor
         }
 
         EditorCommand cmd = _keys.Map(k);
+
+        // Held Ctrl+V outruns the frame: merge the whole pending run into one
+        // insertion, otherwise repeats keep pasting after key release.
+        if (cmd == EditorCommand.Paste)
+        {
+            CoalescedKeyPaste();
+            return;
+        }
 
         if (IsMovement(cmd))
         {

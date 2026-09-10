@@ -11,6 +11,8 @@ when a `v*` tag is pushed.
 - Control characters (ESC and friends) are shown as `�` instead of going raw
   to the terminal, where a single ESC made it swallow all following output
   (dead screen, blinking cursor, no errors — looked like a total freeze).
+- Held `Ctrl+V` no longer outruns the frame: pending paste repeats merge into
+  a single insertion (one undo step), so nothing keeps pasting after release.
 
 ## [0.9.1] - 2026-09-10
 
