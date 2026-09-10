@@ -259,6 +259,34 @@ public sealed class SidebarTests : IDisposable
     }
 
     [Fact]
+    public void TreeFrameGolden()
+    {
+        // Fixed dir name: the panel header shows the root basename (no GUIDs in goldens).
+        string dir = Path.Combine(Path.GetTempPath(), "tui_sb_golden");
+        try
+        {
+            try { Directory.Delete(dir, true); } catch { }
+            Directory.CreateDirectory(Path.Combine(dir, "sub"));
+            File.WriteAllText(Path.Combine(dir, "a.txt"), "x");
+            File.WriteAllText(Path.Combine(dir, "sub", "inner.txt"), "x");
+            var ed = NewEditor();
+            ed.OpenSidebarRoot(dir);
+            var sb = (SidebarState)Field(ed, "_sidebar")!;
+            sb.EnterSelected(); // expand sub
+            var scr = (Screen)typeof(TuiEditor)
+                .GetField("_screen", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
+            scr.Resize(40, 12);
+            typeof(TuiEditor).GetMethod("DrawSidebar", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(ed, [2, 9]);
+            Golden.AssertMatch("sidebar.en.txt", scr);
+        }
+        finally
+        {
+            try { Directory.Delete(dir, true); } catch { }
+        }
+    }
+
+    [Fact]
     public void TypingSwallowedInFocus()
     {
         var ed = NewEditor();
