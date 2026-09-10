@@ -1,0 +1,24 @@
+ File  Edit  Help                                                      untitled
+    1 │ left                            │   1 │
+    2 │ right                           │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+~                                       │
+ Ln 1/1 Col 1                              UTF-8 | CRLF | 4sp | untitled | P2/2
