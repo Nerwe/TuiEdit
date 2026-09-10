@@ -131,10 +131,14 @@ internal static class KeyBindings
         {
             // Previously Enum.TryParse: "5" parses to a numeric value, not D5.
             char c = token[0];
-            if (c is >= '0' and <= '9')
-                return Enum.Parse<ConsoleKey>("D" + c);
-            if (char.IsLetter(c))
-                return Enum.Parse<ConsoleKey>(char.ToUpperInvariant(c).ToString());
+            if (c is >= '0' and <= '9'
+                && Enum.TryParse<ConsoleKey>("D" + c, out ConsoleKey digit))
+                return digit;
+            // TryParse, not Parse: non-ASCII letters (Ctrl+Å) must degrade to
+            // NoName instead of aborting the whole overrides batch.
+            if (char.IsLetter(c)
+                && Enum.TryParse<ConsoleKey>(char.ToUpperInvariant(c).ToString(), out ConsoleKey letter))
+                return letter;
         }
         if (Enum.TryParse<ConsoleKey>(token, ignoreCase: true, out ConsoleKey k))
             return k;

@@ -25,6 +25,9 @@ internal sealed class DocTab
         Buf = buf;
     }
 
+    /// <summary>Gets the stable per-tab id for untitled drafts (survives renames by design).</summary>
+    internal string DraftId { get; } = Guid.NewGuid().ToString("N")[..8];
+
     /// <summary>Gets the tab syntax highlighting (the cache invalidates on buffer version changes).</summary>
     public SyntaxHighlighter Highlighter { get; } = new();
 

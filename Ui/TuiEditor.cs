@@ -219,10 +219,12 @@ internal sealed partial class TuiEditor
 
     public void Run()
     {
-        Console.TreatControlCAsInput = true;
-        Console.CursorVisible = false;
-        _screen.TrueColor = Terminal.TryEnableVirtualTerminal();
-        Terminal.TryEnableRawInput();
+        // Setup is best-effort too: a throwing console must not mask startup
+        // (the loop below guards itself; teardown guards itself in finally).
+        try { Console.TreatControlCAsInput = true; } catch { }
+        try { Console.CursorVisible = false; } catch { }
+        try { _screen.TrueColor = Terminal.TryEnableVirtualTerminal(); } catch { }
+        try { Terminal.TryEnableRawInput(); } catch { }
 
         try
         {
@@ -263,13 +265,15 @@ internal sealed partial class TuiEditor
         }
         finally
         {
-            try { Console.Write("\x1b[?2004l"); } catch (IOException) { }
-            Terminal.DisableMouse();
-            Terminal.DisableFocusTracking();
-            Terminal.RestoreInput();
-            Console.ResetColor();
-            Console.Clear();
-            Console.CursorVisible = true;
+            // Every step guarded: teardown must never mask the original error
+            // nor leave raw input/mouse mode behind.
+            try { Console.Write("\x1b[?2004l"); } catch { }
+            try { Terminal.DisableMouse(); } catch { }
+            try { Terminal.DisableFocusTracking(); } catch { }
+            try { Terminal.RestoreInput(); } catch { }
+            try { Console.ResetColor(); } catch { }
+            try { Console.Clear(); } catch { }
+            try { Console.CursorVisible = true; } catch { }
         }
     }
 
@@ -285,5 +289,9 @@ internal sealed partial class TuiEditor
         _message = m;
         _messageUntil = DateTime.Now.AddSeconds(4);
     }
+
+    /// <summary>Shows a startup notice (corrupt settings and the like).</summary>
+    /// <param name="message">The localized message to show.</param>
+    internal void Notify(string message) => SetMessage(message);
 
 }

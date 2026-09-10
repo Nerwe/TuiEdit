@@ -77,6 +77,76 @@ public sealed class SessionTests : IDisposable
     }
 
     [Fact]
+    public void UntitledRoundTrip()
+    {
+        var s = new AppSettings { RestoreSession = true };
+        var ed = NewEditor(s);
+        var buf = (TextBuffer)typeof(TuiEditor).GetProperty("_buf",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
+        buf.InsertChar(0, 0, 'X');
+        ed.SaveSessionTabs();
+        Assert.Single(s.SessionTabs);
+        Assert.Equal(string.Empty, s.SessionTabs[0].Path);
+        Assert.Equal(new List<string> { "X" }, s.SessionTabs[0].Lines);
+
+        var s2 = new AppSettings { RestoreSession = true, SessionTabs = s.SessionTabs };
+        var ed2 = NewEditor(s2);
+        Assert.Equal(1, ed2.RestoreSessionTabs());
+        var buf2 = (TextBuffer)typeof(TuiEditor).GetProperty("_buf",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed2)!;
+        Assert.Equal("X", buf2.GetLine(0));
+        Assert.True(buf2.IsModified);
+        Assert.Null(buf2.FilePath);
+    }
+
+    [Fact]
+    public void UntitledOversizedSkipped()
+    {
+        var s = new AppSettings { RestoreSession = true };
+        var ed = NewEditor(s);
+        var buf = (TextBuffer)typeof(TuiEditor).GetProperty("_buf",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
+        buf.InsertString(0, 0, new string('z', AppSettings.MaxUntitledSessionChars + 1));
+        ed.SaveSessionTabs();
+        Assert.Empty(s.SessionTabs);
+    }
+
+    [Fact]
+    public void CorruptSettingsBackedUp()
+    {
+        string path = Path.Combine(_dir, "settings.json");
+        File.WriteAllText(path, "{not json");
+        var store = new SettingsStore(path);
+        AppSettings s = store.Load();
+        Assert.Equal("dark", s.Theme); // defaults
+        Assert.True(File.Exists(path + ".corrupt"));
+        Assert.Equal("{not json", File.ReadAllText(path + ".corrupt"));
+    }
+
+    [Fact]
+    public void NormalizeNullLists()
+    {
+        string path = Path.Combine(_dir, "settings.json");
+        File.WriteAllText(path, """{"Theme":"nope","Themes":null,"SessionTabs":null,"RecentFiles":null}""");
+        AppSettings s = new SettingsStore(path).Load();
+        Assert.Equal("dark", s.Theme);
+        Assert.NotNull(s.Themes);
+        Assert.NotNull(s.SessionTabs);
+        Assert.NotNull(s.RecentFiles);
+    }
+
+    [Fact]
+    public void AtomicSaveLeavesNoTmp()
+    {
+        string path = Path.Combine(_dir, "settings.json");
+        var store = new SettingsStore(path);
+        store.Save(new AppSettings { Theme = "light" });
+        store.Save(new AppSettings { Theme = "dark" });
+        Assert.Empty(Directory.GetFiles(_dir, "*.tmp"));
+        Assert.Equal("dark", store.Load().Theme);
+    }
+
+    [Fact]
     public void SaveRoundtripThroughStore()
     {
         string p1 = WriteFile("a.txt", "one", "two", "three");

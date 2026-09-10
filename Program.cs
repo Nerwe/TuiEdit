@@ -86,12 +86,34 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
 
     InputReader.MouseLevel = settings.Mouse; // mouse off by default
     string? firstPath = files.Count > 0 ? files[0].path : null;
-    var buffer = new TextBuffer(firstPath);
+    TextBuffer buffer;
+    string? openError = null;
+    try
+    {
+        buffer = new TextBuffer(firstPath);
+    }
+    catch (Exception ex)
+    {
+        // Unreadable first file: start empty and say why (like LoadFile does in-app).
+        buffer = new TextBuffer(null);
+        openError = ex.Message;
+    }
     // Composition root: services are wired explicitly (no container — single-file app).
     // Overrides are compiled into KeyMap.Current above, so the editor's table matches menu hints.
     var editor = new TuiEditor(buffer, settings, store,
         GitService.Shared, SystemClipboardService.Shared, KeyMap.Current);
     editor.TrackKeyBindings(keyBindingsPath);
+    if (openError is not null && firstPath is not null)
+        editor.Notify(loc.Format("error.openfile", firstPath, openError));
+    try
+    {
+        string corrupt = store.Path + ".corrupt";
+        if (File.Exists(corrupt))
+            editor.Notify(loc.Format("msg.settings.corrupt", corrupt));
+    }
+    catch
+    {
+    }
     if (firstPath is null)
     {
         editor.RestoreSessionTabs();

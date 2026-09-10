@@ -40,6 +40,7 @@
   "modal.tabs.title": "Tabs",
   "modal.restore.title": "Recovery",
   "modal.restore.desc": "Unsaved changes found:",
+  "modal.restore.all": "Restore all ({0})",
   "modal.replace.title": "Replace?",
   "modal.replace.desc": "Replace {0} occurrences of «{1}»?",
   "modal.largefile.title": "Large file?",
@@ -135,6 +136,7 @@
 
   "error.save": "Save error",
   "error.open": "Open error",
+  "error.openfile": "Cannot open {0}: {1}.",
   "error.nofilename": "No file name. Use Save as.",
   "error.readonly": "File is read-only.",
   "error.smallwindow": "Window too small for the editor.",
@@ -143,6 +145,7 @@
   "error.crashlog": "Details written to {0}.",
   "error.mouseoff": "Mouse input failed and was turned off for this session.",
   "error.eventfailed": "Action failed — details in the crash log.",
+  "msg.settings.corrupt": "Settings were corrupt — defaults loaded, see {0}.",
 
   "sidebar.new.title": "New file or folder",
   "sidebar.rename.title": "Rename",

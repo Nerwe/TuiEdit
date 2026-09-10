@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using TuiEdit;
 using Xunit;
 
@@ -118,6 +120,26 @@ public sealed class ResourcesTests
         var (ru, en) = Both();
         Assert.True(ru.ContainsKey(key), "ru missing " + key);
         Assert.True(en.ContainsKey(key), "en missing " + key);
+    }
+
+    [Theory]
+    [InlineData("en")]
+    [InlineData("ru")]
+    public void FormatPlaceholdersSatisfiable(string lang)
+    {
+        foreach ((string key, string value) in Load(lang))
+        {
+            foreach (Match m in Regex.Matches(value, @"\{(\d+)"))
+            {
+                int index = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+                Assert.True(index <= 2,
+                    $"{lang}:{key} references {{{index}}}, call sites pass at most 3 args");
+            }
+            // Three dummies must substitute everything (typos would ship as "{0}" text).
+            string formatted = string.Format(CultureInfo.InvariantCulture, value, "A", "B", "C");
+            Assert.DoesNotContain("{", formatted);
+            Assert.DoesNotContain("}", formatted);
+        }
     }
 
     [Fact]

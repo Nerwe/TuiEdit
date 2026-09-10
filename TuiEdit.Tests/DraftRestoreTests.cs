@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using TuiEdit;
 using Xunit;
 
@@ -124,4 +125,176 @@ public sealed class DraftRestoreTests(TempDir tmp) : IClassFixture<TempDir>
         Assert.Contains(wantDate, m.Buttons[0].Label);
         Assert.Throws<ArgumentException>(() => ModalState.Restore(loc, new List<(string, DateTime)>()));
     }
+
+    [Fact]
+    public void RestoreAllButtonFirst()
+    {
+        var loc = Loc.Load("en");
+        var when = DateTime.UtcNow;
+        var m = ModalState.Restore(loc,
+            new List<(string, DateTime)> { ("a.txt", when), ("b.txt", when) }, showRestoreAll: true);
+        Assert.Equal(3, m.Buttons.Count);
+        Assert.Equal('1', m.Buttons[0].Hotkey);
+        Assert.Contains("2", m.Buttons[0].Label);
+    }
+
+    [Fact]
+    public void AutoDraftSweepsAllTabs()
+    {
+        string dir = tmp.NewDir();
+        string f1 = Path.Combine(dir, "one.txt"), f2 = Path.Combine(dir, "two.txt");
+        File.WriteAllText(f1, "a");
+        File.WriteAllText(f2, "b");
+        var ds = new DraftStore(DraftStore.DefaultDir());
+        try
+        {
+            var buf = new TextBuffer(null);
+            buf.Open(f1);
+            var ed = new TuiEditor(buf, new AppSettings(),
+                new SettingsStore(Path.Combine(dir, "s.json")));
+            buf.InsertChar(0, 0, 'X');
+            ed.OpenStartupFile(f2, 0, 0);
+            ActiveBuf(ed).InsertChar(0, 0, 'Y');
+            SetLastDraft(ed, DateTime.MinValue);
+            AutoDraft(ed);
+            var all = ds.ReadAll();
+            Assert.Contains(all, x => x.key == DraftStore.KeyFor(f1));
+            Assert.Contains(all, x => x.key == DraftStore.KeyFor(f2));
+            Assert.Equal("Xa", all.First(x => x.key == DraftStore.KeyFor(f1)).draft.Lines[0]);
+        }
+        finally
+        {
+            try { ds.Delete(f1); } catch { }
+            try { ds.Delete(f2); } catch { }
+        }
+    }
+
+    [Fact]
+    public void UntitledDraftsDoNotCollide()
+    {
+        var ds = new DraftStore(DraftStore.DefaultDir());
+        var before = new HashSet<string>(ds.ReadAll()
+            .Where(x => x.draft.File is null).Select(x => x.key));
+        try
+        {
+            var ed = new TuiEditor(new TextBuffer(null), new AppSettings(),
+                new SettingsStore(Path.Combine(tmp.Path, "s.json")));
+            ActiveBuf(ed).InsertChar(0, 0, 'A');
+            ed.NewTab();
+            ActiveBuf(ed).InsertChar(0, 0, 'B');
+            SetLastDraft(ed, DateTime.MinValue);
+            AutoDraft(ed);
+            var fresh = ds.ReadAll()
+                .Where(x => x.draft.File is null && !before.Contains(x.key)).ToList();
+            Assert.Equal(2, fresh.Count);
+            Assert.NotEqual(fresh[0].key, fresh[1].key);
+            Assert.Equal(new[] { "A", "B" },
+                fresh.Select(x => x.draft.Lines[0]).Order().ToList());
+            foreach (var x in fresh)
+                ds.DeleteKey(x.key);
+        }
+        finally
+        {
+            foreach (var x in ds.ReadAll().Where(x => x.draft.File is null && !before.Contains(x.key)))
+                try { ds.DeleteKey(x.key); } catch { }
+        }
+    }
+
+    [Fact]
+    public void RestoreAllIntoNewTabsKeepsCliBuffer()
+    {
+        string dir = tmp.NewDir();
+        string cli = Path.Combine(dir, "cli.txt"), work = Path.Combine(dir, "work.txt");
+        File.WriteAllText(cli, "CLI");
+        File.WriteAllText(work, "v1");
+        var ds = new DraftStore(DraftStore.DefaultDir());
+        try
+        {
+            ds.Write(work, new List<string> { "drafted" }, 0, 3);
+            ds.Write(null, new List<string> { "scratch" }, 0, 1);
+            var buf = new TextBuffer(null);
+            buf.Open(cli);
+            var ed = new TuiEditor(buf, new AppSettings(),
+                new SettingsStore(Path.Combine(dir, "s.json")));
+            MaybeRestore(ed);
+            var dlg = Dialog(ed);
+            Assert.NotNull(dlg);
+            dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.Enter, false, false, false));
+            Assert.Equal(3, ed.TabCount); // CLI tab plus both drafts, nothing overwritten
+            var firstLines = new List<string>();
+            for (int i = 0; i < 3; i++)
+            {
+                ed.SwitchTab(i);
+                firstLines.Add(ActiveBuf(ed).GetLine(0));
+            }
+            Assert.Equal(new[] { "CLI", "drafted", "scratch" }, firstLines.Order().ToList());
+            Assert.Empty(ds.ReadAll().Where(x =>
+                x.key == DraftStore.KeyFor(work) || x.key == "untitled"));
+        }
+        finally
+        {
+            try { ds.Delete(work); } catch { }
+            try { ds.DeleteKey("untitled"); } catch { }
+        }
+    }
+
+    [Fact]
+    public void SingleRestoreLoopsRemainderDialog()
+    {
+        string dir = tmp.NewDir();
+        string f1 = Path.Combine(dir, "one.txt"), f2 = Path.Combine(dir, "two.txt");
+        File.WriteAllText(f1, "a");
+        File.WriteAllText(f2, "b");
+        var ds = new DraftStore(DraftStore.DefaultDir());
+        try
+        {
+            ds.Write(f1, new List<string> { "d1" }, 0, 0);
+            ds.Write(f2, new List<string> { "d2" }, 0, 0);
+            var ed = new TuiEditor(new TextBuffer(null), new AppSettings(),
+                new SettingsStore(Path.Combine(dir, "s.json")));
+            MaybeRestore(ed);
+            var dlg = Dialog(ed);
+            Assert.NotNull(dlg);
+            dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false));
+            dlg.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.Enter, false, false, false));
+            Assert.Equal(1, ed.TabCount); // pristine startup tab reused
+            var dlg2 = (ModalDialog)Dialog(ed)!;
+            Assert.NotNull(dlg2);
+            Assert.NotSame(dlg, dlg2); // remainder dialog re-shown
+            dlg2.HandleKey(new ConsoleKeyInfo('\0', ConsoleKey.Enter, false, false, false));
+            Assert.Equal(2, ed.TabCount);
+            Assert.Empty(ds.ReadAll().Where(x =>
+                x.key == DraftStore.KeyFor(f1) || x.key == DraftStore.KeyFor(f2)));
+        }
+        finally
+        {
+            try { ds.Delete(f1); } catch { }
+            try { ds.Delete(f2); } catch { }
+        }
+    }
+
+    private static TextBuffer ActiveBuf(TuiEditor ed) =>
+        (TextBuffer)typeof(TuiEditor).GetProperty("_buf",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(ed)!;
+
+    private static void MaybeRestore(TuiEditor ed) =>
+        typeof(TuiEditor).GetMethod("MaybeRestore",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(ed, []);
+
+    private static void AutoDraft(TuiEditor ed) =>
+        typeof(TuiEditor).GetMethod("AutoDraft",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(ed, []);
+
+    private static void SetLastDraft(TuiEditor ed, DateTime at) =>
+        typeof(TuiEditor).GetField("_lastDraftAt",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(ed, at);
+
+    private static ModalDialog? Dialog(TuiEditor ed) =>
+        typeof(TuiEditor).GetField("_dialog",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(ed) as ModalDialog;
 }

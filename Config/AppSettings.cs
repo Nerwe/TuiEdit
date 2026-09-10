@@ -74,6 +74,9 @@ internal sealed class AppSettings
     /// <summary>Specifies the maximum number of session tabs.</summary>
     public const int MaxSessionTabs = 20;
 
+    /// <summary>Specifies the maximum total characters of an untitled tab kept in the session.</summary>
+    public const int MaxUntitledSessionChars = 256 * 1024;
+
     /// <summary>Marks a file as recent (moves to top, removes duplicates, trims).</summary>
     public void TouchRecent(string path)
     {
@@ -99,9 +102,12 @@ internal sealed class AppSettings
 
     /// <summary>Removes nonexistent files from the recent list.</summary>
     public void PruneRecent() => RecentFiles.RemoveAll(p => !File.Exists(p));
-    /// <summary>Normalizes settings to valid values.</summary>
+    /// <summary>Normalizes settings to valid values (tolerates nulls from corrupt JSON).</summary>
     public void Normalize()
     {
+        Themes ??= new();
+        SessionTabs ??= new();
+        RecentFiles ??= new();
         if (!ThemeCatalog.Contains(this, Theme))
             Theme = "dark";
         Themes.RemoveAll(s => string.IsNullOrWhiteSpace(s.Name));
@@ -118,5 +124,8 @@ internal sealed class AppSettings
     }
 }
 
-/// <summary>Represents a previous session tab: path and cursor position.</summary>
-internal sealed record SessionTab(string Path, int Row, int Col);
+/// <summary>
+/// Represents a previous session tab: path and cursor position; untitled tabs
+/// (empty path) carry a content snapshot instead.
+/// </summary>
+internal sealed record SessionTab(string Path, int Row, int Col, List<string>? Lines = null);
