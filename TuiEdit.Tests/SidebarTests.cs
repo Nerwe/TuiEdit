@@ -231,6 +231,34 @@ public sealed class SidebarTests : IDisposable
     }
 
     [Fact]
+    public void ArmedDeleteFlow()
+    {
+        string target = Path.Combine(_root, "kill.txt");
+        File.WriteAllText(target, "x");
+        var ed = NewEditor();
+        ed.OpenSidebarRoot(_root);
+        var sb = (SidebarState)Field(ed, "_sidebar")!;
+        while (!sb.Rows[sb.Selected].node.Name.Equals("kill.txt", StringComparison.Ordinal))
+            sb.MoveHighlight(1, 10);
+        HandleKey(ed, K('\0', ConsoleKey.Delete)); // arm — nothing deleted yet
+        Assert.True(File.Exists(target));
+        HandleKey(ed, K('\0', ConsoleKey.Delete)); // confirm
+        Assert.False(File.Exists(target));
+
+        // Another key disarms instead of deleting.
+        string target2 = Path.Combine(_root, "spare.txt");
+        File.WriteAllText(target2, "x");
+        sb.Refresh(); // external creation appears on refresh (a keypress does this live)
+        while (!sb.Rows[sb.Selected].node.Name.Equals("spare.txt", StringComparison.Ordinal))
+            sb.MoveHighlight(1, 10);
+        HandleKey(ed, K('\0', ConsoleKey.Delete)); // arm on spare.txt
+        HandleKey(ed, K('\0', ConsoleKey.UpArrow)); // disarm + move to b.txt
+        HandleKey(ed, K('\0', ConsoleKey.Delete)); // arms b.txt instead of deleting spare
+        Assert.True(File.Exists(target2));
+        Assert.True(File.Exists(Path.Combine(_root, "b.txt")));
+    }
+
+    [Fact]
     public void TypingSwallowedInFocus()
     {
         var ed = NewEditor();

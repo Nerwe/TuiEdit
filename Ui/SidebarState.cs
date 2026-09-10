@@ -101,6 +101,21 @@ internal sealed class SidebarState
         Rebuild(keep);
     }
 
+    /// <summary>Selects the row by full path (no-op on miss).</summary>
+    /// <param name="path">The full path to select.</param>
+    public void SelectPath(string path)
+    {
+        for (int i = 0; i < _rows.Count; i++)
+        {
+            if (_rows[i].node.Path.Equals(path, StringComparison.Ordinal))
+            {
+                Selected = i;
+                EnsureVisible();
+                return;
+            }
+        }
+    }
+
     /// <summary>
     /// Git mark for a row: files match exactly, folders aggregate any changed
     /// descendant by path prefix (repo-wide sets, last known values).

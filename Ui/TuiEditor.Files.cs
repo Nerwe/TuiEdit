@@ -371,6 +371,7 @@ internal sealed partial class TuiEditor
         {
             _sidebar = null;
             _sidebarFocus = false;
+            _sidebarDelete = null;
             return;
         }
         _sidebarFocus = true;
@@ -388,10 +389,16 @@ internal sealed partial class TuiEditor
         if (ctrl && k.Key == ConsoleKey.B) { ToggleSidebar(); return; }
         if (ctrl || (k.Modifiers & ConsoleModifiers.Alt) != 0)
             return;
+        if (_sidebarDelete is not null && k.Key is not (ConsoleKey.Delete or ConsoleKey.F8))
+            _sidebarDelete = null; // any other key disarms a pending delete
         _sidebar.Refresh();
         switch (k.Key)
         {
-            case ConsoleKey.Escape: _sidebarFocus = false; return;
+            case ConsoleKey.Escape: _sidebarFocus = false; _sidebarDelete = null; return;
+            case ConsoleKey.F7: SidebarNewFlow(); return;
+            case ConsoleKey.F2: SidebarRenameFlow(); return;
+            case ConsoleKey.Delete:
+            case ConsoleKey.F8: SidebarDeleteFlow(); return;
             case ConsoleKey.UpArrow: _sidebar.MoveHighlight(-1, TextHeight()); return;
             case ConsoleKey.DownArrow: _sidebar.MoveHighlight(1, TextHeight()); return;
             case ConsoleKey.LeftArrow: _sidebar.CollapseOrParent(); return;
@@ -407,10 +414,141 @@ internal sealed partial class TuiEditor
                 if (path is null)
                     return;
                 _sidebarFocus = false;
+                _sidebarDelete = null;
                 OpenPicked(path);
                 return;
         }
     }
+
+    private string? _sidebarDelete; // armed delete target (full path): Del again confirms
+
+    private void SidebarNewFlow()
+    {
+        if (_sidebar is null)
+            return;
+        string? created = null;
+        RunDialog(new PromptDialog(
+            _loc["sidebar.new.title"], _loc["sidebar.prompt.hint"], string.Empty, t => created = t));
+        if (string.IsNullOrWhiteSpace(created))
+            return;
+        string name = created.Trim();
+        bool wantDir = name.EndsWith('/') || name.EndsWith('\\');
+        string target;
+        try
+        {
+            target = Path.Combine(SidebarBaseDir(), name.TrimEnd('/', '\\'));
+        }
+        catch
+        {
+            SetMessage(_loc["sidebar.error.invalid"]);
+            return;
+        }
+        FileOpResult r = wantDir ? FileOps.CreateDirectory(target) : FileOps.CreateFile(target);
+        if (!r.Ok || r.Path is null)
+        {
+            SetMessage(FileOpMessage(r.Error));
+            return;
+        }
+        _sidebar.Refresh();
+        _sidebar.SelectPath(r.Path);
+        SetMessage(_loc.Format("sidebar.msg.created", ShortFileName(r.Path)));
+    }
+
+    private void SidebarRenameFlow()
+    {
+        string? old = _sidebar?.SelectedPath;
+        if (old is null)
+            return;
+        string? renamed = null;
+        RunDialog(new PromptDialog(
+            _loc["sidebar.rename.title"], _loc["sidebar.prompt.hint"],
+            ShortFileName(old), t => renamed = t));
+        if (renamed is null)
+            return; // Esc
+        FileOpResult r = FileOps.Rename(old, renamed);
+        if (!r.Ok || r.Path is null)
+        {
+            SetMessage(FileOpMessage(r.Error));
+            return;
+        }
+        _sidebar!.Refresh();
+        _sidebar.SelectPath(r.Path);
+        SetMessage(_loc.Format("sidebar.msg.renamed", ShortFileName(r.Path)));
+    }
+
+    private void SidebarDeleteFlow()
+    {
+        string? path = _sidebar?.SelectedPath;
+        if (path is null)
+            return;
+        if (_sidebarDelete is not null
+            && _sidebarDelete.Equals(path, StringComparison.Ordinal))
+        {
+            _sidebarDelete = null;
+            FileOpResult r = FileOps.Delete(path);
+            if (!r.Ok)
+            {
+                SetMessage(FileOpMessage(r.Error));
+                return;
+            }
+            try
+            {
+                string? parent = Path.GetDirectoryName(path);
+                _sidebar!.Refresh();
+                if (parent is not null)
+                    _sidebar.SelectPath(parent);
+            }
+            catch
+            {
+            }
+            SetMessage(_loc.Format("sidebar.msg.deleted", ShortFileName(path)));
+            return;
+        }
+        int n = FileOps.CountItems(path);
+        _sidebarDelete = path;
+        string count = n == 1 ? _loc["modal.delete.one"] : $"{n} {_loc["modal.delete.many"]}";
+        SetMessage(_loc.Format("sidebar.delete.arm", ShortFileName(path), count));
+    }
+
+    private string SidebarBaseDir()
+    {
+        var cur = _sidebar?.Current;
+        string root = _sidebar?.CurrentDir ?? Directory.GetCurrentDirectory();
+        if (cur is null)
+            return root;
+        if (cur.Value.node.IsDir)
+            return cur.Value.node.Path;
+        try
+        {
+            return Path.GetDirectoryName(cur.Value.node.Path) ?? root;
+        }
+        catch
+        {
+            return root;
+        }
+    }
+
+    private static string ShortFileName(string path)
+    {
+        try
+        {
+            string name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            return string.IsNullOrEmpty(name) ? path : name;
+        }
+        catch
+        {
+            return path;
+        }
+    }
+
+    private string FileOpMessage(FileOpError error) => error switch
+    {
+        FileOpError.AlreadyExists => _loc["sidebar.error.exists"],
+        FileOpError.NotFound => _loc["sidebar.error.notfound"],
+        FileOpError.InvalidName => _loc["sidebar.error.invalid"],
+        FileOpError.AccessDenied => _loc["sidebar.error.denied"],
+        _ => _loc["sidebar.error.unknown"],
+    };
 
     private void DoRecent()
     {

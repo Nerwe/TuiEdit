@@ -136,21 +136,31 @@ internal sealed class SidebarTree
         return true;
     }
 
-    /// <summary>Refreshes every expanded directory (mtime-gated); returns whether anything reloaded.</summary>
-    public bool RefreshExpanded() => RefreshSubtree(RootNode);
+    /// <summary>
+    /// Refreshes the tree: the root level always relists (one cheap listing, so
+    /// same-tick changes are never missed), deeper expanded levels reload when
+    /// their mtime changed. Returns whether anything changed.
+    /// </summary>
+    public bool RefreshExpanded()
+    {
+        bool any = MergeChildren(RootNode);
+        foreach (SidebarNode child in RootNode.Children)
+            any |= RefreshSubtree(child);
+        return any;
+    }
 
     private bool RefreshSubtree(SidebarNode node)
     {
         bool any = false;
-        if (!node.IsExpanded)
+        if (!node.IsDir || !node.IsExpanded)
             return false;
-        if (Refresh(node))
-            any = true;
-        foreach (SidebarNode child in node.Children)
+        if (ReadMtime(node.Path) != node.LoadedMtime)
         {
-            bool reloaded = RefreshSubtree(child);
-            any = any || reloaded;
+            LoadChildren(node);
+            return true;
         }
+        foreach (SidebarNode child in node.Children)
+            any |= RefreshSubtree(child);
         return any;
     }
 
@@ -211,6 +221,21 @@ internal sealed class SidebarTree
 
     private void LoadChildren(SidebarNode node)
     {
+        MergeChildren(node);
+        // Re-apply expansion survived from before the reload.
+        foreach (SidebarNode child in node.Children)
+        {
+            if (child.IsDir && _expanded.Contains(child.Path))
+                LoadChildren(child);
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds one level, reusing surviving nodes (their subtrees and expansion
+    /// stay intact). Returns whether the child set changed (order included).
+    /// </summary>
+    private static bool MergeChildren(SidebarNode node)
+    {
         var dirs = new List<SidebarNode>();
         var files = new List<SidebarNode>();
         try
@@ -246,13 +271,26 @@ internal sealed class SidebarTree
         SortNodes(dirs);
         SortNodes(files);
         dirs.AddRange(files);
-        node.SetChildren(dirs, ReadMtime(node.Path));
-        // Re-apply expansion survived from before the reload.
-        foreach (SidebarNode child in node.Children)
+        var existing = new Dictionary<string, SidebarNode>(StringComparer.OrdinalIgnoreCase);
+        foreach (SidebarNode c in node.Children)
+            existing[c.Path] = c;
+        var merged = new List<SidebarNode>(dirs.Count);
+        foreach (SidebarNode fresh in dirs)
         {
-            if (child.IsDir && _expanded.Contains(child.Path))
-                LoadChildren(child);
+            if (existing.TryGetValue(fresh.Path, out SidebarNode? old)
+                && old.IsDir == fresh.IsDir)
+                merged.Add(old); // reuse: subtree, expansion and mtime survive
+            else
+                merged.Add(fresh);
         }
+        bool changed = merged.Count != node.Children.Count;
+        for (int i = 0; i < merged.Count && !changed; i++)
+        {
+            changed = !merged[i].Path.Equals(node.Children[i].Path, StringComparison.OrdinalIgnoreCase)
+                || merged[i].IsDir != node.Children[i].IsDir;
+        }
+        node.SetChildren(merged, ReadMtime(node.Path));
+        return changed;
     }
 
     private static void SortNodes(List<SidebarNode> nodes) =>
