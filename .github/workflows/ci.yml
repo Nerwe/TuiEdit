@@ -41,14 +41,14 @@ jobs:
       - run: dotnet format TuiEdit.Bench/TuiEdit.Bench.csproj --verify-no-changes --no-restore --verbosity minimal
       - run: dotnet test TuiEdit.Tests --nologo --filter 'Category!=Integration'
       - run: dotnet test TuiEdit.Tests --nologo --collect:"XPlat Code Coverage" --results-directory TestResults
-      - name: Coverage gate (line-rate >= 60%)
+      - name: Coverage gate (line-rate >= 68%)
         shell: pwsh
         run: |
           $cov = Get-ChildItem TestResults -Recurse -Filter coverage.cobertura.xml | Select-Object -First 1 -ExpandProperty FullName
           [xml]$x = Get-Content -LiteralPath $cov -Raw
           $rate = [double]$x.coverage.'line-rate' * 100
           "line-rate=$([math]::Round($rate, 1))%" >> $env:GITHUB_STEP_SUMMARY
-          if ($rate -lt 60) { throw "Coverage $rate% is below the 60% gate." }
+          if ($rate -lt 68) { throw "Coverage $rate% is below the 68% gate." }
       - uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.os }}

@@ -1,0 +1,24 @@
+ File  Edit  Help                                                     untitled*
+┌──────────────────────────┐
+│ New tab            Ctrl+T│
+│ Open...                 O│
+│ Recent...               R│
+│ Save                   ^S│
+│ Save as...   Ctrl+Shift+S│
+│ Save all                L│
+├──────────────────────────┤
+│ File format...         F9│
+│ Close tab          Ctrl+W│
+├──────────────────────────┤
+│ Settings                P│
+│ Exit                   ^Q│
+└──────────────────────────┘
+~
+~
+~
+~
+~
+~
+~
+~
+ Ln 1/2 Col 1 *                                     UTF-8 | LF | 4sp | untitled

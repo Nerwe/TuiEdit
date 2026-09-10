@@ -278,6 +278,7 @@ internal sealed class CommandPaletteDialog : Dialog
         int selVis = _state.View.Count == 0 ? 0 : _state.Selected - _state.Top;
         var rowsBox = new DialogBox(x0, y0 + 1, box.W, box.H - 1);
         DrawOptionRows(screen, theme, rowsBox, [.. labels], [.. values], selVis, [.. plain]);
+        PaintFilterMatches(screen, theme, rowsBox, labels, selVis);
 
         // Centers the hint at the bottom.
         string hint = loc["palette.hint"];
@@ -286,6 +287,36 @@ internal sealed class CommandPaletteDialog : Dialog
         int hy = y0 + box.H - 2;
         screen.Text(x0, hy, "│" + new string(' ', inner) + "│", theme.ModalHintFg, bg);
         WriteSpans(screen, hx, hy, hint, theme.ModalHintFg, theme.AccentFg, bg, inner - (hx - x0 - 1));
+    }
+
+    /// <summary>
+    /// Repaints the filter match inside labels with the search-match colors.
+    /// Layout mirrors DrawOptionRows: label starts at inner offset 3 (" " + marker).
+    /// </summary>
+    private void PaintFilterMatches(
+        Screen screen, Theme theme, DialogBox rowsBox, List<string> labels, int selVis)
+    {
+        string filter = _state.Filter;
+        if (filter.Length == 0)
+            return;
+        for (int i = 0; i < labels.Count; i++)
+        {
+            int idx = labels[i].IndexOf(filter, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+                continue;
+            int y = rowsBox.Y0 + 1 + i;
+            int bgRow = rowsBox.Y0 + 1 + selVis;
+            for (int k = 0; k < filter.Length; k++)
+            {
+                int x = rowsBox.X0 + 1 + 3 + idx + k;
+                if (x >= rowsBox.X0 + 1 + (rowsBox.W - 2))
+                    break; // truncated away
+                Screen.Cell c = screen.At(x, y);
+                if (c.Ch == '\0')
+                    break;
+                screen.Set(x, y, c.Ch, theme.MatchFg, y == bgRow ? c.Bg : theme.MatchBg);
+            }
+        }
     }
 
     public override (int x, int y)? Cursor => _cursorX >= 0 ? (_cursorX, _cursorY) : null;

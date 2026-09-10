@@ -17,9 +17,17 @@ public sealed class MouseGuardTests
         try
         {
             InputReader.MouseLevel = MouseLevel.Basic;
-            int before = Directory.Exists(CrashLog.Dir)
-                ? Directory.GetFiles(CrashLog.Dir, "crash-*.log").Length
-                : 0;
+            // Isolate from other crash-log tests (prune caps the shared dir at 20).
+            try
+            {
+                if (Directory.Exists(CrashLog.Dir))
+                    foreach (string f in Directory.GetFiles(CrashLog.Dir, "crash-*.log"))
+                        File.Delete(f);
+            }
+            catch
+            {
+            }
+            int before = 0;
 
             // Null event: HandleMouseAt throws, the guard must convert it
             // into a parked mouse plus a crash report.

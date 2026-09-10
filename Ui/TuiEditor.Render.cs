@@ -211,6 +211,21 @@ internal sealed partial class TuiEditor
             return;
         }
 
+        RenderFrame(w, h);
+        _screen.Flush();
+        PlaceCursor();
+    }
+
+    /// <summary>
+    /// Renders one frame into the screen buffer without touching the console:
+    /// size comes in as parameters, so tests can snapshot whole frames headless.
+    /// </summary>
+    /// <param name="w">The frame width in cells.</param>
+    /// <param name="h">The frame height in cells.</param>
+    internal void RenderFrame(int w, int h)
+    {
+        if (w < 20 || h < 5)
+            return;
         int sideW = _sidebar is null ? 0 : SidebarState.Width;
         EditorLayout layout = EditorLayout.Compute(
             w, h, sideW, _panes.Count, _panes.Any(p => p.Docs.Count > 1));
@@ -274,10 +289,25 @@ internal sealed partial class TuiEditor
             mdd.HoverButton = _mouseActive ? mdd.HitButton(_mouseX, _mouseY, w, h, _loc) : null;
         }
         _dialog?.Draw(_screen, _theme, _loc);
+    }
 
-        _screen.Flush();
-
-        // Hardware cursor - once per frame (hides under menu, dialog, panel).
+    /// <summary>Places the hardware cursor (console only; frames stay headless).</summary>
+    private void PlaceCursor()
+    {
+        int w = _screen.Width, h = _screen.Height;
+        if (w < 20 || h < 5)
+            return;
+        int sideW = _sidebar is null ? 0 : SidebarState.Width;
+        EditorLayout layout = EditorLayout.Compute(
+            w, h, sideW, _panes.Count, _panes.Any(p => p.Docs.Count > 1));
+        int[] paneWs = layout.PaneWs;
+        int[] paneXs = layout.PaneXs;
+        int textHeight = layout.TextHeight;
+        int y0 = layout.Y0;
+        bool wrap = _settings.WordWrap;
+        int aNumWidth = Math.Max(4, _buf.Count.ToString(CultureInfo.InvariantCulture).Length);
+        int aGutter = _settings.ShowLineNumbers ? aNumWidth + 4 : 0;
+        int activeCw = Math.Max(1, paneWs[_pane] - aGutter);
         bool uiOpen = _menu is not null || _dialog is not null || _sidebarFocus;
         string curLine = _buf.GetLine(_row);
         int vcolCur = TabStops.VisualWidth(curLine, _col);

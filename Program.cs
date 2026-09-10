@@ -62,63 +62,19 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
     {
     }
 
-    var files = new List<(string path, int line, int col)>();
-    string? startDir = null;
-    foreach (string a in args)
+    StartupPlan plan = Startup.ParseArgs(args);
+    if (plan.ShowHelp)
     {
-        switch (a)
-        {
-            case "-h" or "--help" or "/?":
-                Console.WriteLine(loc["help.title"]);
-                Console.WriteLine();
-                Console.WriteLine(loc["help.usage"]);
-                Console.WriteLine(loc["help.usage.line"]);
-                Console.WriteLine();
-                Console.WriteLine(loc["help.keys"]);
-                void H(string key) => Console.WriteLine(Dialog.StripSpans(loc[key]));
-                H("help.k1");
-                H("help.k2");
-                H("help.k3");
-                H("help.k4");
-                H("help.k5");
-                H("help.k6");
-                H("help.k7");
-                H("help.k8");
-                H("help.k9");
-                H("help.k10");
-                H("help.k11");
-                H("help.k12");
-                H("help.k13");
-                H("help.k14");
-                H("help.k15");
-                H("help.k16");
-                H("help.k17");
-                Console.WriteLine();
-                Console.WriteLine(loc["help.status"]);
-                Console.WriteLine(loc.Format("help.config", ShortenHome(store.Path)));
-                return (loc, 0, null);
-            case "-v" or "--version":
-                Console.WriteLine($"TuiEdit {TuiEditor.AppVersion} (net10.0, System.Console)");
-                return (loc, 0, null);
-            case ['-', ..]:
-                break;
-            default:
-                var (p, ln, cn) = CliArgs.SplitFileLine(a);
-                try
-                {
-                    if (ln == 0 && cn == 0 && Directory.Exists(p))
-                    {
-                        startDir ??= p; // folder — sidebar root (no files)
-                        break;
-                    }
-                }
-                catch
-                {
-                }
-                files.Add((p, ln, cn));
-                break;
-        }
+        Startup.PrintHelp(loc, store.Path);
+        return (loc, 0, null);
     }
+    if (plan.ShowVersion)
+    {
+        Startup.PrintVersion();
+        return (loc, 0, null);
+    }
+    var files = plan.Files;
+    string? startDir = plan.StartDir;
 
     Console.CancelKeyPress += (_, e) => e.Cancel = true;
 
@@ -153,23 +109,4 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
     return (loc, 0, editor);
 }
 
-static void RestoreTerminal()
-{
-    try { Console.Write("\x1b[?2004l"); } catch { }
-    try { Terminal.DisableMouse(); } catch { }
-    try { Terminal.DisableFocusTracking(); } catch { }
-    try { Terminal.RestoreInput(); } catch { }
-    try { Console.ResetColor(); } catch { }
-    try { Console.CursorVisible = true; } catch { }
-    try { Console.TreatControlCAsInput = false; } catch { }
-}
-
-static string ShortenHome(string path)
-{
-    string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-    if (!string.IsNullOrEmpty(home) &&
-        (path.Equals(home, StringComparison.OrdinalIgnoreCase) ||
-         path.StartsWith(home + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
-        return "%USERPROFILE%" + path[home.Length..];
-    return path;
-}
+static void RestoreTerminal() => Startup.RestoreTerminal();

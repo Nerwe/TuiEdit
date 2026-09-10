@@ -197,6 +197,17 @@ internal sealed class FileDialog : Dialog
                     _ => null, // error - text is already in Error
                 };
                 return;
+            case ConsoleKey.F2:
+                _state.NoticeKey = _state.RenameHighlighted() switch
+                {
+                    "ok" => null,
+                    "empty" => "picker.rename.empty",
+                    "exists" => "picker.rename.exists",
+                    "invalid" => "picker.rename.invalid",
+                    "denied" => "picker.rename.denied",
+                    _ => "picker.rename.error",
+                };
+                return;
             case ConsoleKey.F8:
                 string? target = _state.DeleteTarget();
                 if (target is null)

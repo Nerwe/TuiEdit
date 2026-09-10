@@ -474,6 +474,69 @@ internal sealed class TextBuffer
         IsModified = true;
     }
 
+    /// <summary>
+    /// Sets the save encoding by name (utf8, utf8bom, utf16/utf16le); returns
+    /// <see langword="false"/> on unknown names. Marks the buffer modified.
+    /// </summary>
+    /// <param name="name">The encoding name (case-insensitive, dashes/spaces ignored).</param>
+    public bool TrySetEncoding(string? name)
+    {
+        string key = (name ?? string.Empty).Replace("-", "").Replace(" ", "").Replace("_", "").ToLowerInvariant();
+        (Encoding encoding, string label)? pick = key switch
+        {
+            "utf8" => (new UTF8Encoding(false), "UTF-8"),
+            "utf8bom" => (new UTF8Encoding(true), "UTF-8 BOM"),
+            "utf16" or "utf16le" or "unicode" => (Encoding.Unicode, "UTF-16 LE"),
+            _ => null,
+        };
+        if (pick is null)
+            return false;
+        (_encoding, EncodingLabel) = pick.Value;
+        IsModified = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Sets line endings by name (crlf, lf, cr); returns <see langword="false"/>
+    /// on unknown names. Marks the buffer modified.
+    /// </summary>
+    /// <param name="name">The endings name (case-insensitive).</param>
+    public bool TrySetEnding(string? name)
+    {
+        LineEnding? ending = (name ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "crlf" or "windows" => LineEnding.CrLf,
+            "lf" or "unix" => LineEnding.Lf,
+            "cr" or "mac" => LineEnding.Cr,
+            _ => null,
+        };
+        if (ending is null)
+            return false;
+        Ending = ending.Value;
+        IsModified = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Sets the indent unit by name (4, 2, tab); returns <see langword="false"/>
+    /// on unknown names. Leaves text unaffected.
+    /// </summary>
+    /// <param name="name">The indent name (case-insensitive).</param>
+    public bool TrySetIndent(string? name)
+    {
+        string? indent = (name ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "4" or "4spaces" or "spaces" => "    ",
+            "2" or "2spaces" => "  ",
+            "tab" or "\\t" or "t" => "\t",
+            _ => null,
+        };
+        if (indent is null)
+            return false;
+        IndentString = indent;
+        return true;
+    }
+
     /// <summary>Cycles the indent unit: 4 spaces → 2 → tab (leaves text unaffected).</summary>
     public void CycleIndent(int dir = 1)
     {
@@ -658,6 +721,85 @@ internal sealed class TextBuffer
         TryBuildRegex(term, matchCase, wholeWord) is null;
 
     /// <summary>Compiles a pattern (returns null when empty/invalid).</summary>
+    /// <summary>
+    /// First-match preview for the replace confirm: row plus before/after lines.
+    /// Only the first occurrence on its line is substituted; long lines are
+    /// centered on the match. Null when there is no match or nothing would change.
+    /// </summary>
+    /// <param name="term">The search term.</param>
+    /// <param name="replacement">The replacement text.</param>
+    /// <param name="matchCase">Whether case matters.</param>
+    /// <param name="wholeWord">Whether whole words only.</param>
+    /// <param name="useRegex">Whether the term is a regular expression.</param>
+    public (int row, string before, string after)? PreviewReplace(
+        string term, string replacement, bool matchCase, bool wholeWord, bool useRegex = false)
+    {
+        if (string.IsNullOrEmpty(term) || replacement is null)
+            return null;
+        if (useRegex)
+        {
+            Regex? rx = TryBuildRegex(term, matchCase, wholeWord);
+            if (rx is null)
+                return null;
+            for (int r = 0; r < Lines.Count; r++)
+            {
+                Match m;
+                try
+                {
+                    m = rx.Match(Lines[r]);
+                }
+                catch
+                {
+                    return null;
+                }
+                if (!m.Success)
+                    continue;
+                string after;
+                try
+                {
+                    after = rx.Replace(Lines[r], replacement, 1);
+                }
+                catch
+                {
+                    return null;
+                }
+                return FinishPreview(r, m.Index, m.Length, Lines[r], after);
+            }
+            return null;
+        }
+        var hit = FindNext(term, 0, 0, matchCase, wholeWord, wrap: false);
+        if (hit is null)
+            return null;
+        string line = Lines[hit.Value.row];
+        int idx = IndexOfOpt(line, term, 0, line.Length, matchCase, wholeWord);
+        if (idx < 0)
+            return null;
+        return FinishPreview(hit.Value.row, idx, term.Length, line,
+            line[..idx] + replacement + line[(idx + term.Length)..]);
+    }
+
+    private static (int row, string before, string after)? FinishPreview(
+        int row, int index, int length, string line, string after)
+    {
+        if (after == line)
+            return null; // nothing would visibly change
+        return (row, TruncateAround(line, index, length), TruncateAround(after, index, length));
+    }
+
+    private static string TruncateAround(string s, int index, int length)
+    {
+        const int max = 56;
+        if (s.Length <= max)
+            return s;
+        int start = Math.Clamp(index - 20, 0, Math.Max(0, s.Length - max));
+        string window = s.Substring(start, Math.Min(max, s.Length - start));
+        if (start > 0)
+            window = "…" + window[1..];
+        if (start + max < s.Length)
+            window = window[..^1] + "…";
+        return window;
+    }
+
     internal static Regex? TryBuildRegex(string term, bool matchCase, bool wholeWord)
     {
         if (string.IsNullOrEmpty(term)) return null;

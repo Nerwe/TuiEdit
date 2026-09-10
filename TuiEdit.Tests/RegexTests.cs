@@ -89,6 +89,48 @@ public sealed class RegexTests
     }
 
     [Fact]
+    public void PreviewReplacePlain()
+    {
+        var b = Buf("call foo(x)", "nothing here");
+        var p = b.PreviewReplace("foo", "bar", true, false);
+        Assert.NotNull(p);
+        Assert.Equal(0, p.Value.row);
+        Assert.Equal("call foo(x)", p.Value.before);
+        Assert.Equal("call bar(x)", p.Value.after);
+    }
+
+    [Fact]
+    public void PreviewReplaceRegexGroups()
+    {
+        var b = Buf("id=42;");
+        var p = b.PreviewReplace(@"id=(\d+)", "id=[$1]", true, false, useRegex: true);
+        Assert.NotNull(p);
+        Assert.Equal("id=[42];", p.Value.after);
+    }
+
+    [Fact]
+    public void PreviewReplaceMisses()
+    {
+        var b = Buf("abc");
+        Assert.Null(b.PreviewReplace("zzz", "q", true, false));
+        Assert.Null(b.PreviewReplace("", "q", true, false));
+        Assert.Null(b.PreviewReplace("b", "b", true, false)); // nothing would change
+        Assert.Null(b.PreviewReplace("(", "q", true, false, useRegex: true)); // bad pattern
+    }
+
+    [Fact]
+    public void PreviewReplaceTruncatesLongLines()
+    {
+        string line = new string('x', 100) + "needle" + new string('y', 100);
+        var b = Buf(line);
+        var p = b.PreviewReplace("needle", "N", true, false);
+        Assert.NotNull(p);
+        Assert.True(p.Value.before.Length <= 58);
+        Assert.Contains("needle", p.Value.before, StringComparison.Ordinal);
+        Assert.Contains("N", p.Value.after, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReplaceConfirmThreshold()
     {
         Assert.Equal(50, TuiEditor.ReplaceConfirmThreshold);

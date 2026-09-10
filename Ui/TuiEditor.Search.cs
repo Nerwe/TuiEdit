@@ -100,7 +100,17 @@ internal sealed partial class TuiEditor
                 SetMessage(_loc["cmdline.unknown"]);
                 return;
             case CommandLineOp.Set set:
-                string? err = CommandLine.ApplySet(_settings, set.Key, set.Value);
+                // Buffer-scoped keys first, global settings after.
+                string? err = set.Key switch
+                {
+                    "encoding" or "enc" =>
+                        _buf.TrySetEncoding(set.Value) ? null : "cmdline.set.badvalue",
+                    "ending" or "eol" =>
+                        _buf.TrySetEnding(set.Value) ? null : "cmdline.set.badvalue",
+                    "indent" =>
+                        _buf.TrySetIndent(set.Value) ? null : "cmdline.set.badvalue",
+                    _ => CommandLine.ApplySet(_settings, set.Key, set.Value),
+                };
                 if (err is not null)
                 {
                     SetMessage(_loc[err]);
@@ -181,7 +191,9 @@ internal sealed partial class TuiEditor
         {
             _pendingReplaceTerm = term;
             _pendingReplaceRep = rep;
-            _dialog = new ModalDialog(ModalState.ConfirmReplace(_loc, term, n), ApplyModalOutcome);
+            var preview = _buf.PreviewReplace(term, rep,
+                _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex);
+            _dialog = new ModalDialog(ModalState.ConfirmReplace(_loc, term, n, preview), ApplyModalOutcome);
             return;
         }
         DoReplace(term, rep);
