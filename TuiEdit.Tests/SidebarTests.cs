@@ -33,9 +33,9 @@ public sealed class SidebarTests : IDisposable
     }
 
     [Fact]
-    public void SidebarClearsTabRow()
+    public void SidebarOwnsFullHeight()
     {
-        // The tab row above the panel must not leak stale text.
+        // The panel spans rows 1..h-2: header at row 1, no gap for the tab row.
         var ed = NewEditor();
         HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true));
         var scr = (Screen)typeof(TuiEditor)
@@ -44,10 +44,10 @@ public sealed class SidebarTests : IDisposable
         var theme = Themes.Get("dark");
         scr.Text(0, 1, new string('X', 96), theme.EditorFg, theme.EditorBg);
         typeof(TuiEditor).GetMethod("DrawSidebar", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(ed, [2, 26]);
-        for (int x = 0; x < 23; x++)
-            Assert.Equal(' ', CellAt(scr, x, 1));
+            .Invoke(ed, []);
+        Assert.Equal('▸', CellAt(scr, 0, 1));
         Assert.Equal('│', CellAt(scr, 23, 1));
+        Assert.Equal('│', CellAt(scr, 23, 26));
     }
 
     private static char CellAt(Screen scr, int x, int y)
@@ -277,7 +277,7 @@ public sealed class SidebarTests : IDisposable
                 .GetField("_screen", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
             scr.Resize(40, 12);
             typeof(TuiEditor).GetMethod("DrawSidebar", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(ed, [2, 9]);
+                .Invoke(ed, []);
             Golden.AssertMatch("sidebar.en.txt", scr);
         }
         finally

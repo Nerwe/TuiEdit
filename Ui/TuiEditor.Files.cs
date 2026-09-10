@@ -438,6 +438,9 @@ internal sealed partial class TuiEditor
         _sidebarFocus = true;
     }
 
+    /// <summary>Visible sidebar rows (header excluded).</summary>
+    private int SidebarVisCount() => Math.Max(1, _screen.Height - 3);
+
     /// <summary>Handles a key while the panel has focus.</summary>
     private void HandleSidebarKey(ConsoleKeyInfo k)
     {
@@ -460,14 +463,14 @@ internal sealed partial class TuiEditor
             case ConsoleKey.F2: SidebarRenameFlow(); return;
             case ConsoleKey.Delete:
             case ConsoleKey.F8: SidebarDeleteFlow(); return;
-            case ConsoleKey.UpArrow: _sidebar.MoveHighlight(-1, TextHeight()); break;
-            case ConsoleKey.DownArrow: _sidebar.MoveHighlight(1, TextHeight()); break;
+            case ConsoleKey.UpArrow: _sidebar.MoveHighlight(-1, SidebarVisCount()); break;
+            case ConsoleKey.DownArrow: _sidebar.MoveHighlight(1, SidebarVisCount()); break;
             case ConsoleKey.LeftArrow: _sidebar.CollapseOrParent(); break;
             case ConsoleKey.RightArrow: _sidebar.ExpandSelected(); break;
-            case ConsoleKey.Home: _sidebar.MoveHighlight(int.MinValue / 2, TextHeight()); break;
-            case ConsoleKey.End: _sidebar.MoveHighlight(int.MaxValue / 2, TextHeight()); break;
-            case ConsoleKey.PageUp: _sidebar.MoveHighlight(-Math.Max(1, TextHeight() - 1), TextHeight()); break;
-            case ConsoleKey.PageDown: _sidebar.MoveHighlight(Math.Max(1, TextHeight() - 1), TextHeight()); break;
+            case ConsoleKey.Home: _sidebar.MoveHighlight(int.MinValue / 2, SidebarVisCount()); break;
+            case ConsoleKey.End: _sidebar.MoveHighlight(int.MaxValue / 2, SidebarVisCount()); break;
+            case ConsoleKey.PageUp: _sidebar.MoveHighlight(-Math.Max(1, SidebarVisCount() - 1), SidebarVisCount()); break;
+            case ConsoleKey.PageDown: _sidebar.MoveHighlight(Math.Max(1, SidebarVisCount() - 1), SidebarVisCount()); break;
             case ConsoleKey.Enter:
                 if (_sidebar.EnterSelected())
                     return;

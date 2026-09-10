@@ -1,9 +1,9 @@
 
-                       │
 ▸ tui_sb_golden        │
 ▾ sub                  │
     inner.txt          │
   a.txt                │
+                       │
                        │
                        │
                        │

@@ -262,7 +262,7 @@ internal sealed partial class TuiEditor
         }
         _pane = savedPane;
         LoadTabState();
-        DrawSidebar(y0, textHeight);
+        DrawSidebar();
         DrawPaneDividers(paneXs, y0, textHeight);
 
         string msg = CurrentMessage;
@@ -505,24 +505,23 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>
-    /// <summary>
-    /// Draws the file panel on the left: header plus scrolling list.
-    /// Colors by kind: folders, "..", hidden, executables, files.
+    /// Draws the file panel on the left, full height (menu bar excluded, status bar
+    /// excluded): the tab row starts right of it. Header plus scrolling list.
+    /// Colors by kind: folders, hidden, executables, files.
     /// </summary>
-    private void DrawSidebar(int y0, int textHeight)
+    private void DrawSidebar()
     {
         if (_sidebar is null)
             return;
         int sw = SidebarState.Width;
         int inner = sw - 1;
-        for (int y = 1; y < y0; y++)
-            _screen.Text(0, y, new string(' ', inner) + "│", _theme.EditorFg, _theme.EditorBg);
+        int totalRows = Math.Max(1, _screen.Height - 2); // rows 1..h-2
         string title = "▸ " + Path.GetFileName(
             _sidebar.CurrentDir.TrimEnd(Path.DirectorySeparatorChar));
         if (title.Length > inner)
             title = "…" + title[^(inner - 1)..];
-        _screen.Text(0, y0, Dialog.FitCell(title, inner) + "│", _theme.MenuOpenFg, _theme.MenuOpenBg);
-        int visCount = Math.Max(1, textHeight - 1);
+        _screen.Text(0, 1, Dialog.FitCell(title, inner) + "│", _theme.MenuOpenFg, _theme.MenuOpenBg);
+        int visCount = Math.Max(1, totalRows - 1);
         var rows = _sidebar.Rows;
         int vis = Math.Min(visCount, rows.Count - _sidebar.Top);
         for (int vi = 0; vi < vis; vi++)
@@ -539,13 +538,13 @@ internal sealed partial class TuiEditor
             if (vi == vis - 1 && _sidebar.Top + vis < rows.Count)
                 label = label[..^1] + "↓";
             string cell = Dialog.FitCell(label, inner) + "│";
-            int row = y0 + 1 + vi;
+            int row = 1 + 1 + vi;
             if (i == _sidebar.Selected)
                 _screen.Text(0, row, cell, _theme.ButtonSelFg, _theme.ButtonSelBg);
             else
                 _screen.Text(0, row, cell, SidebarRowFg(_theme, kind, node), _theme.EditorBg);
         }
-        for (int row = y0 + 1 + vis; row < y0 + textHeight; row++)
+        for (int row = 1 + 1 + vis; row < 1 + totalRows; row++)
             _screen.Text(0, row, new string(' ', inner) + "│", _theme.EditorFg, _theme.EditorBg);
     }
 
