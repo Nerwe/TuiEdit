@@ -83,13 +83,13 @@ internal static class Grep
     {
         try
         {
-            if (SidebarState.IsHidden(file))
+            if (FileKinds.IsHidden(file))
                 return true;
             string? dir = Path.GetDirectoryName(Path.GetFullPath(file));
             while (!string.IsNullOrEmpty(dir) && dir.StartsWith(root, StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(dir, root, StringComparison.OrdinalIgnoreCase))
             {
-                if (SidebarState.IsHidden(dir))
+                if (FileKinds.IsHidden(dir))
                     return true;
                 dir = Path.GetDirectoryName(dir);
             }

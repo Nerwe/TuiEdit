@@ -103,50 +103,72 @@ public sealed class SidebarTests : IDisposable
     }
 
     [Fact]
-    public void ModelListsDirsFirst()
+    public void ModelListsTreeDirsFirst()
     {
         var sb = new SidebarState(_root);
         Assert.Equal(Path.GetFullPath(_root), sb.CurrentDir);
-        Assert.True(sb.Entries.Count >= 4); // .., sub, a.txt, b.txt
-        Assert.Equal("..", sb.Entries[0].Name);
-        Assert.True(sb.Entries[0].IsDir);
-        Assert.Equal("sub", sb.Entries[1].Name);
-        Assert.DoesNotContain(sb.Entries, e => e.Name == "a.txt" && e.IsDir);
+        // No ".." anymore: sub, a.txt, b.txt at depth 0.
+        Assert.Equal(["sub", "a.txt", "b.txt"], sb.Rows.Select(r => r.node.Name).ToList());
+        Assert.All(sb.Rows, r => Assert.Equal(0, r.depth));
+        Assert.True(sb.Rows[0].node.IsDir);
+    }
+
+    [Fact]
+    public void ModelToggleExpandCollapse()
+    {
+        File.WriteAllText(Path.Combine(_root, "sub", "inner.txt"), "x");
+        var sb = new SidebarState(_root);
+
+        // Enter on a file is false (opens the editor).
+        while (!sb.Rows[sb.Selected].node.Name.Equals("a.txt", StringComparison.Ordinal))
+            sb.MoveHighlight(1, 10);
+        Assert.False(sb.EnterSelected());
+        Assert.EndsWith("a.txt", sb.SelectedPath);
+
+        // Enter on a folder expands in place (root stays).
+        var sb2 = new SidebarState(_root);
+        Assert.True(sb2.EnterSelected()); // sub is first
+        Assert.Equal(Path.GetFullPath(_root), sb2.CurrentDir);
+        Assert.Equal(["sub", "inner.txt", "a.txt", "b.txt"],
+            sb2.Rows.Select(r => r.node.Name).ToList());
+        Assert.Equal(1, sb2.Rows[1].depth);
+
+        // Enter again collapses.
+        Assert.True(sb2.EnterSelected());
+        Assert.Equal(["sub", "a.txt", "b.txt"], sb2.Rows.Select(r => r.node.Name).ToList());
+    }
+
+    [Fact]
+    public void ModelCollapseOrParent()
+    {
+        File.WriteAllText(Path.Combine(_root, "sub", "inner.txt"), "x");
+        var sb = new SidebarState(_root);
+        sb.EnterSelected(); // expand sub
+        sb.MoveHighlight(1, 10); // inner.txt
+        sb.CollapseOrParent(); // jump to the parent folder
+        Assert.Equal("sub", sb.Rows[sb.Selected].node.Name);
+        sb.CollapseOrParent(); // collapse it
+        Assert.Equal(["sub", "a.txt", "b.txt"], sb.Rows.Select(r => r.node.Name).ToList());
     }
 
     [Fact]
     public void ModelEnterAndScroll()
     {
         var sb = new SidebarState(_root);
-        // Down to the file: Enter on a file is false (opens the editor).
-        while (!sb.Entries[sb.Selected].Name.Equals("a.txt", StringComparison.Ordinal))
-            sb.MoveHighlight(1, 10);
-        Assert.False(sb.EnterSelected());
-        Assert.EndsWith("a.txt", sb.SelectedPath);
-
-        // Enter on a folder — enter it.
-        var sb2 = new SidebarState(_root);
-        while (!sb2.Entries[sb2.Selected].Name.Equals("sub", StringComparison.Ordinal))
-            sb2.MoveHighlight(1, 10);
-        Assert.True(sb2.EnterSelected());
-        Assert.EndsWith("sub", sb2.CurrentDir);
-        Assert.Equal(0, sb2.Selected);
-
-        // Scroll with a window of 2.
-        var sb3 = new SidebarState(_root);
-        sb3.MoveHighlight(3, 2);
-        Assert.Equal(3, sb3.Selected);
-        Assert.Equal(2, sb3.Top);
-        sb3.MoveHighlight(-3, 2);
-        Assert.Equal(0, sb3.Selected);
-        Assert.Equal(0, sb3.Top);
+        // Scroll with a window of 2 over 3 rows.
+        sb.MoveHighlight(2, 2);
+        Assert.Equal(2, sb.Selected);
+        Assert.Equal(1, sb.Top);
+        sb.MoveHighlight(-2, 2);
+        Assert.Equal(0, sb.Selected);
+        Assert.Equal(0, sb.Top);
     }
 
     [Fact]
     public void ModelBadDirSilent()
     {
         var sb = new SidebarState(Path.Combine(_root, "ghost", "\0??"));
-        Assert.Empty(sb.Entries);
+        Assert.Empty(sb.Rows);
         Assert.Null(sb.SelectedPath);
         Assert.False(sb.SelectedIsDir);
         Assert.False(sb.EnterSelected());
@@ -194,11 +216,10 @@ public sealed class SidebarTests : IDisposable
     public void EnterOpensFile()
     {
         var ed = NewEditor();
-        // Panel root is cwd; jump to the test folder directly via the model.
-        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true));
+        // Root the panel at the test folder, then open b.txt with Enter.
+        ed.OpenSidebarRoot(_root);
         var sb = (SidebarState)Field(ed, "_sidebar")!;
-        sb.NavigateTo(_root);
-        while (!sb.Entries[sb.Selected].Name.Equals("b.txt", StringComparison.Ordinal))
+        while (!sb.Rows[sb.Selected].node.Name.Equals("b.txt", StringComparison.Ordinal))
             sb.MoveHighlight(1, 10);
         HandleKey(ed, K('\0', ConsoleKey.Enter));
         // _buf is the active tab property (not a field).
@@ -207,6 +228,62 @@ public sealed class SidebarTests : IDisposable
         Assert.Equal(Path.Combine(_root, "b.txt"), buf.FilePath);
         Assert.False((bool)Field(ed, "_sidebarFocus")!);
         Assert.NotNull(Field(ed, "_sidebar")); // panel stayed open
+    }
+
+    [Fact]
+    public void ArmedDeleteFlow()
+    {
+        string target = Path.Combine(_root, "kill.txt");
+        File.WriteAllText(target, "x");
+        var ed = NewEditor();
+        ed.OpenSidebarRoot(_root);
+        var sb = (SidebarState)Field(ed, "_sidebar")!;
+        while (!sb.Rows[sb.Selected].node.Name.Equals("kill.txt", StringComparison.Ordinal))
+            sb.MoveHighlight(1, 10);
+        HandleKey(ed, K('\0', ConsoleKey.Delete)); // arm — nothing deleted yet
+        Assert.True(File.Exists(target));
+        HandleKey(ed, K('\0', ConsoleKey.Delete)); // confirm
+        Assert.False(File.Exists(target));
+
+        // Another key disarms instead of deleting.
+        string target2 = Path.Combine(_root, "spare.txt");
+        File.WriteAllText(target2, "x");
+        sb.Refresh(); // external creation appears on refresh (a keypress does this live)
+        while (!sb.Rows[sb.Selected].node.Name.Equals("spare.txt", StringComparison.Ordinal))
+            sb.MoveHighlight(1, 10);
+        HandleKey(ed, K('\0', ConsoleKey.Delete)); // arm on spare.txt
+        HandleKey(ed, K('\0', ConsoleKey.UpArrow)); // disarm + move to b.txt
+        HandleKey(ed, K('\0', ConsoleKey.Delete)); // arms b.txt instead of deleting spare
+        Assert.True(File.Exists(target2));
+        Assert.True(File.Exists(Path.Combine(_root, "b.txt")));
+    }
+
+    [Fact]
+    public void TreeFrameGolden()
+    {
+        // Fixed dir name: the panel header shows the root basename (no GUIDs in goldens).
+        string dir = Path.Combine(Path.GetTempPath(), "tui_sb_golden");
+        try
+        {
+            try { Directory.Delete(dir, true); } catch { }
+            Directory.CreateDirectory(Path.Combine(dir, "sub"));
+            File.WriteAllText(Path.Combine(dir, "a.txt"), "x");
+            File.WriteAllText(Path.Combine(dir, "sub", "inner.txt"), "x");
+            var ed = NewEditor();
+            ed.OpenSidebarRoot(dir);
+            var sb = (SidebarState)Field(ed, "_sidebar")!;
+            sb.EnterSelected(); // expand sub
+            var scr = (Screen)typeof(TuiEditor)
+                .GetField("_screen", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
+            scr.Resize(40, 12);
+            typeof(TuiEditor).GetMethod("DrawSidebar", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(ed, [2, 9]);
+            Golden.AssertMatch("sidebar.en.txt", scr);
+        }
+        finally
+        {
+            try { Directory.Delete(dir, true); } catch { }
+        }
     }
 
     [Fact]
