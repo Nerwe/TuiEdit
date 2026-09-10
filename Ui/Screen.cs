@@ -27,11 +27,23 @@ internal sealed class Screen
         _prev = new Cell[Width, Height]; // '\0' is never written, so diff will be full
     }
 
-    /// <summary>Sets a cell (ignores off-screen positions).</summary>
+    /// <summary>
+    /// Maps a character to a safe cell glyph: control characters must never reach
+    /// the console — a raw ESC makes the terminal swallow all following output,
+    /// which looks like a total freeze (dead screen, blinking cursor, no errors).
+    /// Tabs expand to a space (callers needing alignment expand them first);
+    /// every other control becomes the replacement character (single cell).
+    /// NUL passes through: it is the unwritten-cell sentinel (never emitted —
+    /// the diff skips unchanged cells, and a stray NUL byte is ignored by terminals).
+    /// </summary>
+    internal static char SanitizeCell(char c) =>
+        c == '\0' ? '\0' : c == '\t' ? ' ' : char.IsControl(c) ? '�' : c;
+
+    /// <summary>Sets a cell (ignores off-screen positions; sanitizes control characters).</summary>
     public void Set(int x, int y, char ch, Rgb fg, Rgb bg)
     {
         if ((uint)x < (uint)Width && (uint)y < (uint)Height)
-            _cur[x, y] = new Cell(ch, fg, bg);
+            _cur[x, y] = new Cell(SanitizeCell(ch), fg, bg);
     }
 
     /// <summary>Reads a cell (for dimming the backdrop under dialogs).</summary>
