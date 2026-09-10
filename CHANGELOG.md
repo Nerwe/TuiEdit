@@ -7,6 +7,23 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-10
+
+### Fixed
+- Drafts cover all dirty tabs (untitled tabs get per-tab keys, no collisions);
+  writes are atomic (temp file plus rename).
+- Recovery restores everything in one run ("Restore all" plus per-draft loop
+  into new tabs); CLI-opened buffers are never overwritten.
+- Corrupt settings are preserved as `.corrupt` with an in-editor notice
+  instead of a silent reset; null-safe normalization.
+- Unreadable first CLI file shows an error instead of exiting.
+- Broken keybinding lines are skipped per-entry instead of dropping the batch.
+- Guarded Run setup/teardown; format-argument resource test.
+
+### Added
+- Untitled tabs round-trip through the session (256KB cap).
+- `msg.settings.corrupt`, `error.openfile` messages (en/ru).
+
 ## [0.8.0] - 2026-09-10
 
 ### Added
