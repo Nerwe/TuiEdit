@@ -60,30 +60,14 @@ internal sealed class SidebarState
         }
     }
 
-    private static readonly HashSet<string> ExeExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".exe", ".bat", ".cmd", ".com", ".ps1", ".sh" };
-
-    /// <summary>Classifies an entry: hidden means a leading dot or the Hidden attribute, executable means a file with a known extension.</summary>
+    /// <summary>Classifies an entry (delegates to <see cref="FileKinds"/>).</summary>
     internal static SidebarEntry Classify(string fullPath, bool isDir)
     {
-        string name = Path.GetFileName(fullPath);
-        bool exe = !isDir && ExeExtensions.Contains(Path.GetExtension(name));
-        return new SidebarEntry(name, isDir, IsHidden(fullPath), exe);
+        FileKind kind = FileKinds.Classify(fullPath, isDir);
+        return new SidebarEntry(kind.Name, kind.IsDir, kind.IsHidden, kind.IsExe);
     }
 
-    internal static bool IsHidden(string fullPath)
-    {
-        if (Path.GetFileName(fullPath).StartsWith('.'))
-            return true;
-        try
-        {
-            return (File.GetAttributes(fullPath) & FileAttributes.Hidden) != 0;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    internal static bool IsHidden(string fullPath) => FileKinds.IsHidden(fullPath);
 
     /// <summary>Moves the highlight (keeps the visible window via visCount).</summary>
     public void MoveHighlight(int d, int visCount)
