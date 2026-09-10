@@ -151,6 +151,7 @@
   "sidebar.rename.title": "Rename",
   "sidebar.prompt.hint": "Enter accepts, Esc cancels (trailing slash makes a folder)",
   "sidebar.delete.arm": "Delete {0} [{1}]? Press Del again to confirm.",
+  "sidebar.preview.large": "Too large to preview: {0}.",
   "sidebar.msg.created": "Created {0}.",
   "sidebar.msg.deleted": "Deleted {0}.",
   "sidebar.msg.renamed": "Renamed to {0}.",

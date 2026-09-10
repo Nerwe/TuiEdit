@@ -151,6 +151,7 @@
   "sidebar.rename.title": "Переименовать",
   "sidebar.prompt.hint": "Enter — принять, Esc — отмена (слеш в конце — папка)",
   "sidebar.delete.arm": "Удалить {0} [{1}]? Нажми Del ещё раз.",
+  "sidebar.preview.large": "Слишком большой для превью: {0}.",
   "sidebar.msg.created": "Создано: {0}.",
   "sidebar.msg.deleted": "Удалено: {0}.",
   "sidebar.msg.renamed": "Переименовано в {0}.",

@@ -287,6 +287,82 @@ public sealed class SidebarTests : IDisposable
     }
 
     [Fact]
+    public void NavigateShowsPreviewInSameTab()
+    {
+        File.WriteAllText(Path.Combine(_root, "a.txt"), "AAA");
+        File.WriteAllText(Path.Combine(_root, "b.txt"), "BBB");
+        var ed = NewEditor();
+        ed.OpenSidebarRoot(_root);
+        HandleKey(ed, K('\0', ConsoleKey.DownArrow)); // a.txt: preview
+        Assert.Equal(1, ed.TabCount);
+        Assert.EndsWith("a.txt", ActiveBufPath(ed));
+        Assert.Equal("AAA", ActiveBuf(ed).GetLine(0));
+        HandleKey(ed, K('\0', ConsoleKey.DownArrow)); // b.txt: same tab reused
+        Assert.Equal(1, ed.TabCount);
+        Assert.EndsWith("b.txt", ActiveBufPath(ed));
+        Assert.Equal("BBB", ActiveBuf(ed).GetLine(0));
+    }
+
+    [Fact]
+    public void EnterPinsPreview()
+    {
+        File.WriteAllText(Path.Combine(_root, "a.txt"), "AAA");
+        File.WriteAllText(Path.Combine(_root, "b.txt"), "BBB");
+        var ed = NewEditor();
+        ed.OpenSidebarRoot(_root);
+        HandleKey(ed, K('\0', ConsoleKey.DownArrow));
+        HandleKey(ed, K('\0', ConsoleKey.DownArrow)); // preview b.txt
+        Assert.EndsWith("b.txt", ActiveBufPath(ed));
+        HandleKey(ed, K('\0', ConsoleKey.Enter)); // pin
+        Assert.False((bool)Field(ed, "_sidebarFocus")!);
+        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // back to the panel
+        HandleKey(ed, K('\0', ConsoleKey.UpArrow)); // preview a.txt elsewhere
+        Assert.Equal(2, ed.TabCount); // pinned b.txt kept
+        Assert.EndsWith("a.txt", ActiveBufPath(ed));
+    }
+
+    [Fact]
+    public void DirtyPreviewPinsOnNavigate()
+    {
+        File.WriteAllText(Path.Combine(_root, "a.txt"), "AAA");
+        File.WriteAllText(Path.Combine(_root, "b.txt"), "BBB");
+        var ed = NewEditor();
+        ed.OpenSidebarRoot(_root);
+        HandleKey(ed, K('\0', ConsoleKey.DownArrow));
+        HandleKey(ed, K('\0', ConsoleKey.DownArrow)); // preview b.txt
+        HandleKey(ed, K('\x1B', ConsoleKey.Escape)); // focus to text
+        HandleKey(ed, K('X', ConsoleKey.X)); // dirty the preview
+        HandleKey(ed, K('\x02', ConsoleKey.B, ctrl: true)); // back to the panel
+        HandleKey(ed, K('\0', ConsoleKey.UpArrow)); // preview a.txt
+        Assert.Equal(2, ed.TabCount); // edited b.txt pinned, not replaced
+        ed.SwitchTab(0);
+        Assert.StartsWith("XBBB", ActiveBuf(ed).GetLine(0));
+    }
+
+    [Fact]
+    public void LargeFileSkipsPreview()
+    {
+        string big = Path.Combine(_root, "big.bin");
+        using (var fs = File.Create(big))
+            fs.SetLength(TuiEditor.LargeFileBytes + 1);
+        File.WriteAllText(Path.Combine(_root, "a.txt"), "AAA");
+        var ed = NewEditor();
+        ed.OpenSidebarRoot(_root);
+        var sb = (SidebarState)Field(ed, "_sidebar")!;
+        while (!sb.Rows[sb.Selected].node.Name.Equals("b.txt", StringComparison.Ordinal))
+            sb.MoveHighlight(1, 10);
+        HandleKey(ed, K('\0', ConsoleKey.DownArrow)); // lands on big.bin: skipped
+        Assert.Equal(1, ed.TabCount); // startup tab untouched
+        Assert.Null(ActiveBuf(ed).FilePath);
+    }
+
+    private static TextBuffer ActiveBuf(TuiEditor ed) =>
+        (TextBuffer)typeof(TuiEditor).GetProperty("_buf", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(ed)!;
+
+    private static string? ActiveBufPath(TuiEditor ed) => ActiveBuf(ed).FilePath;
+
+    [Fact]
     public void TypingSwallowedInFocus()
     {
         var ed = NewEditor();

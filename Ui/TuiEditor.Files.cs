@@ -460,25 +460,139 @@ internal sealed partial class TuiEditor
             case ConsoleKey.F2: SidebarRenameFlow(); return;
             case ConsoleKey.Delete:
             case ConsoleKey.F8: SidebarDeleteFlow(); return;
-            case ConsoleKey.UpArrow: _sidebar.MoveHighlight(-1, TextHeight()); return;
-            case ConsoleKey.DownArrow: _sidebar.MoveHighlight(1, TextHeight()); return;
-            case ConsoleKey.LeftArrow: _sidebar.CollapseOrParent(); return;
-            case ConsoleKey.RightArrow: _sidebar.ExpandSelected(); return;
-            case ConsoleKey.Home: _sidebar.MoveHighlight(int.MinValue / 2, TextHeight()); return;
-            case ConsoleKey.End: _sidebar.MoveHighlight(int.MaxValue / 2, TextHeight()); return;
-            case ConsoleKey.PageUp: _sidebar.MoveHighlight(-Math.Max(1, TextHeight() - 1), TextHeight()); return;
-            case ConsoleKey.PageDown: _sidebar.MoveHighlight(Math.Max(1, TextHeight() - 1), TextHeight()); return;
+            case ConsoleKey.UpArrow: _sidebar.MoveHighlight(-1, TextHeight()); break;
+            case ConsoleKey.DownArrow: _sidebar.MoveHighlight(1, TextHeight()); break;
+            case ConsoleKey.LeftArrow: _sidebar.CollapseOrParent(); break;
+            case ConsoleKey.RightArrow: _sidebar.ExpandSelected(); break;
+            case ConsoleKey.Home: _sidebar.MoveHighlight(int.MinValue / 2, TextHeight()); break;
+            case ConsoleKey.End: _sidebar.MoveHighlight(int.MaxValue / 2, TextHeight()); break;
+            case ConsoleKey.PageUp: _sidebar.MoveHighlight(-Math.Max(1, TextHeight() - 1), TextHeight()); break;
+            case ConsoleKey.PageDown: _sidebar.MoveHighlight(Math.Max(1, TextHeight() - 1), TextHeight()); break;
             case ConsoleKey.Enter:
                 if (_sidebar.EnterSelected())
                     return;
                 string? path = _sidebar.SelectedPath;
                 if (path is null)
                     return;
-                _sidebarFocus = false;
                 _sidebarDelete = null;
-                OpenPicked(path);
+                PinOrOpenSelected(path);
                 return;
+            default: return;
         }
+        PreviewSelectedFile();
+    }
+
+    /// <summary>
+    /// Shows the highlighted file in the single preview tab (same tab is reused
+    /// while clean; a dirty preview pins itself first so edits are never lost).
+    /// Focus stays in the panel; Enter pins. Never throws.
+    /// </summary>
+    private void PreviewSelectedFile()
+    {
+        if (_sidebar is null)
+            return;
+        var cur = _sidebar.Current;
+        if (cur is null || cur.Value.node.IsDir)
+            return;
+        string path = cur.Value.node.Path;
+        try
+        {
+            if (_previewTab is not null
+                && (!_docs.Contains(_previewTab) || _previewTab.Buf.IsModified))
+                _previewTab = null; // pinned (kept) or closed elsewhere
+            int open = _docs.FindIndex(d => SamePath(d.Buf.FilePath, path));
+            DocTab target;
+            if (open >= 0)
+            {
+                target = _docs[open]; // already open — reveal, never duplicate
+            }
+            else
+            {
+                if (IsPreviewTooLarge(path))
+                    return;
+                target = PickPreviewTab();
+                try
+                {
+                    target.Buf.Open(path);
+                }
+                catch (Exception ex)
+                {
+                    SetMessage($"{_loc["error.open"]}: {DisplayError(ex)}");
+                    return;
+                }
+            }
+            SaveTabState();
+            _active = _docs.IndexOf(target);
+            LoadTabState();
+            _row = 0;
+            _col = 0;
+            _top = 0;
+            _left = 0;
+            _topSeg = 0;
+            ClampCursor();
+            TrackCol();
+            SaveTabState();
+            _previewTab = target;
+        }
+        catch
+        {
+        }
+    }
+
+    /// <summary>Picks the tab to preview into: valid preview, clean startup tab, or new.</summary>
+    private DocTab PickPreviewTab()
+    {
+        if (_previewTab is not null)
+            return _previewTab;
+        if (_buf.FilePath is null && !_buf.IsModified)
+            return _docs[_active];
+        SaveTabState();
+        var tab = new DocTab(new TextBuffer(null));
+        _docs.Add(tab);
+        return tab;
+    }
+
+    private bool IsPreviewTooLarge(string path)
+    {
+        long bytes;
+        try
+        {
+            bytes = new FileInfo(path).Length;
+        }
+        catch
+        {
+            return false; // size unknown — let Open report any error
+        }
+        if (bytes <= LargeFileBytes)
+            return false;
+        SetMessage(_loc.Format("sidebar.preview.large", ShortFileName(path)));
+        return true;
+    }
+
+    /// <summary>Enter on a file: pin the preview, else open normally (unsaved guard kept).</summary>
+    private void PinOrOpenSelected(string path)
+    {
+        if (_previewTab is not null && _docs.Contains(_previewTab)
+            && SamePath(_previewTab.Buf.FilePath, path))
+        {
+            int idx = _docs.IndexOf(_previewTab);
+            _previewTab = null; // pinned — content and cursor stay
+            SwitchTab(idx); // ensure the pinned tab is active
+            _sidebarFocus = false;
+            return;
+        }
+        _sidebarFocus = false;
+        OpenPicked(path);
+    }
+
+    private static bool SamePath(string? a, string? b)
+    {
+        if (a is null || b is null)
+            return false;
+        StringComparison cmp = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        return string.Equals(a, b, cmp);
     }
 
     private string? _sidebarDelete; // armed delete target (full path): Del again confirms
