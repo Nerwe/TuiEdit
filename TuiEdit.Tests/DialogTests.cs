@@ -290,7 +290,7 @@ public sealed class DialogTests : IClassFixture<TempDir>
     public void HelpDialogStructureAndScroll()
     {
         var hd = new HelpDialog(_loc);
-        Assert.Equal(24, hd.TotalRows); // 7 headers + 17 rows, no footer
+        Assert.Equal(25, hd.TotalRows); // 7 headers + 18 rows, no footer
         Assert.Equal(0, hd.Scroll);
         hd.HandleKey(K('\0', ConsoleKey.DownArrow));
         Assert.Equal(1, hd.Scroll);
@@ -300,7 +300,7 @@ public sealed class DialogTests : IClassFixture<TempDir>
         small.Resize(96, 12);
         hd.HandleKey(K('\0', ConsoleKey.End));
         hd.Draw(small, _theme, _loc);
-        Assert.Equal(24 - HelpDialog.VisibleRows(12), hd.Scroll); // clamp to the bottom
+        Assert.Equal(25 - HelpDialog.VisibleRows(12), hd.Scroll); // clamp to the bottom
         hd.HandleKey(K('\0', ConsoleKey.Home));
         hd.Draw(small, _theme, _loc);
         Assert.Equal(0, hd.Scroll);
@@ -395,6 +395,8 @@ public sealed class DialogTests : IClassFixture<TempDir>
         Assert.Contains(all, e => e is SettingEntry s && s.Row == 9);
         Assert.Contains(all, e => e is CommandEntry c && c.Command == EditorCommand.CopyLine);
         Assert.Contains(all, e => e is CommandEntry c && c.Command == EditorCommand.ListTabs);
+        Assert.Contains(all, e => e is CommandEntry c && c.Command == EditorCommand.DelWordBefore);
+        Assert.Contains(all, e => e is CommandEntry c && c.Command == EditorCommand.DelWordAfter);
         // Filter: caption, setting value, and command shortcut.
         Assert.Equal([new SettingEntry(9)],
             CommandPaletteDialog.ApplyFilter(all, "mouse", settings, loc));

@@ -23,21 +23,21 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 ## Hotkeys
 
 ```text
-^S save (asks for name if new)   Ctrl+Shift+S save as   ^Q quit
+^S save (asks for name if new)   Ctrl+Shift+S save as   ^Q quit   ^N new
 File menu — Save all, File format (`F9`)
-^F find       F3 next / Shift+F3 prev   ^H replace   ^G go to line
+^F find       F3 next / Shift+F3 prev   ^H replace   ^G go to line   Ctrl+Shift+F grep
   (in Find: Alt+C match case, Alt+W whole words, Alt+R regex)
 ^K cut line  ^U/^V paste  ^C copy line  ^D duplicate
 Ctrl+/ toggle line comment  Alt+] matching bracket
 ^C also puts the copy into the system clipboard (Windows Terminal) — paste with Ctrl+V
 ^Z undo  ^Y redo  ^A select all   Shift+arrows — selection
-arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Alt+up/down — move line
+arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Ctrl+BS/Del — delete word, Ctrl+E/Home/End — doc start/end, Alt+up/down — move line
 Enter — new line, Tab — indent, Shift+Tab — unindent
 F10 or Alt+F/E/H — menu (arrows/Enter/Esc, letter hotkey)
 F1 — help   Alt+N — line numbers   Alt+Z — word wrap   Ctrl+B — file tree (arrows/Enter, F7 new, F2 rename, Del delete)
 F9 — file format (encoding / line endings)   F4 — document stats   F5 — command palette (commands, menus, settings search)   F12 — command line
 F2 — bookmark   Shift+F2 — next bookmark   Alt+- — fold   Ctrl+Space — complete
-Ctrl+PgDn — next tab   Ctrl+PgUp — prev (Ctrl+Tab where the terminal passes it)
+Ctrl+PgDn — next tab   Ctrl+PgUp — prev (Ctrl+Tab / Ctrl+Shift+Tab where the terminal passes them)
 Ctrl+T — new tab   Ctrl+W — close tab
 Alt+1..9,0 — jump to tab   Ctrl+P — tab list   Alt+O — quick open
 ```
