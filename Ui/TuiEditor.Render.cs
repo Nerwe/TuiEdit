@@ -553,7 +553,7 @@ internal sealed partial class TuiEditor
     /// </summary>
     private void DrawTabs(int px, int pw, bool focused)
     {
-        if (_docs.Count <= 1)
+        if (_docs.Count <= 1 || pw <= 0)
             return;
         var cells = new List<string>();
         var widths = new List<int>();

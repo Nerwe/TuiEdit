@@ -51,6 +51,7 @@ internal sealed class GitService : IGitService
     private StatusInfo? _statusCached; // null is cached too (not a repo), to avoid useless forks
     private DateTime _statusAt = DateTime.MinValue;
     private CancellationTokenSource? _statusCts; // latest refresh; superseded refreshes are cancelled
+    private bool _statusRefreshing; // one query in flight: stale readers wait for it, no spawn storm
 
     private readonly object _diffGate = new();
     private string? _diffFile;
@@ -59,6 +60,7 @@ internal sealed class GitService : IGitService
     private HashSet<int> _diffModified = [];
     private DateTime _diffAt = DateTime.MinValue;
     private CancellationTokenSource? _diffCts; // latest refresh; superseded refreshes are cancelled
+    private bool _diffRefreshing; // one query in flight: stale readers wait for it, no spawn storm
 
     private readonly object _changesGate = new();
     private string? _changesRoot;
@@ -66,6 +68,7 @@ internal sealed class GitService : IGitService
     private HashSet<string> _changesModified = new(StringComparer.OrdinalIgnoreCase);
     private DateTime _changesAt = DateTime.MinValue;
     private CancellationTokenSource? _changesCts; // latest refresh; superseded refreshes are cancelled
+    private bool _changesRefreshing; // one query in flight: stale readers wait for it, no spawn storm
 
     /// <inheritdoc/>
     public string? StatusSegment(string? filePath)
@@ -75,13 +78,14 @@ internal sealed class GitService : IGitService
             return null;
         lock (_statusGate)
         {
-            if (dir != _statusDir)
+            bool keyChanged = dir != _statusDir;
+            if (keyChanged)
             {
                 _statusDir = dir;
                 _statusCached = null;
                 _statusAt = DateTime.MinValue; // new location — refresh immediately
             }
-            if (DateTime.UtcNow - _statusAt >= Ttl)
+            if (keyChanged || (DateTime.UtcNow - _statusAt >= Ttl && !_statusRefreshing))
                 TriggerStatusRefresh(dir);
             return _statusCached is null ? null : Segment(_statusCached.Branch, _statusCached.Dirty);
         }
@@ -105,7 +109,8 @@ internal sealed class GitService : IGitService
         }
         lock (_diffGate)
         {
-            if (full != _diffFile || mtime != _diffMtime)
+            bool keyChanged = full != _diffFile || mtime != _diffMtime;
+            if (keyChanged)
             {
                 _diffFile = full;
                 _diffMtime = mtime;
@@ -113,7 +118,7 @@ internal sealed class GitService : IGitService
                 _diffModified = [];
                 _diffAt = DateTime.MinValue; // new location — refresh immediately
             }
-            if (DateTime.UtcNow - _diffAt >= Ttl)
+            if (keyChanged || (DateTime.UtcNow - _diffAt >= Ttl && !_diffRefreshing))
                 TriggerDiffRefresh(full);
             return (_diffAdded, _diffModified);
         }
@@ -127,14 +132,15 @@ internal sealed class GitService : IGitService
             return (EmptyPaths, EmptyPaths);
         lock (_changesGate)
         {
-            if (root != _changesRoot)
+            bool keyChanged = root != _changesRoot;
+            if (keyChanged)
             {
                 _changesRoot = root;
                 _changesAdded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 _changesModified = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 _changesAt = DateTime.MinValue; // new location — refresh immediately
             }
-            if (DateTime.UtcNow - _changesAt >= Ttl)
+            if (keyChanged || (DateTime.UtcNow - _changesAt >= Ttl && !_changesRefreshing))
                 TriggerChangesRefresh(root);
             return (_changesAdded, _changesModified);
         }
@@ -166,11 +172,13 @@ internal sealed class GitService : IGitService
     /// <summary>Starts a cancellable background changes refresh, superseding the previous one.</summary>
     private void TriggerChangesRefresh(string root)
     {
+        // No Dispose: the outgoing task may still read its token (IsCancellationRequested).
+        // CTS finalization is left to the GC — correctness over handle frugality.
         _changesCts?.Cancel();
-        _changesCts?.Dispose();
         var cts = new CancellationTokenSource();
         _changesCts = cts;
-        _ = RefreshChangesAsync(root, cts.Token);
+        _changesRefreshing = true;
+        _ = RefreshChangesAsync(root, cts.Token, cts);
     }
 
     /// <summary>
@@ -181,20 +189,25 @@ internal sealed class GitService : IGitService
     /// <param name="root">The repository root to query.</param>
     /// <param name="ct">Cancels the query (superseded refresh).</param>
     internal async Task<(IReadOnlySet<string> added, IReadOnlySet<string> modified)> RefreshChangesAsync(
-        string root, CancellationToken ct)
+        string root, CancellationToken ct, CancellationTokenSource? owner = null)
     {
         (HashSet<string> added, HashSet<string> modified) fresh;
+        bool ok = false;
         try
         {
             fresh = await QueryChangesAsync(root, ct).ConfigureAwait(false);
+            ok = true;
         }
         catch
         {
-            return (EmptyPaths, EmptyPaths);
+            fresh = ([], []);
         }
         lock (_changesGate)
         {
-            if (ct.IsCancellationRequested || root != _changesRoot)
+            if (owner is not null && !ReferenceEquals(_changesCts, owner))
+                return (EmptyPaths, EmptyPaths); // superseded: a newer task owns the flag
+            _changesRefreshing = false;
+            if (!ok || ct.IsCancellationRequested || root != _changesRoot)
                 return (EmptyPaths, EmptyPaths); // superseded — drop silently
             _changesAdded = fresh.added;
             _changesModified = fresh.modified;
@@ -266,21 +279,23 @@ internal sealed class GitService : IGitService
     /// <summary>Starts a cancellable background status refresh, superseding the previous one.</summary>
     private void TriggerStatusRefresh(string dir)
     {
+        // No Dispose: the outgoing task may still read its token (IsCancellationRequested).
         _statusCts?.Cancel();
-        _statusCts?.Dispose();
         var cts = new CancellationTokenSource();
         _statusCts = cts;
-        _ = RefreshStatusAsync(dir, cts.Token);
+        _statusRefreshing = true;
+        _ = RefreshStatusAsync(dir, cts.Token, cts);
     }
 
     /// <summary>Starts a cancellable background diff refresh, superseding the previous one.</summary>
     private void TriggerDiffRefresh(string full)
     {
+        // No Dispose: the outgoing task may still read its token (IsCancellationRequested).
         _diffCts?.Cancel();
-        _diffCts?.Dispose();
         var cts = new CancellationTokenSource();
         _diffCts = cts;
-        _ = RefreshDiffAsync(full, cts.Token);
+        _diffRefreshing = true;
+        _ = RefreshDiffAsync(full, cts.Token, cts);
     }
 
     /// <summary>
@@ -289,20 +304,24 @@ internal sealed class GitService : IGitService
     /// </summary>
     /// <param name="dir">The directory to query.</param>
     /// <param name="ct">Cancels the query (superseded refresh).</param>
-    internal async Task<string?> RefreshStatusAsync(string dir, CancellationToken ct)
+    internal async Task<string?> RefreshStatusAsync(string dir, CancellationToken ct, CancellationTokenSource? owner = null)
     {
-        StatusInfo? fresh;
+        StatusInfo? fresh = null;
+        bool ok = false;
         try
         {
             fresh = await QueryStatusAsync(dir, ct).ConfigureAwait(false);
+            ok = true;
         }
         catch
         {
-            return null;
         }
         lock (_statusGate)
         {
-            if (ct.IsCancellationRequested || dir != _statusDir)
+            if (owner is not null && !ReferenceEquals(_statusCts, owner))
+                return null; // superseded: a newer task owns the flag
+            _statusRefreshing = false;
+            if (!ok || ct.IsCancellationRequested || dir != _statusDir)
                 return null; // superseded — drop silently
             _statusCached = fresh;
             _statusAt = DateTime.UtcNow;
@@ -317,20 +336,25 @@ internal sealed class GitService : IGitService
     /// <param name="full">The full file path to query.</param>
     /// <param name="ct">Cancels the query (superseded refresh).</param>
     internal async Task<(IReadOnlySet<int> added, IReadOnlySet<int> modified)> RefreshDiffAsync(
-        string full, CancellationToken ct)
+        string full, CancellationToken ct, CancellationTokenSource? owner = null)
     {
         (HashSet<int> added, HashSet<int> modified) fresh;
+        bool ok = false;
         try
         {
             fresh = await QueryDiffAsync(full, ct).ConfigureAwait(false);
+            ok = true;
         }
         catch
         {
-            return (Empty, Empty);
+            fresh = ([], []);
         }
         lock (_diffGate)
         {
-            if (ct.IsCancellationRequested || full != _diffFile)
+            if (owner is not null && !ReferenceEquals(_diffCts, owner))
+                return (Empty, Empty); // superseded: a newer task owns the flag
+            _diffRefreshing = false;
+            if (!ok || ct.IsCancellationRequested || full != _diffFile)
                 return (Empty, Empty); // superseded — drop silently
             _diffAdded = fresh.added;
             _diffModified = fresh.modified;
