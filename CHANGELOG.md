@@ -7,6 +7,15 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+### Fixed
+- `Ctrl+/` on the Russian layout (`Ctrl+Oem2` maps to `ToggleComment`).
+- Stale selection anchor no longer widens the commented line range to zero.
+- Sidebar spans the full panel height; the tab row starts right of it.
+
+### Added
+- Instant preview tab while navigating the sidebar; `Enter` pins it
+  (large files are not previewed).
+
 ## [0.9.0] - 2026-09-10
 
 ### Fixed
