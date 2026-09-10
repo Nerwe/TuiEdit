@@ -1,0 +1,24 @@
+
+
+
+
+                       ┌─ Settings ──────────────────esc┐
+                       │ ● Theme            < Dark >    │
+                       │   Language         < English > │
+                       │   Line numbers     < On >      │
+                       │   Word wrap        < Off >     │
+                       │   Whitespace       < Off >     │
+                       │   Ruler column     < Off >     │
+                       │   .bak backup      < Off >     │
+                       │   Indent guides    < On >      │
+                       │   Restore session  < Off >     │
+                       │   Mouse            < Off >     │
+                       │   Copy on select   < On >      │
+                       │   Auto pairs       < On >      │
+                       │   Git gutter       < On >      │
+                       └────────────────────────────────┘
+
+
+
+
+

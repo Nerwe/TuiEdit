@@ -38,6 +38,27 @@ internal sealed class Screen
     public Cell At(int x, int y) =>
         (uint)x < (uint)Width && (uint)y < (uint)Height ? _cur[x, y] : default;
 
+    /// <summary>
+    /// Snapshots the frame as text rows (unwritten cells read as spaces,
+    /// trailing whitespace trimmed). For golden tests — no reflection needed.
+    /// </summary>
+    public List<string> Snapshot()
+    {
+        var rows = new List<string>(Height);
+        var sb = new System.Text.StringBuilder(Width);
+        for (int y = 0; y < Height; y++)
+        {
+            sb.Clear();
+            for (int x = 0; x < Width; x++)
+            {
+                char c = _cur[x, y].Ch;
+                sb.Append(c == '\0' ? ' ' : c);
+            }
+            rows.Add(sb.ToString().TrimEnd());
+        }
+        return rows;
+    }
+
     public void Text(int x, int y, string text, Rgb fg, Rgb bg)
     {
         ArgumentNullException.ThrowIfNull(text);

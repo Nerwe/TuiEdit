@@ -1,0 +1,24 @@
+
+
+
+
+
+
+                   ┌─ About ────────────────────────────esc┐
+                   │             TuiEdit 0.5.0             │
+                   │  A simple keyboard-first TUI editor.  │
+                   │     Release date: September 2026      │
+                   │              Author: Yar              │
+                   │             License: MIT              │
+                   │                                       │
+                   │                  OK                   │
+                   └───────────────────────────────────────┘
+
+
+
+
+
+
+
+
+

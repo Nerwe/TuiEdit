@@ -1,0 +1,24 @@
+
+
+
+
+
+
+       ┌─ Open error ────────────────────────────────────────────────esc┐
+       │  Access to the path is denied even though it looked readable.  │
+       │                                                                │
+       │                               OK                               │
+       │                       Enter/Esc — close                        │
+       └────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+

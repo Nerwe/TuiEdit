@@ -1,0 +1,24 @@
+
+
+
+
+
+
+            ┌─ Command palette ────────────────────────────────esc┐
+            │❯ sav                                                │
+            │ ● File: Save        ^S                              │
+            │   File: Save as...  Ctrl+Shift+S                    │
+            │   File: Save all                                    │
+            │↑↓ — move • ←→ — change • Enter — apply • Esc — close│
+            └─────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
