@@ -108,6 +108,9 @@ public sealed class FileOpsTests(TempDir tmp) : IClassFixture<TempDir>
         Assert.False(FileOps.ValidName("."));
         Assert.False(FileOps.ValidName(".."));
         Assert.False(FileOps.ValidName("a/b"));
-        Assert.False(FileOps.ValidName("a\\b"));
+        if (OperatingSystem.IsWindows())
+            Assert.False(FileOps.ValidName("a\\b")); // separator on Windows only
+        else
+            Assert.True(FileOps.ValidName("a\\b")); // ordinary char on Linux
     }
 }
