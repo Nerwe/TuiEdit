@@ -46,6 +46,8 @@ internal sealed partial class TuiEditor
     /// <summary>Gets the lines affected by the selection (a row with ec==0 is excluded).</summary>
     private (int First, int Last) SelectionLineRange()
     {
+        if (!_sel.HasSelection(_row, _col))
+            return (_row, _row); // no selection — stale anchor must not widen to line 0
         var (sr, _, er, ec) = _sel.Normalize(_row, _col);
         if (ec == 0 && er > sr)
             er--;

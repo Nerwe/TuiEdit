@@ -31,6 +31,7 @@ internal sealed partial class TuiEditor
     internal string? _liveSearch;
     private bool _quitRequested;
     private readonly TextSelection _sel = new();
+    private DocTab? _previewTab; // single sidebar preview tab (null — pinned or gone)
     private MenuState? _menu;   // null means the menu bar is closed
     private SidebarState? _sidebar; // null means the file panel is closed (SidebarState.Width wide)
     private bool _sidebarFocus;     // Input goes to the panel, not the text

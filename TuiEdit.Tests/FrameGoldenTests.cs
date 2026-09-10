@@ -42,6 +42,8 @@ public sealed class FrameGoldenTests
             ed.OpenSidebarRoot(dir);
             var sb = (SidebarState)Field(ed, "_sidebar")!;
             sb.EnterSelected(); // expand src
+            ed.NewTab(); // second tab: the tab row must start right of the panel
+            ActiveBuf(ed).TrySetEnding("lf"); // fresh tabs get the OS default ending
             Frame(ed, 80, 24);
             Golden.AssertMatch("frame-sidebar.en.txt", ScreenOf(ed));
         }

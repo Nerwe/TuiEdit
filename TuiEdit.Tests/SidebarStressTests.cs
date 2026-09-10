@@ -128,7 +128,7 @@ public sealed class SidebarStressTests : IDisposable
             .GetField("_screen", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!;
         scr.Resize(60, 20);
         typeof(TuiEditor).GetMethod("DrawSidebar", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(ed, [2, 17]);
+            .Invoke(ed, []);
     }
 
     private static TuiEditor NewEditor() =>

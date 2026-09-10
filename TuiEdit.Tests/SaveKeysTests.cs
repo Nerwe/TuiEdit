@@ -23,6 +23,20 @@ public sealed class SaveKeysTests
     }
 
     [Fact]
+    public void CommentSlashForms()
+    {
+        // The "/" key reports as Divide, Oem2, or bare 0x1F depending on terminal/layout.
+        Assert.Equal(EditorCommand.ToggleComment,
+            KeyMap.Map(new ConsoleKeyInfo('/', ConsoleKey.Divide, false, false, true)));
+        Assert.Equal(EditorCommand.ToggleComment,
+            KeyMap.Map(new ConsoleKeyInfo('/', ConsoleKey.Oem2, false, false, true)));
+        Assert.Equal(EditorCommand.ToggleComment,
+            KeyMap.Map(new ConsoleKeyInfo('\x1F', ConsoleKey.Oem2, false, false, true)));
+        // Bare Oem2 still types text.
+        Assert.Equal(EditorCommand.InsertChar, KeyMap.Map(K('/', ConsoleKey.Oem2)));
+    }
+
+    [Fact]
     public void NeighbourKeysIntact()
     {
         Assert.Equal(EditorCommand.Quit, KeyMap.Map(K('\x11', ConsoleKey.Q, ctrl: true)));
