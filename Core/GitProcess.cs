@@ -19,6 +19,43 @@ internal static class GitProcess
     /// Returns true when in doubt (no access, odd path, GIT_DIR set):
     /// lets git itself decide, already bounded by the timeout below.
     /// </summary>
+    /// <summary>
+    /// Finds the repository root above <paramref name="dir"/> (a folder holding
+    /// <c>.git</c> as a directory, worktree/submodule file). Null when there is
+    /// none — or on any doubt (no access, odd path, GIT_DIR): unlike
+    /// <see cref="HasRepoRoot"/>, doubt means null rather than true.
+    /// </summary>
+    /// <param name="dir">The directory to search upward from.</param>
+    internal static string? RepoRoot(string dir)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GIT_DIR")))
+                return null;
+            string? cur = Path.GetFullPath(dir);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int depth = 0; depth < 64 && cur is not null && seen.Add(cur); depth++)
+            {
+                try
+                {
+                    if (File.Exists(Path.Combine(cur, ".git"))
+                        || Directory.Exists(Path.Combine(cur, ".git")))
+                        return cur;
+                }
+                catch
+                {
+                    return null;
+                }
+                cur = Path.GetDirectoryName(cur);
+            }
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     internal static bool HasRepoRoot(string dir)
     {
         try

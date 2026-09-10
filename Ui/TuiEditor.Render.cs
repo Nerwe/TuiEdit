@@ -493,27 +493,44 @@ internal sealed partial class TuiEditor
             title = "…" + title[^(inner - 1)..];
         _screen.Text(0, y0, Dialog.FitCell(title, inner) + "│", _theme.MenuOpenFg, _theme.MenuOpenBg);
         int visCount = Math.Max(1, textHeight - 1);
-        int vis = Math.Min(visCount, _sidebar.Entries.Count - _sidebar.Top);
+        var rows = _sidebar.Rows;
+        int vis = Math.Min(visCount, rows.Count - _sidebar.Top);
         for (int vi = 0; vi < vis; vi++)
         {
             int i = _sidebar.Top + vi;
-            SidebarEntry e = _sidebar.Entries[i];
-            string label = (e.IsDir ? "+ " : "  ") + e.Name;
+            var (node, depth) = rows[i];
+            string marker = node.IsDir ? (node.IsExpanded ? "▾ " : "▸ ") : "  ";
+            string label = new string(' ', Math.Min(depth, 8) * 2) + marker + node.Name;
+            var kind = new SidebarEntry(node.Name, node.IsDir, node.IsHidden, node.IsExe);
             if (label.Length > inner)
                 label = label[..(inner - 1)] + "…";
             if (vi == 0 && _sidebar.Top > 0)
                 label = label[..^1] + "↑";
-            if (vi == vis - 1 && _sidebar.Top + vis < _sidebar.Entries.Count)
+            if (vi == vis - 1 && _sidebar.Top + vis < rows.Count)
                 label = label[..^1] + "↓";
             string cell = Dialog.FitCell(label, inner) + "│";
             int row = y0 + 1 + vi;
             if (i == _sidebar.Selected)
                 _screen.Text(0, row, cell, _theme.ButtonSelFg, _theme.ButtonSelBg);
             else
-                _screen.Text(0, row, cell, EntryFg(_theme, e), _theme.EditorBg);
+                _screen.Text(0, row, cell, SidebarRowFg(_theme, kind, node), _theme.EditorBg);
         }
         for (int row = y0 + 1 + vis; row < y0 + textHeight; row++)
             _screen.Text(0, row, new string(' ', inner) + "│", _theme.EditorFg, _theme.EditorBg);
+    }
+
+    /// <summary>Gets the sidebar row color: git marks win (when enabled), then kind.</summary>
+    private Rgb SidebarRowFg(Theme theme, SidebarEntry kind, SidebarNode node)
+    {
+        if (_settings.GitGutter && _sidebar is SidebarState sidebar)
+        {
+            var (added, modified) = sidebar.GitMark(node);
+            if (added)
+                return theme.GitAddFg;
+            if (modified)
+                return theme.GitModFg;
+        }
+        return EntryFg(theme, kind);
     }
 
     /// <summary>Gets the sidebar entry color by kind (the selected entry paints separately).</summary>
@@ -536,7 +553,7 @@ internal sealed partial class TuiEditor
     /// </summary>
     private void DrawTabs(int px, int pw, bool focused)
     {
-        if (_docs.Count <= 1)
+        if (_docs.Count <= 1 || pw <= 0)
             return;
         var cells = new List<string>();
         var widths = new List<int>();

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using TuiEdit;
 using Xunit;
 
@@ -8,54 +7,15 @@ namespace TuiEdit.Tests;
 [Trait("Category", "Integration")]
 public sealed class GitStatusTests
 {
-    private static bool HaveGit()
-    {
-        try
-        {
-            using var p = new Process();
-            p.StartInfo = new ProcessStartInfo("git", "--version")
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-            };
-            return p.Start() && p.WaitForExit(5000) && p.ExitCode == 0;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    private static bool HaveGit() => GitTools.HaveGit();
 
     private static string NewDir() =>
         Directory.CreateDirectory(Path.Combine(
             Path.GetTempPath(), "tui_git_" + Guid.NewGuid().ToString("N"))).FullName;
 
-    private static void Git(string dir, string args)
-    {
-        using var p = new Process();
-        p.StartInfo = new ProcessStartInfo("git", args)
-        {
-            WorkingDirectory = dir,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-        };
-        if (!p.Start() || !p.WaitForExit(15000) || p.ExitCode != 0)
-            throw new InvalidOperationException($"git {args} failed");
-    }
+    private static void Git(string dir, string args) => GitTools.Run(dir, args);
 
-    private static string InitRepo(out string file)
-    {
-        string dir = NewDir();
-        Git(dir, "init -q");
-        Git(dir, "-c user.email=t@t -c user.name=t commit -q --allow-empty -m init");
-        file = Path.Combine(dir, "a.txt");
-        File.WriteAllText(file, "one");
-        Git(dir, "add a.txt");
-        Git(dir, "-c user.email=t@t -c user.name=t commit -q -m one");
-        return dir;
-    }
+    private static string InitRepo(out string file) => GitTools.InitRepo(out file);
 
     [Fact]
     public void AsyncCacheAgreesWithSync()

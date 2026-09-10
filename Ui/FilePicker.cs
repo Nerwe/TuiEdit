@@ -117,13 +117,13 @@ internal sealed class FilePickerState
                     up.Add(new PickerEntry("..", true));
                 foreach (string d in Directory.GetDirectories(CurrentDir))
                 {
-                    if (!ShowHidden && SidebarState.IsHidden(d))
+                    if (!ShowHidden && FileKinds.IsHidden(d))
                         continue;
                     dirs.Add(new PickerEntry(BaseName(d), true));
                 }
                 foreach (string f in Directory.GetFiles(CurrentDir))
                 {
-                    if (!ShowHidden && SidebarState.IsHidden(f))
+                    if (!ShowHidden && FileKinds.IsHidden(f))
                         continue;
                     long size = -1;
                     try
