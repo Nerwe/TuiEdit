@@ -66,7 +66,7 @@ internal static class Startup
         Console.WriteLine(loc["help.usage.line"]);
         Console.WriteLine();
         Console.WriteLine(loc["help.keys"]);
-        for (int i = 1; i <= 17; i++)
+        for (int i = 1; i <= 18; i++)
             Console.WriteLine(Dialog.StripSpans(loc[$"help.k{i}"]));
         Console.WriteLine();
         Console.WriteLine(loc["help.status"]);

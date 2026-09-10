@@ -64,6 +64,7 @@ public sealed class ResourcesTests
     [InlineData("help.k15")]
     [InlineData("help.k16")]
     [InlineData("help.k17")]
+    [InlineData("help.k18")]
     [InlineData("picker.mkdir.empty")]
     [InlineData("picker.mkdir.exists")]
     [InlineData("modal.delete.confirm")]
