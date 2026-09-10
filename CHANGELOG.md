@@ -7,6 +7,11 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+### Fixed
+- Control characters (ESC and friends) are shown as `�` instead of going raw
+  to the terminal, where a single ESC made it swallow all following output
+  (dead screen, blinking cursor, no errors — looked like a total freeze).
+
 ## [0.9.1] - 2026-09-10
 
 ### Fixed
