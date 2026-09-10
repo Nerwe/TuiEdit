@@ -388,11 +388,14 @@ internal sealed partial class TuiEditor
         if (ctrl && k.Key == ConsoleKey.B) { ToggleSidebar(); return; }
         if (ctrl || (k.Modifiers & ConsoleModifiers.Alt) != 0)
             return;
+        _sidebar.Refresh();
         switch (k.Key)
         {
             case ConsoleKey.Escape: _sidebarFocus = false; return;
             case ConsoleKey.UpArrow: _sidebar.MoveHighlight(-1, TextHeight()); return;
             case ConsoleKey.DownArrow: _sidebar.MoveHighlight(1, TextHeight()); return;
+            case ConsoleKey.LeftArrow: _sidebar.CollapseOrParent(); return;
+            case ConsoleKey.RightArrow: _sidebar.ExpandSelected(); return;
             case ConsoleKey.Home: _sidebar.MoveHighlight(int.MinValue / 2, TextHeight()); return;
             case ConsoleKey.End: _sidebar.MoveHighlight(int.MaxValue / 2, TextHeight()); return;
             case ConsoleKey.PageUp: _sidebar.MoveHighlight(-Math.Max(1, TextHeight() - 1), TextHeight()); return;

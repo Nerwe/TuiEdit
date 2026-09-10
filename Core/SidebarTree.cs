@@ -68,6 +68,8 @@ internal sealed class SidebarTree
     /// <summary>Gets the root node (always expanded, never shown itself).</summary>
     public SidebarNode RootNode { get; }
 
+    private readonly HashSet<string> _expanded = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Initializes a new instance of the <see cref="SidebarTree"/> class.
     /// </summary>
@@ -86,7 +88,10 @@ internal sealed class SidebarTree
         Root = full;
         RootNode = new SidebarNode(full, new FileKind(NameOf(full), true, false, false), null);
         if (Directory.Exists(full))
-            Expand(RootNode);
+        {
+            _expanded.Add(full);
+            LoadChildren(RootNode);
+        }
     }
 
     /// <summary>Visible rows in pre-order: root children at depth 0.</summary>
@@ -100,24 +105,27 @@ internal sealed class SidebarTree
 
     /// <summary>Toggles a directory (files are a no-op); returns whether it ended expanded.</summary>
     /// <param name="node">The node to toggle.</param>
-    public static bool Toggle(SidebarNode node)
+    public bool Toggle(SidebarNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
         if (!node.IsDir)
             return false;
         if (node.IsExpanded)
         {
+            PruneExpanded(node);
             node.Collapse();
             return false;
         }
         Expand(node);
+        if (node.IsExpanded)
+            _expanded.Add(node.Path);
         return node.IsExpanded;
     }
 
     /// <summary>Reloads the node children when the directory changed on disk.</summary>
     /// <param name="node">The directory node to refresh.</param>
     /// <returns><see langword="true"/> if children were reloaded.</returns>
-    public static bool Refresh(SidebarNode node)
+    public bool Refresh(SidebarNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
         if (!node.IsDir || !node.IsExpanded)
@@ -126,6 +134,33 @@ internal sealed class SidebarTree
             return false;
         LoadChildren(node);
         return true;
+    }
+
+    /// <summary>Refreshes every expanded directory (mtime-gated); returns whether anything reloaded.</summary>
+    public bool RefreshExpanded() => RefreshSubtree(RootNode);
+
+    private bool RefreshSubtree(SidebarNode node)
+    {
+        bool any = false;
+        if (!node.IsExpanded)
+            return false;
+        if (Refresh(node))
+            any = true;
+        foreach (SidebarNode child in node.Children)
+        {
+            bool reloaded = RefreshSubtree(child);
+            any = any || reloaded;
+        }
+        return any;
+    }
+
+    private void PruneExpanded(SidebarNode node)
+    {
+        _expanded.Remove(node.Path);
+        string prefix = node.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        _expanded.RemoveWhere(p =>
+            p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
     }
 
     private static void AppendVisible(SidebarNode node, int depth, List<(SidebarNode, int)> rows)
@@ -137,7 +172,7 @@ internal sealed class SidebarTree
             AppendVisible(child, depth + 1, rows);
     }
 
-    private static void Expand(SidebarNode node)
+    private void Expand(SidebarNode node)
     {
         if (IsCyclic(node))
             return; // symlink loop back to an ancestor — refuse
@@ -174,7 +209,7 @@ internal sealed class SidebarTree
         }
     }
 
-    private static void LoadChildren(SidebarNode node)
+    private void LoadChildren(SidebarNode node)
     {
         var dirs = new List<SidebarNode>();
         var files = new List<SidebarNode>();
@@ -212,6 +247,12 @@ internal sealed class SidebarTree
         SortNodes(files);
         dirs.AddRange(files);
         node.SetChildren(dirs, ReadMtime(node.Path));
+        // Re-apply expansion survived from before the reload.
+        foreach (SidebarNode child in node.Children)
+        {
+            if (child.IsDir && _expanded.Contains(child.Path))
+                LoadChildren(child);
+        }
     }
 
     private static void SortNodes(List<SidebarNode> nodes) =>

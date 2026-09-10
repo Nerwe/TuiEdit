@@ -37,13 +37,13 @@ public sealed class SidebarTreeTests(TempDir tmp) : IClassFixture<TempDir>
         SidebarNode sub0 = tree.VisibleRows()[0].node;
         Assert.Empty(sub0.Children);
 
-        Assert.True(SidebarTree.Toggle(sub0));
+        Assert.True(tree.Toggle(sub0));
         Assert.Equal(["inner.txt"], sub0.Children.Select(c => c.Name).ToList());
         var rows = tree.VisibleRows();
         Assert.Equal(2, rows.Count);
         Assert.Equal(1, rows[1].depth);
 
-        Assert.False(SidebarTree.Toggle(sub0));
+        Assert.False(tree.Toggle(sub0));
         Assert.Single(tree.VisibleRows());
     }
 
@@ -53,7 +53,7 @@ public sealed class SidebarTreeTests(TempDir tmp) : IClassFixture<TempDir>
         string dir = tmp.NewDir("noop");
         File.WriteAllText(Path.Combine(dir, "f.txt"), "x");
         var tree = new SidebarTree(dir);
-        Assert.False(SidebarTree.Toggle(tree.VisibleRows()[0].node));
+        Assert.False(tree.Toggle(tree.VisibleRows()[0].node));
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public sealed class SidebarTreeTests(TempDir tmp) : IClassFixture<TempDir>
 
         var tree = new SidebarTree(dir);
         SidebarNode loop = tree.VisibleRows().First(r => r.node.Name == "loop").node;
-        Assert.False(SidebarTree.Toggle(loop));
+        Assert.False(tree.Toggle(loop));
         Assert.Empty(loop.Children);
     }
 
@@ -85,9 +85,29 @@ public sealed class SidebarTreeTests(TempDir tmp) : IClassFixture<TempDir>
 
         File.WriteAllText(Path.Combine(dir, "new.txt"), "x");
         Directory.SetLastWriteTimeUtc(dir, DateTime.UtcNow.AddSeconds(2)); // mtime granularity
-        Assert.True(SidebarTree.Refresh(tree.RootNode));
+        Assert.True(tree.Refresh(tree.RootNode));
         Assert.Equal(["new.txt"], tree.VisibleRows().Select(r => r.node.Name).ToList());
-        Assert.False(SidebarTree.Refresh(tree.RootNode)); // nothing changed since
+        Assert.False(tree.Refresh(tree.RootNode)); // nothing changed since
+    }
+
+    [Fact]
+    public void ExpansionSurvivesParentRefresh()
+    {
+        string dir = tmp.NewDir("survive");
+        string sub = Path.Combine(dir, "sub");
+        Directory.CreateDirectory(sub);
+        File.WriteAllText(Path.Combine(sub, "a.txt"), "x");
+        var tree = new SidebarTree(dir);
+        SidebarNode sub0 = tree.VisibleRows()[0].node;
+        Assert.True(tree.Toggle(sub0));
+        Assert.Equal(2, tree.VisibleRows().Count);
+
+        File.WriteAllText(Path.Combine(dir, "top.txt"), "x");
+        Directory.SetLastWriteTimeUtc(dir, DateTime.UtcNow.AddSeconds(2)); // mtime granularity
+        Assert.True(tree.RefreshExpanded());
+        var rows = tree.VisibleRows();
+        Assert.Contains(rows, r => r.node.Name == "top.txt");
+        Assert.Contains(rows, r => r.node.Name == "a.txt" && r.depth == 1); // still expanded
     }
 
     [Fact]
@@ -95,7 +115,7 @@ public sealed class SidebarTreeTests(TempDir tmp) : IClassFixture<TempDir>
     {
         var tree = new SidebarTree(Path.Combine(tmp.Path, "nope"));
         Assert.Empty(tree.VisibleRows());
-        var ex = Record.Exception(() => SidebarTree.Refresh(tree.RootNode));
+        var ex = Record.Exception(() => tree.Refresh(tree.RootNode));
         Assert.Null(ex);
     }
 
