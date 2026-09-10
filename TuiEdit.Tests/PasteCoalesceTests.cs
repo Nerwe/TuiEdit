@@ -87,6 +87,31 @@ public sealed class PasteCoalesceTests
     }
 
     [Fact]
+    public void LargeBacklogDrainsInOneGo()
+    {
+        var ed = NewEditor("x");
+        try
+        {
+            for (int i = 0; i < 500; i++)
+                InputReader.Parser.FeedEvent(new PasteInput("p"));
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            HandleInput(ed, new PasteInput("s"));
+            sw.Stop();
+            Assert.Equal("s" + new string('p', 500) + "x", ActiveBuf(ed).GetLine(0));
+            Assert.False(InputReader.Parser.HasQueued);
+            Assert.Null(Field(ed, "_heldEvent"));
+            ActiveBuf(ed).Undo();
+            Assert.Equal("x", ActiveBuf(ed).GetLine(0));
+            Assert.False(ActiveBuf(ed).CanUndo);
+            Assert.True(sw.ElapsedMilliseconds < 5000, $"drain took {sw.ElapsedMilliseconds}ms");
+        }
+        finally
+        {
+            InputReader.Parser.Clear();
+        }
+    }
+
+    [Fact]
     public void FocusEventBehindPasteIsStashed()
     {
         var ed = NewEditor("x");
