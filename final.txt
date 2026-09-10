@@ -1,0 +1,9 @@
+  ╨Ю╨┐╤А╨╡╨┤╨╡╨╗╨╡╨╜╨╕╨╡ ╨┐╤А╨╛╨╡╨║╤В╨╛╨▓ ╨┤╨╗╤П ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╕╤П...
+  ╨Т╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜ D:\Projects\TuiEdit\TuiEdit.csproj (╨╖╨░ 134┬а╨╝╤Б).
+  ╨Т╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜ D:\Projects\TuiEdit\TuiEdit.Tests\TuiEdit.Tests.csproj (╨╖╨░ 816┬а╨╝╤Б).
+  TuiEdit -> D:\Projects\TuiEdit\testcheck\tui-edit.dll
+  TuiEdit.Tests -> D:\Projects\TuiEdit\testcheck\TuiEdit.Tests.dll
+╨в╨╡╤Б╤В╨╛╨▓╤Л╨╣ ╨╖╨░╨┐╤Г╤Б╨║ ╨┤╨╗╤П D:\Projects\TuiEdit\testcheck\TuiEdit.Tests.dll (.NETCoreApp,Version=v10.0)
+╨Ю╨▒╤Й╨╡╨╡ ╨║╨╛╨╗╨╕╤З╨╡╤Б╤В╨▓╨╛ ╤В╨╡╤Б╤В╨╛╨▓╤Л╤Е ╤Д╨░╨╣╨╗╨╛╨▓ (1), ╤Б╨╛╨╛╤В╨▓╨╡╤В╤Б╤В╨▓╤Г╤О╤Й╨╕╤Е ╤Г╨║╨░╨╖╨░╨╜╨╜╨╛╨╝╤Г ╤И╨░╨▒╨╗╨╛╨╜╤Г.
+
+╨Я╤А╨╛╨╣╨┤╨╡╨╜!   : ╨╜╨╡ ╨┐╤А╨╛╨╣╨┤╨╡╨╜╨╛     0, ╨┐╤А╨╛╨╣╨┤╨╡╨╜╨╛  5570, ╨┐╤А╨╛╨┐╤Г╤Й╨╡╨╜╨╛     0, ╨▓╤Б╨╡╨│╨╛  5570, ╨┤╨╗╨╕╤В╨╡╨╗╤М╨╜╨╛╤Б╤В╤М 12 s. - TuiEdit.Tests.dll (net10.0)

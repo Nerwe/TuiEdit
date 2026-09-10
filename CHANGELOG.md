@@ -7,6 +7,21 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-10
+
+### Added
+- Replace confirm shows a before/after preview of the first match.
+- Manager rename (`F2`) via the shared file operations.
+- Command-line buffer keys: `set encoding/ending/indent`.
+- Filter-match highlight in the command palette.
+- Whole-frame golden tests (`RenderFrame` works headless).
+
+### Changed
+- Startup parsing extracted into testable `Core/Startup`.
+- Coverage gate raised to 68% (actual 71%).
+- CI actions refreshed via Dependabot (checkout v7, cache/setup-dotnet v6,
+  upload/download-artifact v7/v8).
+
 ## [0.7.0] - 2026-09-10
 
 ### Added

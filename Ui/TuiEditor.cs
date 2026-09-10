@@ -71,7 +71,7 @@ internal sealed partial class TuiEditor
 
     /// <summary>Gets the version from the assembly (csproj Version); falls back for manual builds.</summary>
     internal static string AppVersion { get; } =
-        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.7.0";
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.8.0";
 
     /// <summary>Specifies the deferred action after the "unsaved changes" dialog.</summary>
     private enum PendingOp { None, Quit, Open, CloseTab }
