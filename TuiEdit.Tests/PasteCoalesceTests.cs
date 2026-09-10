@@ -4,10 +4,17 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
+/// <summary>Serial collection: these tests feed the process-wide static parser.</summary>
+[CollectionDefinition("ParserSerial", DisableParallelization = true)]
+public sealed class ParserSerialSuite
+{
+}
+
 /// <summary>
 /// Held Ctrl+V (key auto-repeat, terminal paste bursts) must land as one buffer
 /// mutation: otherwise repeats outrun the frame and keep inserting after release.
 /// </summary>
+[Collection("ParserSerial")]
 public sealed class PasteCoalesceTests
 {
     [Fact]
