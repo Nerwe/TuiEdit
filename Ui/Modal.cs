@@ -252,17 +252,23 @@ internal sealed class ModalState
     }
 
     /// <summary>Creates the draft-restore popup: each draft is a row button with a 1..9,0 hotkey and save date; shows 5 at once, scrolls the rest; empty lists are rejected.</summary>
-    public static ModalState Restore(Loc loc, List<(string name, DateTime savedAt)> items)
+    public static ModalState Restore(
+        Loc loc, List<(string name, DateTime savedAt)> items, bool showRestoreAll = false)
     {
         if (items.Count == 0)
-            throw new ArgumentException("Нет черновиков.", nameof(items));
+            throw new ArgumentException("Нет файлов.", nameof(items));
+        var buttons = new List<ModalButton>();
+        if (showRestoreAll)
+            buttons.Add(new ModalButton(NumberedLabel(0, loc.Format("modal.restore.all", items.Count)), NumberHotkey(0)));
+        int offset = buttons.Count;
+        buttons.AddRange(items.Select((it, i) => new ModalButton(
+            NumberedLabel(offset + i, $"{ShortPath(it.name)}  {it.savedAt.ToLocalTime():dd.MM HH:mm}"),
+            NumberHotkey(offset + i))));
         return new(
             ModalKind.Restore,
             loc["modal.restore.title"],
             new List<string> { loc["modal.restore.desc"] },
-            items.Select((it, i) => new ModalButton(
-                NumberedLabel(i, $"{ShortPath(it.name)}  {it.savedAt.ToLocalTime():dd.MM HH:mm}"),
-                NumberHotkey(i))).ToList(),
+            buttons,
             selected: 0,
             hint: string.Empty,
             maxVisibleButtons: 5);

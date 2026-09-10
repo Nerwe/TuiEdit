@@ -42,18 +42,30 @@ internal sealed class SettingsStore(string path)
         return DefaultPath();
     }
 
-    /// <summary>Loads settings (missing/corrupt files yield defaults).</summary>
+    /// <summary>
+    /// Loads settings (missing files yield defaults; corrupt files are preserved
+    /// next to the original with a .corrupt suffix, then defaults load).
+    /// Never throws.
+    /// </summary>
     public AppSettings Load()
     {
         try
         {
             if (File.Exists(Path))
             {
-                var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(Path), ReadOptions);
-                if (s is not null)
+                string text = File.ReadAllText(Path);
+                try
                 {
-                    s.Normalize();
-                    return s;
+                    var s = JsonSerializer.Deserialize<AppSettings>(text, ReadOptions);
+                    if (s is not null)
+                    {
+                        s.Normalize();
+                        return s;
+                    }
+                }
+                catch
+                {
+                    PreserveCorrupt(text);
                 }
             }
         }
@@ -63,6 +75,7 @@ internal sealed class SettingsStore(string path)
         return new AppSettings();
     }
 
+    /// <summary>Saves settings atomically (temp file plus rename). Never throws.</summary>
     public void Save(AppSettings settings)
     {
         try
@@ -70,7 +83,20 @@ internal sealed class SettingsStore(string path)
             string? dir = System.IO.Path.GetDirectoryName(Path);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
-            File.WriteAllText(Path, JsonSerializer.Serialize(settings, JsonOptions));
+            string tmp = Path + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(settings, JsonOptions));
+            File.Move(tmp, Path, overwrite: true);
+        }
+        catch
+        {
+        }
+    }
+
+    private void PreserveCorrupt(string text)
+    {
+        try
+        {
+            File.WriteAllText(Path + ".corrupt", text);
         }
         catch
         {
@@ -108,13 +134,51 @@ internal sealed class DraftStore(string dir)
         }
     }
 
-    public void Write(string? file, IList<string> lines, int row, int col)
+    public void Write(string? file, IList<string> lines, int row, int col) =>
+        WriteKey(KeyFor(file), file, lines, row, col);
+
+    /// <summary>
+    /// Writes a draft under an explicit key (untitled tabs use per-tab keys so
+    /// they never overwrite each other). Atomic: temp file plus rename, so a
+    /// crash mid-write keeps the previous draft intact.
+    /// </summary>
+    /// <param name="key">The draft file key (no extension).</param>
+    /// <param name="file">The documented file (null for untitled).</param>
+    /// <param name="lines">The content snapshot.</param>
+    /// <param name="row">The cursor row.</param>
+    /// <param name="col">The cursor column.</param>
+    public void WriteKey(string key, string? file, IList<string> lines, int row, int col)
     {
+        if (string.IsNullOrWhiteSpace(key))
+            return;
         Directory.CreateDirectory(Dir);
         var draft = new DocDraft(file, new List<string>(lines), row, col, DateTime.UtcNow);
-        File.WriteAllText(
-            System.IO.Path.Combine(Dir, KeyFor(file) + ".json"),
-            JsonSerializer.Serialize(draft));
+        string tmp = System.IO.Path.Combine(Dir, Guid.NewGuid().ToString("N") + ".tmp");
+        File.WriteAllText(tmp, JsonSerializer.Serialize(draft));
+        File.Move(tmp, System.IO.Path.Combine(Dir, key + ".json"), overwrite: true);
+        PruneTmp();
+    }
+
+    private void PruneTmp()
+    {
+        try
+        {
+            DateTime limit = DateTime.UtcNow.AddDays(-1);
+            foreach (string f in Directory.GetFiles(Dir, "*.tmp"))
+            {
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(f) < limit)
+                        File.Delete(f);
+                }
+                catch
+                {
+                }
+            }
+        }
+        catch
+        {
+        }
     }
 
     /// <summary>Reads all readable drafts (skips corrupt ones).</summary>

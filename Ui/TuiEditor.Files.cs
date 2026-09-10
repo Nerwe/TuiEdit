@@ -22,7 +22,14 @@ internal sealed partial class TuiEditor
         int n = 0;
         foreach (SessionTab t in _settings.SessionTabs)
         {
-            if (string.IsNullOrWhiteSpace(t.Path) || !File.Exists(t.Path))
+            if (t is null)
+                continue;
+            if (string.IsNullOrWhiteSpace(t.Path))
+            {
+                n += RestoreUntitledTab(t);
+                continue;
+            }
+            if (!File.Exists(t.Path))
                 continue;
             try
             {
@@ -49,7 +56,33 @@ internal sealed partial class TuiEditor
         return n;
     }
 
-    /// <summary>Remembers open files with cursors for the next start.</summary>
+    private int RestoreUntitledTab(SessionTab t)
+    {
+        if (t.Lines is null || t.Lines.Count == 0)
+            return 0;
+        try
+        {
+            if (!(_docs.Count == 1 && _buf.FilePath is null && !_buf.IsModified))
+            {
+                SaveTabState();
+                _docs.Add(new DocTab(new TextBuffer(null)));
+                _active = _docs.Count - 1;
+                LoadTabState();
+            }
+            _buf.RestoreContent(t.Lines);
+            _row = Math.Clamp(t.Row, 0, _buf.Count - 1);
+            _col = Math.Clamp(t.Col, 0, _buf.GetLine(_row).Length);
+            TrackCol();
+            SaveTabState();
+            return 1;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>Remembers open files (plus dirty untitled tabs) with cursors for the next start.</summary>
     internal void SaveSessionTabs()
     {
         if (!_settings.RestoreSession)
@@ -60,10 +93,17 @@ internal sealed partial class TuiEditor
         {
             foreach (DocTab t in p.Docs)
             {
-                if (t.Buf.FilePath is null || !File.Exists(t.Buf.FilePath))
-                    continue;
                 int row = Math.Clamp(t.Row, 0, t.Buf.Count - 1);
-                tabs.Add(new SessionTab(t.Buf.FilePath, row, Math.Max(0, t.Col)));
+                if (t.Buf.FilePath is not null)
+                {
+                    if (!File.Exists(t.Buf.FilePath))
+                        continue;
+                    tabs.Add(new SessionTab(t.Buf.FilePath, row, Math.Max(0, t.Col)));
+                }
+                else if (t.Buf.IsModified && SessionSnapshot(t.Buf) is { } lines)
+                {
+                    tabs.Add(new SessionTab(string.Empty, row, Math.Max(0, t.Col), lines));
+                }
                 if (tabs.Count >= AppSettings.MaxSessionTabs)
                     break;
             }
@@ -72,6 +112,25 @@ internal sealed partial class TuiEditor
         }
         _settings.SessionTabs = tabs;
         _store.Save(_settings);
+    }
+
+    private static List<string>? SessionSnapshot(TextBuffer buf)
+    {
+        try
+        {
+            long chars = 0;
+            foreach (string line in buf.Lines)
+            {
+                chars += line.Length;
+                if (chars > AppSettings.MaxUntitledSessionChars)
+                    return null; // too big for settings — drafts still cover crashes
+            }
+            return new List<string>(buf.Lines);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>Jumps to a 1-based line and column (0 leaves that axis alone).</summary>
@@ -259,7 +318,7 @@ internal sealed partial class TuiEditor
                     {
                         _buf.Save(backup: Backups);
                         TouchRecent(_buf.FilePath);
-                        _drafts.Delete(_buf.FilePath);
+                        _drafts.DeleteKey(DraftKeyFor(_docs[_active]));
                         saved++;
                     }
                     catch (Exception ex)
@@ -290,7 +349,7 @@ internal sealed partial class TuiEditor
                 {
                     _buf.Save(backup: Backups);
                     TouchRecent(_buf.FilePath);
-                    _drafts.Delete(_buf.FilePath);
+                    _drafts.DeleteKey(DraftKeyFor(_docs[_active]));
                     SetMessage(_loc.Format("msg.saved", _buf.FilePath));
                 }
                 catch (Exception ex) { SetMessage($"{_loc["error.save"]}: {DisplayError(ex)}"); }
@@ -309,11 +368,13 @@ internal sealed partial class TuiEditor
             _dialog = new ModalDialog(ModalState.Overwrite(_loc, Path.GetFileName(path)), ApplyModalOutcome);
             return;
         }
+        string oldDraftKey = DraftKeyFor(_docs[_active]);
         try
         {
             _buf.Save(path, Backups);
             TouchRecent(_buf.FilePath);
-            _drafts.Delete(_buf.FilePath);
+            _drafts.DeleteKey(oldDraftKey); // path may have changed — drop the old identity
+            _drafts.DeleteKey(DraftKeyFor(_docs[_active]));
             SetMessage(_loc.Format("msg.saved", _buf.FilePath));
         }
         catch (Exception ex) { SetMessage($"{_loc["error.save"]}: {DisplayError(ex)}"); }

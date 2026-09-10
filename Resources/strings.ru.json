@@ -40,6 +40,7 @@
   "modal.tabs.title": "Вкладки",
   "modal.restore.title": "Восстановление",
   "modal.restore.desc": "Найдены несохранённые изменения:",
+  "modal.restore.all": "Восстановить всё ({0})",
   "modal.replace.title": "Заменить?",
   "modal.replace.desc": "Заменить {0} вхождений «{1}»?",
   "modal.largefile.title": "Большой файл?",
@@ -135,6 +136,7 @@
 
   "error.save": "Ошибка сохранения",
   "error.open": "Ошибка открытия",
+  "error.openfile": "Не удаётся открыть {0}: {1}.",
   "error.nofilename": "Нет имени файла. Используйте «Сохранить как».",
   "error.readonly": "Файл только для чтения.",
   "error.smallwindow": "Окно слишком маленькое для редактора.",
@@ -143,6 +145,7 @@
   "error.crashlog": "Подробности записаны в {0}.",
   "error.mouseoff": "Сбой мыши — она отключена до конца сеанса.",
   "error.eventfailed": "Действие не выполнено — подробности в журнале сбоев.",
+  "msg.settings.corrupt": "Настройки были повреждены — загружены умолчания, см. {0}.",
 
   "sidebar.new.title": "Новый файл или папка",
   "sidebar.rename.title": "Переименовать",

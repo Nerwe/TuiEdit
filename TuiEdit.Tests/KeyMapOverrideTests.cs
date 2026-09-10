@@ -25,6 +25,23 @@ public sealed class KeyMapOverrideTests
     }
 
     [Fact]
+    public void BadNotationSkipsEntryKeepsRest()
+    {
+        try
+        {
+            // "Å" has no ConsoleKey: the entry degrades instead of aborting the batch.
+            KeyMap.SetOverrides(new Dictionary<string, string?>
+            {
+                ["Save"] = "Ctrl+Å",
+                ["Quit"] = "Ctrl+Shift+Q",
+            });
+            Assert.Equal(EditorCommand.Save, KeyMap.Map(K('\x13', ConsoleKey.S, ctrl: true)));
+            Assert.Equal(EditorCommand.Quit, KeyMap.Map(K('\x11', ConsoleKey.Q, ctrl: true, shift: true)));
+        }
+        finally { KeyMap.ResetToDefaults(); }
+    }
+
+    [Fact]
     public void NullUnbindsAndHidesHint()
     {
         try
