@@ -8,15 +8,15 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 ## Features
 
 - Editing: undo/redo (per keystroke and per block), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), toggle line comment (`Ctrl+/`), matching-bracket highlight and jump (`Alt+]`), move lines (`Alt+↑/↓`), word-wise delete/move, trim trailing whitespace, sort lines, auto-pairs for brackets/quotes (toggle in Settings).
-- Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, match case / whole words / regex toggles right in the prompt (`Alt+C/W/R`). Instant whole-document replace (`^H`) in a single undo step, with confirmation past 50 matches. Grep across files (`Ctrl+Shift+F`) with jump-to-hit.
+- Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, match case / whole words / regex toggles right in the prompt (`Alt+C/W/R`). Instant whole-document replace (`^H`) in a single undo step, with confirmation past 50 matches showing a before/after preview of the first hit. Grep across files (`Ctrl+Shift+F`) with jump-to-hit.
 - Syntax highlighting from JSON grammars (C#, Python, JavaScript/TypeScript, JSON, Markdown, PowerShell, XML, INI built in). On first run the grammars are extracted to the `grammars` folder next to `settings.json` — edit them to customize, drop in your own.
-- File manager for Open/Save as: drives, `..`, file highlight with sizes, overwrite confirmation in a separate window. `F7` new folder, `F8` delete (with confirmation, recursive), `Ctrl+H` hidden files. Name field and Find/Replace/GoTo prompts share one line editor: selection (`Shift`), word-wise motion (`Ctrl+arrows`), word delete (`Ctrl+BS/Del`), `Alt+←/→` navigation in the manager.
+- File manager for Open/Save as: drives, `..`, file highlight with sizes, overwrite confirmation in a separate window. `F7` new folder, `F2` rename, `F8` delete (with confirmation, recursive), `Ctrl+H` hidden files. Name field and Find/Replace/GoTo prompts share one line editor: selection (`Shift`), word-wise motion (`Ctrl+arrows`), word delete (`Ctrl+BS/Del`), `Alt+←/→` navigation in the manager.
 - Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save; all three are switched in the File format dialog (`F9`, shown in the status bar). Read-only files are flagged `[read-only]` and refuse to save.
 - `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), indent guides, whitespace marks (`Alt+.`), ruler column, git diff gutter, help screen (`F1`).
 - Bookmarks (`F2` toggle, `Shift+F2` next, gutter `●`), indent folding (`Alt+-`), buffer-word completion (`Ctrl+Space`), document stats (`F4`).
-- Optional session restore: reopen the previous tabs with cursor positions when started without arguments (off by default, toggle in Settings).
-- File panel (`Ctrl+B`): fixed-width sidebar with the current folder, arrows to select, `Enter` to open, `Esc` back to text. Entries are color-coded: dirs, `..`, hidden and executables.
-- Tabs: open tab bar (`Ctrl+T` new, `Ctrl+W` close, `Ctrl+PgDn/PgUp` switch, `Alt+1..9,0` jump, `Ctrl+P` list); long rows scroll with the active tab always visible; dirty tabs ask on close, quitting walks through them one by one. Quick-open files by name across the project (`Alt+O`), command line (`F12`: `set`, `goto`, `find`, `save`, `quit`).
+- Optional session restore: reopen the previous tabs with cursor positions when started without arguments (off by default, toggle in Settings); dirty untitled tabs round-trip with their content.
+- File tree (`Ctrl+B`): fixed-width sidebar with an expandable folder tree (`Enter`/`←`/`→`), git change marks (folders aggregate), `Enter` opens files, `Esc` back to text. `F7` new file/folder, `F2` rename, `Del` delete with two-step confirm. Entries are color-coded: dirs, hidden and executables.
+- Tabs: open tab bar (`Ctrl+T` new, `Ctrl+W` close, `Ctrl+PgDn/PgUp` switch, `Alt+1..9,0` jump, `Ctrl+P` list); long rows scroll with the active tab always visible; dirty tabs ask on close, quitting walks through them one by one. Quick-open files by name across the project (`Alt+O`), command line (`F12`: `set` incl. `encoding`/`ending`/`indent`, `goto`, `find`, `save`, `quit`).
 - Split view (`Alt+S`): two or more panes side by side, each with its own tabs; `F6`/`Shift+F6` or `Ctrl+1..9` move focus (tab keys act on the focused pane).
 - System clipboard via OSC52 (Windows Terminal): `^C` copies, paste with `Ctrl+V`.
 
@@ -34,7 +34,7 @@ Ctrl+/ toggle line comment  Alt+] matching bracket
 arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Alt+up/down — move line
 Enter — new line, Tab — indent, Shift+Tab — unindent
 F10 or Alt+F/E/H — menu (arrows/Enter/Esc, letter hotkey)
-F1 — help   Alt+N — line numbers   Alt+Z — word wrap   Ctrl+B — file panel
+F1 — help   Alt+N — line numbers   Alt+Z — word wrap   Ctrl+B — file tree (arrows/Enter, F7 new, F2 rename, Del delete)
 F9 — file format (encoding / line endings)   F4 — document stats   F5 — command palette (commands, menus, settings search)   F12 — command line
 F2 — bookmark   Shift+F2 — next bookmark   Alt+- — fold   Ctrl+Space — complete
 Ctrl+PgDn — next tab   Ctrl+PgUp — prev (Ctrl+Tab where the terminal passes it)
@@ -63,6 +63,10 @@ Full list: `tui-edit --help` or `F1` in the editor.
 | Tabs | Split |
 |---|---|
 | ![Tabs](docs/shots/tabs.png) | ![Split](docs/shots/split.png) |
+
+| Replace | Palette | Prompt |
+|---|---|---|
+| ![Replace](docs/shots/replace.png) | ![Palette](docs/shots/palette.png) | ![Prompt](docs/shots/prompt.png) |
 
 ![Help](docs/shots/help.png)
 
@@ -128,7 +132,8 @@ Key names: letters, digits, `F1`–`F24`, `Up`/`Down`/`Left`/`Right`,
 punctuation (`.`, `/`, `-`, …) or raw `ConsoleKey` names (`OemPeriod`).
 A printable key requires `Ctrl` or `Alt` (bare letters would break typing);
 unknown commands and bad entries are ignored. On conflict the later entry
-wins. Menu hints follow your bindings automatically.
+wins. Menu hints follow your bindings automatically. Edited files apply
+live without restart.
 
 ## Backups
 
@@ -228,11 +233,17 @@ times out safely.
 ## Structure
 
 ```text
-Program.cs            entry, --help/--version, editor startup
+Program.cs            entry, composition root (services wired explicitly)
 Core/TextBuffer.cs    buffer: lines, undo/redo, find/replace, encodings
+Core/Startup.cs       CLI plan, --help/--version printers, terminal restore
 Core/LineField.cs     single-line field: text, cursor, selection (prompts, picker)
 Core/CliArgs.cs       CLI file:line parsing
+Core/CommandLine.cs   F12 mini-language: set/goto/find/save/quit
 Core/Completion.cs    buffer-word completion candidates
+Core/CrashLog.cs      crash reports to temp (never throws)
+Core/FileOps.cs       create/rename/recursive delete (no-throw results)
+Core/FileIndex.cs     quick-open index: cycle-safe BFS, natural sort
+Core/FileKind.cs      entry classification shared by sidebar/manager/grep
 Core/Grep.cs          file search: recursive, hidden/binary skipped
 Core/Folding.cs       indent folding ranges
 Core/DocTab.cs        tab: buffer + view state (cursor, scroll, selection)
@@ -240,38 +251,64 @@ Core/Pane.cs          split pane: own tabs, active tab, tab scroll
 Core/Grammar.cs       syntax grammars: seeded folder, JSON plugins + registry
 Core/BracketMatcher.cs bracket pairs (skips strings/comments via highlighter)
 Core/SyntaxHighlighter.cs tokenizer (match/begin-end) with cache
+Core/SidebarTree.cs   lazy file tree: expand/collapse, mtime refresh
 Core/WordMotion.cs    word-wise motion (VS Code style)
 Core/TabStops.cs      tabs + WordWrap (soft-wrap segments)
 Core/EditorCommand.cs editor commands
-Input/KeyMap.cs       keys → commands
-Input/InputReader.cs  input + bracketed paste
-Ui/TuiEditor.cs       engine: render, menu, dialog outcomes
-Ui/Dialog.cs          window base: frame, centering, loop (inheritance)
+Core/GitProcess.cs    bounded git spawn (never hangs w/o console)
+Core/GitStatus.cs     status-bar segment (facade over GitService)
+Core/GitDiff.cs       gutter marks + porcelain parse (facade over GitService)
+Core/SystemClipboard.cs OSC52 export (Windows Terminal)
+Core/AutoPair.cs      bracket/quote auto-pairs
+Core/Selection.cs     text selection model
+Core/NaturalSort.cs   file2-before-file10 comparison
+Services/             explicit services: GitService, HighlightService,
+                      SystemClipboardService (manual DI, no container)
+Input/KeyMap.cs       keys → commands (facade over KeyBindingTable)
+Input/KeyBindingTable.cs per-editor binding table + keybindings.json
+Input/KeyBindings.cs  notation parse/format
+Input/InputParser.cs  pure stdin machine (fuzz-tested)
+Input/InputReader.cs  console wiring: conhost pump, blocking read
+Input/MouseInput.cs   SGR/conhost mouse events
+Ui/TuiEditor.cs       engine root: run loop, settings, services
+Ui/TuiEditor.Render.cs frame render (RenderFrame is headless-testable)
+Ui/TuiEditor.Input.cs key/mouse dispatch (table-driven CommandDispatcher)
+Ui/TuiEditor.Files.cs tabs/panes/session/sidebar files
+Ui/TuiEditor.Cursor.cs motion/edit/fold/bookmark
+Ui/TuiEditor.Search.cs find/replace/grep/command-line flows
+Ui/TuiEditor.Modal.cs modal outcomes, drafts, restore
+Ui/CommandDispatcher.cs command → handler table
+Ui/CommandPalette.cs  F5 palette (menus, commands, settings, files)
+Ui/Dialog.cs          window base: frame, centering (inheritance)
 Ui/ModalDialog.cs     popups over ModalState
+Ui/PromptDialog.cs    single-line prompt (sidebar create/rename)
 Ui/FileDialog.cs      manager over FilePickerState
 Ui/SettingsDialog.cs  settings over SettingsDialogState
 Ui/FormatDialog.cs    file format (encoding / line endings)
 Ui/HelpDialog.cs      help: titled sections, scroll
-Ui/Screen.cs          frame diff-buffer (no flicker)
+Ui/Screen.cs          frame buffer + diff output (Snapshot for goldens)
 Ui/FilePicker.cs      file manager (pure model)
 Ui/Modal.cs           modal popups (pure model)
 Ui/SettingsDialogState.cs settings dialog state (pure model)
-Ui/SidebarState.cs    file panel model: listing, highlight, scroll (pure model)
-Config/               AppSettings + SettingsStore (JSON)
+Ui/SidebarState.cs    sidebar facade over SidebarTree
+Ui/EditorLayout.cs    screen geometry (single source for render+mouse)
+Ui/Terminal.cs        VT/mouse/focus/raw-input sequences
+Ui/Loc.cs             localization (en/ru)
+Ui/StatusBar.cs       status line builder
+Ui/Menu.cs            menu bar model
+Ui/Rgb.cs             truecolor + 16-color fallback
+Ui/Theme.cs           built-in themes
+Config/               AppSettings + SettingsStore (JSON, atomic saves)
 Config/BackupStore.cs versioned backups next to settings.json (5 per file, 7 days)
 Config/ThemeScheme.cs   custom themes: schemes, hex, catalog
 Resources/            strings.ru/en.json (key parity required)
-TuiEdit.Tests/        xUnit tests (dotnet test): buffer, find, dialogs, resources
+TuiEdit.Tests/        xUnit tests incl. Goldens/ snapshots (UPDATE_GOLDENS=1)
+TuiEdit.Bench/        BenchmarkDotNet core benchmarks (docs/perf-baseline.md)
+docs/                 shots + perf-baseline
 ```
 
 Help (`F1`) is also a dialog (`HelpDialog` over `Dialog`):
 «File / Find / Edit / Navigation / Menu / View / Manager» sections,
 arrow-key scroll. The About window holds only the name, version,
 release date, author and license — no key hints.
-
-Frames for `docs/` are rendered by a separate tool next to the project:
-
-```powershell
-dotnet run --project ../TuiEdit.Shots -- docs/shots_new
-```
 
