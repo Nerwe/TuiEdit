@@ -76,6 +76,7 @@ public sealed class FrameGoldenTests
     {
         var ed = NewEditor("left", "right");
         ed.SplitPane();
+        ActiveBuf(ed).TrySetEnding("lf"); // fresh panes get the OS default ending
         Frame(ed, 80, 24);
         Golden.AssertMatch("frame-split.en.txt", ScreenOf(ed));
     }
@@ -130,6 +131,10 @@ public sealed class FrameGoldenTests
     }
 
     private static void Frame(TuiEditor ed, int w, int h) => ed.RenderFrame(w, h);
+
+    private static TextBuffer ActiveBuf(TuiEditor ed) =>
+        (TextBuffer)typeof(TuiEditor).GetProperty("_buf", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(ed)!;
 
     private static Screen ScreenOf(TuiEditor ed) =>
         (Screen)typeof(TuiEditor).GetField("_screen", BindingFlags.Instance | BindingFlags.NonPublic)!
