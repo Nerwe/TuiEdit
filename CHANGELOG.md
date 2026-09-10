@@ -7,6 +7,8 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-10
+
 ### Fixed
 - `Ctrl+/` on the Russian layout (`Ctrl+Oem2` maps to `ToggleComment`).
 - Stale selection anchor no longer widens the commented line range to zero.
