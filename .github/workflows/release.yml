@@ -43,7 +43,7 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
       - run: dotnet test TuiEdit.Tests --nologo
       - run: dotnet publish TuiEdit.csproj -c Release -r ${{ matrix.rid }} --self-contained false /p:PublishSingleFile=true /p:DebugType=None --nologo
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: binary-${{ matrix.rid }}
           if-no-files-found: error

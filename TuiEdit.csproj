@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>tui-edit</AssemblyName>
     <RootNamespace>TuiEdit</RootNamespace>
-    <Version>0.6.0</Version>
+    <Version>0.7.0</Version>
     <Description>Простой TUI текстовый редактор в стиле Microsoft Edit / nano на чистом System.Console.</Description>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>

@@ -7,6 +7,25 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-10
+
+### Added
+- File tree sidebar: lazy expand/collapse (`Enter`, arrows), git change marks
+  (folders aggregate descendants), `F7` create, `F2` rename (`PromptDialog`),
+  `Del` armed delete with item count.
+- `InputParser`: pure testable stdin machine with a 5000-case fuzz.
+- Crash reports (`%TEMP%/TuiEdit/crashes/`) with mouse/event session fallbacks.
+- Golden frame tests (`Screen.Snapshot`, `UPDATE_GOLDENS=1`).
+- Keybindings live reload (no restart).
+- CI: Dependabot, BenchmarkDotNet baseline (`docs/perf-baseline.md`).
+
+### Fixed
+- Git background refresh no longer spawn-storms (single in-flight query;
+  fixes growing input lag with the sidebar open) and no longer races
+  `Dispose` against token reads.
+- Quick-open index is a cycle-safe BFS (hidden dirs pruned, denied dirs skipped).
+- Tab row no longer crashes on ultra-narrow windows with the panel open.
+
 ## [0.6.0] - 2026-09-10
 
 ### Added
