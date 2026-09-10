@@ -756,6 +756,43 @@ public sealed class DialogTests : IClassFixture<TempDir>
     }
 
     [Fact]
+    public void ConfirmReplacePreviewLines()
+    {
+        var m = ModalState.ConfirmReplace(_loc, "foo", 60, (4, "call foo(x)", "call bar(x)"));
+        Assert.Equal(3, m.Lines.Count);
+        Assert.Contains("5:", m.Lines[1]);
+        Assert.Contains("call foo(x)", m.Lines[1]);
+        Assert.Contains("call bar(x)", m.Lines[2]);
+
+        var plain = ModalState.ConfirmReplace(_loc, "foo", 60);
+        Assert.Single(plain.Lines);
+    }
+
+    [Fact]
+    public void BufferSetters()
+    {
+        var buf = new TextBuffer(null);
+        Assert.True(buf.TrySetEncoding("utf8bom"));
+        Assert.Equal("UTF-8 BOM", buf.EncodingLabel);
+        Assert.True(buf.TrySetEncoding("UTF-16"));
+        Assert.Equal("UTF-16 LE", buf.EncodingLabel);
+        Assert.False(buf.TrySetEncoding("latin9"));
+        Assert.Equal("UTF-16 LE", buf.EncodingLabel); // failed set keeps the old value
+
+        Assert.True(buf.TrySetEnding("crlf"));
+        Assert.Equal(LineEnding.CrLf, buf.Ending);
+        Assert.True(buf.TrySetEnding("LF"));
+        Assert.Equal(LineEnding.Lf, buf.Ending);
+        Assert.False(buf.TrySetEnding("bsod"));
+
+        Assert.True(buf.TrySetIndent("tab"));
+        Assert.Equal("\t", buf.IndentString);
+        Assert.True(buf.TrySetIndent("2"));
+        Assert.Equal("  ", buf.IndentString);
+        Assert.False(buf.TrySetIndent("3"));
+    }
+
+    [Fact]
     public void PaletteBoundToF5()
     {
         Assert.Equal(EditorCommand.CommandPalette,

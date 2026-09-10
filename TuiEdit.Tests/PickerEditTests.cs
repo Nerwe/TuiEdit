@@ -40,6 +40,53 @@ public sealed class PickerEditTests : IDisposable
     }
 
     [Fact]
+    public void RenameHighlightedFlow()
+    {
+        File.WriteAllText(Path.Combine(_dir, "old.txt"), "x");
+        var p = State();
+        p.MoveHighlight(1); // old.txt (after ..); name syncs
+        Assert.Equal("old.txt", p.Name);
+        p.EndName(true); // select all
+        p.InsertName("new.txt");
+        Assert.Equal("ok", p.RenameHighlighted());
+        Assert.True(File.Exists(Path.Combine(_dir, "new.txt")));
+        Assert.False(File.Exists(Path.Combine(_dir, "old.txt")));
+    }
+
+    [Fact]
+    public void RenameHighlightedRejects()
+    {
+        File.WriteAllText(Path.Combine(_dir, "a.txt"), "x");
+        File.WriteAllText(Path.Combine(_dir, "b.txt"), "y");
+        var p = State();
+        Assert.Equal("empty", p.RenameHighlighted()); // .. highlighted
+        p.MoveHighlight(1); // a.txt
+        p.EndName(true);
+        p.InsertName("b.txt");
+        Assert.Equal("exists", p.RenameHighlighted());
+        Assert.True(File.Exists(Path.Combine(_dir, "a.txt"))); // untouched
+        p.EndName(true);
+        p.InsertName("x/y");
+        Assert.Equal("invalid", p.RenameHighlighted());
+    }
+
+    [Fact]
+    public void DialogF2RenamesAndNotices()
+    {
+        File.WriteAllText(Path.Combine(_dir, "old.txt"), "x");
+        var p = State();
+        var dlg = new FileDialog(p, "Open", "Save");
+        p.MoveHighlight(1);
+        p.EndName(true);
+        p.InsertName("new.txt");
+        dlg.HandleKey(K('\0', ConsoleKey.F2));
+        Assert.True(File.Exists(Path.Combine(_dir, "new.txt")));
+        Assert.Null(p.NoticeKey);
+        dlg.HandleKey(K('\0', ConsoleKey.F2)); // same name — silent ok
+        Assert.Null(p.NoticeKey);
+    }
+
+    [Fact]
     public void DialogCtrlHTogglesHidden()
     {
         File.WriteAllText(Path.Combine(_dir, ".hid"), "x");

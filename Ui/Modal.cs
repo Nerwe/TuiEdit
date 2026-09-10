@@ -135,10 +135,11 @@ internal sealed class ModalState
         selected: 0,
         hint: string.Empty);
 
-    public static ModalState ConfirmReplace(Loc loc, string term, int count) => new(
+    public static ModalState ConfirmReplace(
+        Loc loc, string term, int count, (int row, string before, string after)? preview = null) => new(
         ModalKind.ReplaceConfirm,
         loc["modal.replace.title"],
-        new List<string> { loc.Format("modal.replace.desc", count, term) },
+        PreviewLines(loc, term, count, preview),
         new List<ModalButton>
         {
             new(loc["picker.ow.yes"], 'Y'),
@@ -146,6 +147,18 @@ internal sealed class ModalState
         },
         selected: 0,
         hint: string.Empty);
+
+    private static List<string> PreviewLines(
+        Loc loc, string term, int count, (int row, string before, string after)? preview)
+    {
+        var lines = new List<string> { loc.Format("modal.replace.desc", count, term) };
+        if (preview is { } p)
+        {
+            lines.Add($"{p.row + 1}: {p.before}");
+            lines.Add($"  → {p.after}");
+        }
+        return lines;
+    }
 
     /// <summary>Creates the large-file prompt: open anyway? Safe default is "No".</summary>
     public static ModalState LargeFile(Loc loc, string fileName, long megabytes, long limitMegabytes) => new(

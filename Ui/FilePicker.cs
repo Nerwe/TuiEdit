@@ -414,6 +414,45 @@ internal sealed class FilePickerState
         return "ok";
     }
 
+    /// <summary>
+    /// Renames the highlighted entry to the name field: ok / empty / exists /
+    /// invalid / denied / error (the error text goes to Error).
+    /// </summary>
+    public string RenameHighlighted()
+    {
+        PickerEntry? h = Highlighted();
+        if (h is null || h.Name == ".." || CurrentDir == "")
+            return "empty";
+        string name = Name.Trim();
+        if (name.Equals(EntryBaseName(h), StringComparison.Ordinal))
+        {
+            Refresh();
+            return "ok"; // same name — nothing to do
+        }
+        string oldFull;
+        try
+        {
+            oldFull = Path.Combine(CurrentDir, EntryBaseName(h));
+        }
+        catch
+        {
+            return "invalid";
+        }
+        FileOpResult r = FileOps.Rename(oldFull, name);
+        if (!r.Ok)
+        {
+            return r.Error switch
+            {
+                FileOpError.AlreadyExists => "exists",
+                FileOpError.InvalidName => "invalid",
+                FileOpError.AccessDenied => "denied",
+                _ => "error",
+            };
+        }
+        Refresh();
+        return "ok";
+    }
+
     /// <summary>Gets the delete target: the highlighted entry (not .., not the drives root).</summary>
     public string? DeleteTarget()
     {

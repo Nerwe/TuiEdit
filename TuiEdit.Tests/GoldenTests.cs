@@ -67,6 +67,23 @@ public sealed class GoldenTests
     }
 
     [Fact]
+    public void PaletteFilterHighlightsMatch()
+    {
+        var scr = NewScreen();
+        var store = new SettingsStore(Path.Combine("x", "settings.json"));
+        var dlg = new CommandPaletteDialog(new AppSettings(), store, () => { }, _ => { });
+        dlg.HandleKey(new ConsoleKeyInfo('s', ConsoleKey.S, false, false, false));
+        dlg.HandleKey(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
+        dlg.HandleKey(new ConsoleKeyInfo('v', ConsoleKey.V, false, false, false));
+        dlg.Draw(scr, _theme, _loc);
+        bool any = false;
+        for (int y = 0; y < 24 && !any; y++)
+            for (int x = 0; x < 80 && !any; x++)
+                any = scr.At(x, y).Fg.Equals(_theme.MatchFg);
+        Assert.True(any, "expected a MatchFg span for the 'sav' filter");
+    }
+
+    [Fact]
     public void GrepModalFrame()
     {
         var scr = NewScreen();
