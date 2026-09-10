@@ -57,6 +57,10 @@ internal sealed class InputParser
     /// <param name="k">The key to queue.</param>
     public void Feed(ConsoleKeyInfo k) => _keys.Enqueue(k);
 
+    /// <summary>Enqueues a synthetic event (tests: held-key/paste burst fixtures).</summary>
+    /// <param name="ev">The event to queue.</param>
+    internal void FeedEvent(InputEvent ev) => _pendingEvents.Enqueue(ev);
+
     /// <summary>Clears all queued input (tests).</summary>
     public void Clear()
     {

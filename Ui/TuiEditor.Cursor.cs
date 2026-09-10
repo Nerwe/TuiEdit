@@ -498,4 +498,57 @@ internal sealed partial class TuiEditor
         }
         TrackCol();
     }
+
+    /// <summary>Key-driven paste with held-key coalescing (see <see cref="DrainPasteRun"/>).</summary>
+    private void CoalescedKeyPaste()
+    {
+        if (_clipboard.Count == 0) { Paste(); return; } // empty path unchanged (message, no drain)
+        InsertPastedText(string.Join("\n", _clipboard) + DrainPasteRun());
+    }
+
+    /// <summary>
+    /// Inserts text as one buffer mutation: joining the clipboard with "\n" round-trips
+    /// buffer lines exactly (lines never contain "\n"), so this matches PasteLines
+    /// content- and cursor-wise while costing a single undo entry and a single frame.
+    /// </summary>
+    private void InsertPastedText(string text)
+    {
+        DeleteSelection();
+        ClampCursor();
+        int pr = _row;
+        int pbefore = _buf.Count;
+        (_row, _col) = _buf.InsertText(_row, _col, text);
+        if (_buf.Count > pbefore)
+        {
+            _docs[_active].ShiftMarks(pr + 1, _buf.Count - pbefore);
+        }
+        ClampCursor();
+        TrackCol();
+    }
+
+    /// <summary>
+    /// Merges a held-paste burst into one insertion: pulls paste inputs already pending
+    /// behind the current one (key auto-repeat, terminal paste bursts) and concatenates
+    /// them, so N queued pastes cost one mutation and one frame instead of a backlog
+    /// that keeps inserting after key release. Merges non-empty editor pastes only;
+    /// the first anything-else lands in <see cref="_heldEvent"/> for the next loop
+    /// iteration (never swallowed). Editor text only: callers ensure no dialog, menu,
+    /// or focused panel is open.
+    /// </summary>
+    private string DrainPasteRun()
+    {
+        var sb = new System.Text.StringBuilder();
+        while (InputReader.TryReadPending() is InputEvent ev)
+        {
+            if (ev is PasteInput p && p.Text.Length > 0) { sb.Append(p.Text); continue; }
+            if (ev is KeyInput ki && _keys.Map(ki.Key) == EditorCommand.Paste && _clipboard.Count > 0)
+            {
+                sb.Append(string.Join("\n", _clipboard));
+                continue;
+            }
+            _heldEvent = ev;
+            break;
+        }
+        return sb.ToString();
+    }
 }

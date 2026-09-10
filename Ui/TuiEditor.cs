@@ -59,6 +59,8 @@ internal sealed partial class TuiEditor
     private int _mouseRow; // Cursor at press time (anchor of the future drag)
     private int _mouseCol;
     // Input reads via static InputReader.Read (stateless).
+    /// <summary>Lookahead stashed by burst coalescing: processed before blocking on the console.</summary>
+    private InputEvent? _heldEvent;
     private readonly AppSettings _settings;
     private readonly SettingsStore _store;
     private string? _keyBindingsPath;
@@ -239,13 +241,21 @@ internal sealed partial class TuiEditor
             {
                 Render();
                 InputEvent ev;
-                try
+                if (_heldEvent is not null)
                 {
-                    ev = InputReader.Read();
+                    ev = _heldEvent;
+                    _heldEvent = null;
                 }
-                catch (InvalidOperationException)
+                else
                 {
-                    return;
+                    try
+                    {
+                        ev = InputReader.Read();
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        return;
+                    }
                 }
                 try
                 {
