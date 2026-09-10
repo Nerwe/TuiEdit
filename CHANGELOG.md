@@ -7,6 +7,25 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-10
+
+### Added
+- Crash reports (`%TEMP%/TuiEdit/crashes/crash-*.log`, capped at 20):
+  the fatal message points at the exact file.
+- Keybindings live reload: editing `keybindings.json` applies without restart.
+- Golden frame tests for dialogs (`Screen.Snapshot`, `UPDATE_GOLDENS=1`).
+
+### Changed
+- Stdin machine extracted into a pure testable `InputParser`
+  (5000-case fuzz: bursts, SGR mutations, paste).
+- Quick-open index is a hand-rolled BFS: hidden dirs pruned, denied dirs
+  skipped without aborting, symlink cycles bounded, caps top-down.
+- CI: Dependabot, CodeQL, BenchmarkDotNet baseline (`docs/perf-baseline.md`).
+
+### Fixed
+- A throwing mouse path parks the mouse for the session instead of killing
+  the editor; any failing input event is logged and skipped.
+
 ## [0.5.0] - 2026-09-09
 
 ### Changed
