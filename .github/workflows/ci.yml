@@ -49,7 +49,7 @@ jobs:
           $rate = [double]$x.coverage.'line-rate' * 100
           "line-rate=$([math]::Round($rate, 1))%" >> $env:GITHUB_STEP_SUMMARY
           if ($rate -lt 60) { throw "Coverage $rate% is below the 60% gate." }
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.os }}
           path: TestResults/**/coverage.cobertura.xml
@@ -68,7 +68,7 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
       - run: dotnet run -c Release --project TuiEdit.Bench -- --filter '*' --exporters json html --artifacts bench-results
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: bench-results
           path: bench-results/
