@@ -112,7 +112,7 @@ internal sealed partial class TuiEditor
     {
         try
         {
-            _sidebar = new SidebarState(Path.GetFullPath(dir));
+            _sidebar = new SidebarState(Path.GetFullPath(dir), _git);
             _sidebarFocus = true;
         }
         catch
@@ -363,7 +363,7 @@ internal sealed partial class TuiEditor
             string root = _buf.FilePath is null
                 ? Directory.GetCurrentDirectory()
                 : Path.GetDirectoryName(Path.GetFullPath(_buf.FilePath)) ?? Directory.GetCurrentDirectory();
-            _sidebar = new SidebarState(root);
+            _sidebar = new SidebarState(root, _git);
             _sidebarFocus = true;
             return;
         }

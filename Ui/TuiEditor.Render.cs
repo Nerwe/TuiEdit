@@ -513,10 +513,24 @@ internal sealed partial class TuiEditor
             if (i == _sidebar.Selected)
                 _screen.Text(0, row, cell, _theme.ButtonSelFg, _theme.ButtonSelBg);
             else
-                _screen.Text(0, row, cell, EntryFg(_theme, kind), _theme.EditorBg);
+                _screen.Text(0, row, cell, SidebarRowFg(_theme, kind, node), _theme.EditorBg);
         }
         for (int row = y0 + 1 + vis; row < y0 + textHeight; row++)
             _screen.Text(0, row, new string(' ', inner) + "│", _theme.EditorFg, _theme.EditorBg);
+    }
+
+    /// <summary>Gets the sidebar row color: git marks win (when enabled), then kind.</summary>
+    private Rgb SidebarRowFg(Theme theme, SidebarEntry kind, SidebarNode node)
+    {
+        if (_settings.GitGutter && _sidebar is SidebarState sidebar)
+        {
+            var (added, modified) = sidebar.GitMark(node);
+            if (added)
+                return theme.GitAddFg;
+            if (modified)
+                return theme.GitModFg;
+        }
+        return EntryFg(theme, kind);
     }
 
     /// <summary>Gets the sidebar entry color by kind (the selected entry paints separately).</summary>

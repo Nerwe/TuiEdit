@@ -8,6 +8,7 @@ internal sealed class SidebarState
     public const int Width = 24;
 
     private readonly SidebarTree _tree;
+    private readonly IGitService _git;
     private List<(SidebarNode node, int depth)> _rows = new();
 
     /// <summary>Gets the shown root (always full).</summary>
@@ -23,9 +24,10 @@ internal sealed class SidebarState
 
     private int _visCount = 10;
 
-    public SidebarState(string root)
+    public SidebarState(string root, IGitService? git = null)
     {
         _tree = new SidebarTree(root);
+        _git = git ?? GitService.Shared;
         Rebuild(null);
     }
 
@@ -97,6 +99,31 @@ internal sealed class SidebarState
         string? keep = Current?.node.Path;
         _tree.RefreshExpanded();
         Rebuild(keep);
+    }
+
+    /// <summary>
+    /// Git mark for a row: files match exactly, folders aggregate any changed
+    /// descendant by path prefix (repo-wide sets, last known values).
+    /// </summary>
+    /// <param name="node">The row node.</param>
+    public (bool added, bool modified) GitMark(SidebarNode node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        var (added, modified) = _git.ChangedFiles(node.Path);
+        if (!node.IsDir)
+            return (added.Contains(node.Path), modified.Contains(node.Path));
+        string prefix = node.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        bool a = false, m = false;
+        foreach (string p in added)
+        {
+            if (p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) { a = true; break; }
+        }
+        foreach (string p in modified)
+        {
+            if (p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) { m = true; break; }
+        }
+        return (a, m);
     }
 
     private void Rebuild(string? keepPath)
