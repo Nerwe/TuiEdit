@@ -50,11 +50,13 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
     GrammarRegistry.EnsureLoaded(settingsDir is not null
         ? Path.Combine(settingsDir, "grammars")
         : GrammarRegistry.DefaultDir());
+    string? keyBindingsPath = null;
     try
     {
         string kb = KeyBindings.DefaultPath(settingsDir);
         KeyBindings.SeedExample(kb);
         KeyMap.SetOverrides(KeyBindings.Load(kb));
+        keyBindingsPath = kb;
     }
     catch
     {
@@ -133,6 +135,7 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
     // Overrides are compiled into KeyMap.Current above, so the editor's table matches menu hints.
     var editor = new TuiEditor(buffer, settings, store,
         GitService.Shared, SystemClipboardService.Shared, KeyMap.Current);
+    editor.TrackKeyBindings(keyBindingsPath);
     if (firstPath is null)
     {
         editor.RestoreSessionTabs();

@@ -60,6 +60,8 @@ internal sealed partial class TuiEditor
     // Input reads via static InputReader.Read (stateless).
     private readonly AppSettings _settings;
     private readonly SettingsStore _store;
+    private string? _keyBindingsPath;
+    private DateTime _keyBindingsMtime = DateTime.MinValue;
     private readonly CommandDispatcher _dispatcher;
     private readonly IGitService _git;
     private readonly ISystemClipboard _clipboardSvc;
@@ -99,6 +101,54 @@ internal sealed partial class TuiEditor
 
     /// <summary>Command dispatcher (every <see cref="EditorCommand"/> except None must resolve).</summary>
     internal ICommandDispatcher Dispatcher => _dispatcher;
+
+    /// <summary>Tracks an external keybindings file for live reload (no restart needed).</summary>
+    /// <param name="path">The keybindings.json path (null disables tracking).</param>
+    internal void TrackKeyBindings(string? path)
+    {
+        _keyBindingsPath = path;
+        _keyBindingsMtime = ReadMtime(path);
+    }
+
+    /// <summary>Reapplies keybindings when the tracked file changed (cheap mtime stat).</summary>
+    private void MaybeReloadKeyBindings()
+    {
+        if (_keyBindingsPath is null)
+            return;
+        DateTime mtime = ReadMtime(_keyBindingsPath);
+        if (mtime == _keyBindingsMtime)
+            return;
+        _keyBindingsMtime = mtime;
+        Dictionary<string, string?> raw;
+        try
+        {
+            raw = KeyBindings.Load(_keyBindingsPath);
+        }
+        catch
+        {
+            return;
+        }
+        try
+        {
+            KeyMap.SetOverrides(raw);
+            _keys.ApplyOverrides(raw);
+        }
+        catch
+        {
+        }
+    }
+
+    private static DateTime ReadMtime(string? path)
+    {
+        try
+        {
+            return path is null ? DateTime.MinValue : File.GetLastWriteTimeUtc(path);
+        }
+        catch
+        {
+            return DateTime.MinValue;
+        }
+    }
 
     private BackupStore? Backups => _settings.BackupOnSave ? _backups : null;
 
@@ -198,6 +248,7 @@ internal sealed partial class TuiEditor
                 {
                     HandleInput(ev);
                     AutoDraft();
+                    MaybeReloadKeyBindings();
                 }
                 catch (Exception ex)
                 {
