@@ -8,6 +8,10 @@ when a `v*` tag is pushed.
 ## [Unreleased]
 
 ### Fixed
+- Frames flip atomically via synchronized output (DECSET 2026): full repaints
+  no longer tear mid-frame on supporting terminals (Windows Terminal does);
+  others ignore the markers. Gated on VT like other DEC sequences, with the
+  end marker in a `finally`.
 - Mouse-touching test classes share an xUnit collection: the static
   `InputReader.MouseLevel` flipped under parallel classes is gone as a flake source.
 

@@ -241,8 +241,16 @@ internal sealed partial class TuiEditor
         }
 
         RenderFrame(w, h);
-        _screen.Flush();
-        PlaceCursor();
+        Terminal.BeginSynchronizedUpdate();
+        try
+        {
+            _screen.Flush();
+            PlaceCursor();
+        }
+        finally
+        {
+            Terminal.EndSynchronizedUpdate();
+        }
     }
 
     /// <summary>

@@ -990,7 +990,15 @@ internal sealed partial class TuiEditor
         if (text.Length > w)
             text = text[^w..];
         _screen.Text(0, row, text.PadRight(w)[..w], _theme.PromptFg, _theme.PromptBg);
-        _screen.Flush();
+        Terminal.BeginSynchronizedUpdate();
+        try
+        {
+            _screen.Flush();
+        }
+        finally
+        {
+            Terminal.EndSynchronizedUpdate();
+        }
         int cursorX = Math.Min(w - 1, title.Length + pos - Math.Max(0, (title.Length + input.Length) - w));
         try
         {
