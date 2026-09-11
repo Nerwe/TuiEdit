@@ -12,4 +12,92 @@ public sealed class TerminalTests
         var ex = Record.Exception(() => Terminal.DiscardPendingInput());
         Assert.Null(ex);
     }
+
+    [Fact]
+    public void TakeFailStreakTripsFlushAtThreshold()
+    {
+        int t = Terminal.TakeFailFlushThreshold;
+        Assert.False(Terminal.TakeFailStreakTripsFlush(0));
+        Assert.False(Terminal.TakeFailStreakTripsFlush(t - 1));
+        Assert.True(Terminal.TakeFailStreakTripsFlush(t));
+        Assert.True(Terminal.TakeFailStreakTripsFlush(t + 1));
+    }
+
+    [Fact]
+    public void RecoverStuckInputNeverThrows()
+    {
+        var ex = Record.Exception(() => Terminal.RecoverStuckInput());
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void StuckFlushLogNeverThrows()
+    {
+        var ex = Record.Exception(() => InputLog.StuckFlush(Terminal.TakeFailFlushThreshold));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void DrainBudgetTripsAtThreshold()
+    {
+        int t = Terminal.MaxSilentPoll;
+        Assert.False(Terminal.SilentPollExceeded(0));
+        Assert.False(Terminal.SilentPollExceeded(t - 1));
+        Assert.True(Terminal.SilentPollExceeded(t));
+        Assert.True(Terminal.SilentPollExceeded(t + 1));
+    }
+
+    [Fact]
+    public void DrainFloodLogNeverThrows()
+    {
+        var ex = Record.Exception(() => InputLog.DrainFlood(Terminal.MaxSilentPoll));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void DrainFloodLogWithDetailNeverThrows()
+    {
+        var ex = Record.Exception(() => InputLog.DrainFlood(Terminal.MaxSilentPoll, "motion=1 junk=2 head=empty"));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void DropJunkBatchHeadlessReturnsZero()
+    {
+        Assert.Equal(0, Terminal.DropJunkBatch(0));
+        Assert.Equal(0, Terminal.DropJunkBatch(-1));
+    }
+
+    [Fact]
+    public void DropJunkBatchNeverThrows()
+    {
+        int dropped = 0;
+        var ex = Record.Exception(() => dropped = Terminal.DropJunkBatch(128));
+        Assert.Null(ex);
+        Assert.True(dropped >= 0);
+    }
+
+    [Fact]
+    public void DescribeHeadNeverThrows()
+    {
+        string? head = null;
+        var ex = Record.Exception(() => head = Terminal.DescribeHead());
+        Assert.Null(ex);
+        Assert.False(string.IsNullOrEmpty(head));
+    }
+
+    [Fact]
+    public void SameRecordComparesFullUnion()
+    {
+        var a = new Terminal.InputRecord { EventType = Terminal.KEY_EVENT };
+        a.KeyEvent.KeyDown = 1;
+        a.KeyEvent.UnicodeChar = 'A';
+        var b = a;
+        Assert.True(Terminal.SameRecord(a, b));
+        b.KeyEvent.UnicodeChar = 'B';
+        Assert.False(Terminal.SameRecord(a, b));
+        b = a;
+        b.EventType = Terminal.MOUSE_EVENT;
+        Assert.False(Terminal.SameRecord(a, b));
+    }
 }

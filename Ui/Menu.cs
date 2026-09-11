@@ -108,8 +108,17 @@ internal static class MenuHit
         return null;
     }
 
-    /// <summary>Hits a dropdown item index or returns null (miss, separator, or overflow).</summary>
-    public static int? DropdownHit(TopMenu m, int menuX, int x, int y, int w, int h)
+    /// <summary>Computes the dropdown x from the open menu index (mirrors DrawDropdown).</summary>
+    public static int MenuX(MenuState menu)
+    {
+        int x = 0;
+        for (int i = 0; i < menu.OpenIndex && i < menu.Menus.Count; i++)
+            x += menu.Menus[i].Label.Length + 2;
+        return x;
+    }
+
+    /// <summary>Hits the dropdown row under coordinates or returns null (miss or overflow).</summary>
+    private static int? DropdownRow(TopMenu m, int menuX, int x, int y, int w, int h)
     {
         int inner = 0;
         foreach (MenuItem it in m.Items)
@@ -128,6 +137,18 @@ internal static class MenuHit
         int row = y - (dy + 1);
         if (row < 0 || row >= rows || x < menuX || x >= menuX + boxW)
             return null;
-        return m.Items[row].IsSeparator ? null : row;
+        return row;
     }
+
+    /// <summary>Hits a dropdown item index or returns null (miss, separator, or overflow).</summary>
+    public static int? DropdownHit(TopMenu m, int menuX, int x, int y, int w, int h) =>
+        DropdownRow(m, menuX, x, y, w, h) switch
+        {
+            int r when !m.Items[r].IsSeparator => r,
+            _ => null,
+        };
+
+    /// <summary>Whether coordinates land on a separator row inside the dropdown box.</summary>
+    public static bool IsSeparatorHit(TopMenu m, int menuX, int x, int y, int w, int h) =>
+        DropdownRow(m, menuX, x, y, w, h) is int r && m.Items[r].IsSeparator;
 }

@@ -219,6 +219,10 @@ internal static class Terminal
 
     /// <summary>
     /// Peeks the first input queue record without consuming it (Windows only).
+    /// A successfully peeked record counts as present even with an unknown
+    /// (zero) type: conhost does emit those, and treating present-as-absent
+    /// spins the read loop forever on a signaled handle (100% CPU, no progress,
+    /// no logs). Both consumers skip non-key/non-mouse records via Take().
     /// </summary>
     internal static bool TryPeek(out InputRecord rec)
     {
@@ -231,7 +235,10 @@ internal static class Terminal
             if (h == IntPtr.Zero || h == new IntPtr(-1))
                 return false;
             var buf = new InputRecord[1];
-            return PeekConsoleInput(h, buf, 1, out uint n) && n == 1 && (rec = buf[0]).EventType != 0;
+            if (!PeekConsoleInput(h, buf, 1, out uint n) || n != 1)
+                return false;
+            rec = buf[0];
+            return true;
         }
         catch
         {
@@ -239,7 +246,148 @@ internal static class Terminal
         }
     }
 
-    /// <summary>Consumes one record from the front; translates a mouse event (returns null for the rest).</summary>
+    /// <summary>
+    /// Consecutive <see cref="Take"/> read failures that prove an unconsumable
+    /// record (Peek reports it, Read cannot take it — a zero-type ConPTY slot),
+    /// then the queue is flushed once. Legit records of any type always read,
+    /// so a streak this long means the head is pathological, not busy.
+    /// </summary>
+    internal const int TakeFailFlushThreshold = 1000;
+    private static int _takeFailStreak;
+
+    /// <summary>Pure trip test for the stuck-record breaker (unit-testable).</summary>
+    internal static bool TakeFailStreakTripsFlush(int streak) => streak >= TakeFailFlushThreshold;
+
+    /// <summary>
+    /// Silent queue polls after which a peek/take loop stops and recovers:
+    /// polls that neither produce a key nor drain the queue mean the head
+    /// record is unconsumable (or an endless supply) — polling on burns CPU
+    /// with zero logs and starves the main loop.
+    /// </summary>
+    internal const int MaxSilentPoll = 4096;
+
+    /// <summary>Pure trip test for the silent-poll budget (unit-testable).</summary>
+    internal static bool SilentPollExceeded(int silent) => silent >= MaxSilentPoll;
+
+    /// <summary>
+    /// Bulk-drops a leading run of junk records (key-up, resize, focus, ...):
+    /// peeks up to <paramref name="max"/> records, stops before the first key-down
+    /// or mouse (those need single handling), then dequeues exactly the junk prefix
+    /// in one call. Order-safe: interesting records stay queued. One bulk replaces
+    /// hundreds of peek/take round-trips (a key-up storm per Cyrillic press costs
+    /// ~300ms one-by-one and starves keys behind it). Returns the dropped count;
+    /// 0 means empty, interesting head, failure, or an undequeuable (phantom) head —
+    /// the caller falls back to single Take(), which owns the phantom case
+    /// (verify + flush). Best-effort, never throws.
+    /// </summary>
+    internal static int DropJunkBatch(int max)
+    {
+        if (!OperatingSystem.IsWindows() || max <= 0)
+            return 0;
+        try
+        {
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return 0;
+            int n = Math.Min(max, 256);
+            var buf = new InputRecord[n];
+            if (!PeekConsoleInput(h, buf, (uint)n, out uint got) || got == 0)
+                return 0;
+            int k = 0;
+            while (k < (int)got)
+            {
+                ushort t = buf[k].EventType;
+                if (t == MOUSE_EVENT)
+                    break;
+                if (t == KEY_EVENT && buf[k].KeyEvent.KeyDown != 0)
+                    break;
+                k++;
+            }
+            if (k == 0)
+                return 0;
+            InputRecord head = buf[0];
+            if (!ReadConsoleInput(h, buf, (uint)k, out uint took) || took != (uint)k)
+                return 0;
+            // Phantom guard: an undequeuable head survives the read.
+            if (TryPeek(out InputRecord now) && SameRecord(now, head))
+                return 0;
+            return k;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// One-shot peek describing the queue head for diagnostics
+    /// (type/keydown/char — the mouse view overlaps the same bytes).
+    /// Never throws, returns "head=empty" when nothing is queued.
+    /// </summary>
+    internal static string DescribeHead()
+    {
+        try
+        {
+            if (TryPeek(out InputRecord rec))
+                return $"head={rec.EventType}/{rec.KeyEvent.KeyDown}/U+{(int)rec.KeyEvent.UnicodeChar:X4}";
+            return "head=empty";
+        }
+        catch
+        {
+            return "head=error";
+        }
+    }
+
+    /// <summary>
+    /// Byte-exact record comparison: the 16-byte Event union is fully covered
+    /// by the key-event view (4+2+2+2+2+4), which overlaps the mouse view.
+    /// </summary>
+    internal static bool SameRecord(InputRecord a, InputRecord b) =>
+        a.EventType == b.EventType
+        && a.KeyEvent.KeyDown == b.KeyEvent.KeyDown
+        && a.KeyEvent.RepeatCount == b.KeyEvent.RepeatCount
+        && a.KeyEvent.VirtualKeyCode == b.KeyEvent.VirtualKeyCode
+        && a.KeyEvent.VirtualScanCode == b.KeyEvent.VirtualScanCode
+        && a.KeyEvent.UnicodeChar == b.KeyEvent.UnicodeChar
+        && a.KeyEvent.ControlKeyState == b.KeyEvent.ControlKeyState;
+
+    private static void NoteTakeFailure()
+    {
+        if (TakeFailStreakTripsFlush(++_takeFailStreak))
+        {
+            _takeFailStreak = 0;
+            InputLog.StuckFlush(TakeFailFlushThreshold);
+            RecoverStuckInput();
+        }
+    }
+
+    /// <summary>
+    /// Nukes an unconsumable queue head from outside the read path
+    /// (also drops typeahead accumulated while stuck — better than a hang).
+    /// Best-effort, never throws.
+    /// </summary>
+    internal static void RecoverStuckInput()
+    {
+        try
+        {
+            if (!OperatingSystem.IsWindows())
+                return;
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return;
+            FlushConsoleInputBuffer(h);
+        }
+        catch
+        {
+        }
+    }
+
+    /// <summary>
+    /// Consumes one record from the front; translates a mouse event (returns null for the rest).
+    /// Verifies the head actually advanced: a successful Read does not always dequeue
+    /// (phantom zero-type ConPTY slot) — without the check both peek/take loops spin
+    /// forever with zero failures counted and zero logs.
+    /// </summary>
     internal static MouseInput? Take()
     {
         if (!OperatingSystem.IsWindows())
@@ -251,7 +399,16 @@ internal static class Terminal
                 return null;
             var buf = new InputRecord[1];
             if (!ReadConsoleInput(h, buf, 1, out uint n) || n != 1)
+            {
+                NoteTakeFailure();
                 return null;
+            }
+            if (TryPeek(out InputRecord head) && SameRecord(head, buf[0]))
+            {
+                NoteTakeFailure(); // phantom: Read "succeeded" but the head never moved
+                return null;
+            }
+            _takeFailStreak = 0; // reset only on verified consumption, so phantoms accumulate
             return buf[0].EventType == MOUSE_EVENT ? TranslateMouse(buf[0].MouseEvent) : null;
         }
         catch
@@ -281,13 +438,26 @@ internal static class Terminal
         }
         try
         {
+            int silent = 0;
             while (TryPeek(out InputRecord rec))
             {
                 if (rec.EventType == MOUSE_EVENT)
                     return false;
                 if (rec.EventType == KEY_EVENT && rec.KeyEvent.KeyDown != 0)
                     return true;
-                Take(); // Consumes key-up, resize, focus and looks further
+                int dropped = DropJunkBatch(128);
+                if (dropped > 0)
+                    silent += dropped;
+                else
+                {
+                    Take(); // Consumes key-up, resize, focus and looks further
+                    silent++;
+                }
+                if (SilentPollExceeded(silent))
+                {
+                    InputLog.DrainFlood(silent, $"pending {DescribeHead()}");
+                    return false; // phantom head: Take already flushed+logged; stop polling
+                }
             }
             return false;
         }

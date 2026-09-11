@@ -28,6 +28,50 @@ when a `v*` tag is pushed.
 - Render is throttled to ~25fps while input always drains: any flood costs
   mutations, never a frame backlog. Slow frames and dispatched commands are
   traced to `TUIEDIT_INPUT_LOG` when diagnostics are on.
+- Input log lines carry the process id, plus session start/stop markers:
+  overlapping instances sharing one log file are told apart, clean quits proven.
+- Input log marks every loop iteration and every painted frame, so a hang's
+  tail shows exactly where the main loop stalled (read, handler, or render).
+- Bracketed paste has an absolute 30s bound: a terminator lost on the wire
+  used to hang the app forever (~2% CPU, zero errors, hammered keys fed the
+  trap because every char restarted the silence timeout). Timeouts are logged.
+- Input log covers conhost mouse events too (they bypass the parser, so a
+  motion flood used to look like ghost loop iterations with no events).
+- Menu separators are a mouse dead zone: hovering one no longer jumps the
+  highlight to the first item, pressing or releasing on one keeps the menu
+  open instead of closing or firing.
+- Regex search highlight is frame-budgeted: a catastrophic pattern used to
+  cost up to 500ms per visible row every frame (8s+ per keystroke, zero
+  errors logged); rows now share a 100ms budget with a 25ms per-row cap.
+- An unconsumable console record no longer hangs input forever: a zero-type
+  slot Peek reports but Read cannot take used to spin both read loops with
+  zero errors logged (caught live via dotnet-stack + dotnet-dump); after
+  1000 failed takes the queue is flushed once and the recovery is logged
+  as `stuck-flush`.
+- The mouse drain loop no longer skips silently forever: stale motion and
+  junk used to `continue` without bound, so an endless supply (sensor
+  jitter, synthetic storm) never let the main loop cycle — no render, no
+  keys, zero logs. After 4096 silent skips Read falls through to the
+  key-wait path (which eats the flood waiting for the next key); trips are
+  logged as `drain-flood`. The sibling `IsKeyPending` loop has the same
+  bound now. Flood lines carry per-branch counters and the queue-head type
+  (`motion=/junk=/takenull=/head=`), so the next live report identifies
+  the spinning record instead of guessing.
+- Junk input drains in bulk: every Cyrillic press leaves a storm of key-up
+  residue in the conhost queue (live log: `junk=4096`, heads like `1/0/U+00B0`),
+  and one-by-one takes cost ~300ms per keystroke, starving keys behind the
+  storm. Leading junk runs now drop up to 128 records per syscall (peek,
+  stop before the first key-down/mouse, dequeue exactly the junk prefix —
+  order-safe, phantom-guarded), so keys surface in milliseconds.
+- Phantom console records are detected, not just failures: `ReadConsoleInput`
+  can report success without dequeuing a zero-type slot (proven by two dumps
+  20s apart with the fail counter stuck at 0 while spinning).   `Take` now
+  re-peeks after every successful read and counts an unmoved head as a
+  failure, so the flush breaker actually fires; record comparison covers
+  the full 16-byte union. The fail counter resets only on verified
+  consumption — resetting on raw success capped phantom streaks at 1, so
+  the breaker never fired (86 silent `drain-flood` cycles with zero
+  `stuck-flush` in one live session).
 
 ## [0.9.1] - 2026-09-10
 

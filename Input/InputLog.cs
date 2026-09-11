@@ -47,6 +47,53 @@ internal static class InputLog
         Write(path, $"command={command} handled={handled}");
     }
 
+    /// <summary>Logs a main-loop iteration (an input event was obtained).</summary>
+    internal static void Loop()
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, "loop");
+    }
+
+    /// <summary>Logs that a frame actually renders (throttle may skip).</summary>
+    internal static void Paint()
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, "paint");
+    }
+
+    /// <summary>Logs a bracketed paste that ended by timeout instead of terminator.</summary>
+    internal static void PasteTimeout(int chars, string reason)
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, $"paste-timeout={chars} chars reason={reason}");
+    }
+
+    /// <summary>Logs a queue flush that recovered an unconsumable console record.</summary>
+    internal static void StuckFlush(int fails)
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, $"stuck-flush={fails} fails");
+    }
+
+    /// <summary>Logs a drain-loop flood that fell through to the key-wait path.</summary>
+    internal static void DrainFlood(int skipped, string detail = "")
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, string.IsNullOrEmpty(detail)
+            ? $"drain-flood={skipped} skipped"
+            : $"drain-flood={skipped} skipped {detail}");
+    }
+
     /// <summary>Logs a frame slower than the slow-frame budget.</summary>
     internal static void Frame(long ms)
     {
@@ -74,11 +121,22 @@ internal static class InputLog
         }
     }
 
+    /// <summary>Logs a session boundary (main loop entry/exit): proves clean quits and tells instances apart.</summary>
+    internal static void Session(string phase)
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, $"session={phase}");
+    }
+
     private static void Write(string path, string line)
     {
         try
         {
-            File.AppendAllText(path, DateTime.Now.ToString("HH:mm:ss.fff ", System.Globalization.CultureInfo.InvariantCulture) + line + Environment.NewLine);
+            File.AppendAllText(path, string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"{DateTime.Now:HH:mm:ss.fff} [{Environment.ProcessId}] {line}{Environment.NewLine}"));
         }
         catch
         {

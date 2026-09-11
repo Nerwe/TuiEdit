@@ -155,15 +155,49 @@ public sealed class PasteCoalesceTests
             Assert.Contains("yield=Key", text);
             InputLog.Command("Paste", handled: true);
             InputLog.Frame(123);
+            InputLog.Session("start");
+            InputLog.Loop();
+            InputLog.Paint();
             string text2 = File.ReadAllText(log);
             Assert.Contains("command=Paste handled=True", text2);
             Assert.Contains("slow-frame=123ms", text2);
+            Assert.Contains($"[{Environment.ProcessId}]", text2);
+            Assert.Contains("session=start", text2);
+            Assert.Contains("loop", text2);
+            Assert.Contains("paint", text2);
         }
         finally
         {
             Environment.SetEnvironmentVariable("TUIEDIT_INPUT_LOG", saved);
             InputReader.Parser.Clear();
             try { File.Delete(log); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task PasteFloodWithoutTerminatorTerminates()
+    {
+        // The silence timeout restarts on every char, so a terminator lost on the
+        // wire hung the app forever (~2% CPU, zero logs) while hammered keys fed it.
+        // The absolute cap bounds it; the test fails by timeout instead of hanging.
+        TimeSpan saved = InputParser.PasteMaxWait;
+        try
+        {
+            InputParser.PasteMaxWait = TimeSpan.FromMilliseconds(100);
+            InputParser parser = new(() => true, () => new ConsoleKeyInfo('x', (ConsoleKey)'x', false, false, false));
+            parser.Feed(new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
+            foreach (char c in "[200~")
+                parser.Feed(new ConsoleKeyInfo(c, (ConsoleKey)c, false, false, false));
+            Task<InputEvent?> task = Task.Run(() => parser.TryRead(mouseEnabled: false));
+            Task winner = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(15)));
+            Assert.True(winner == task, "paste wait did not terminate (infinite trap)");
+            PasteInput paste = Assert.IsType<PasteInput>(await task);
+            Assert.True(paste.Text.Length > 0);
+        }
+        finally
+        {
+            InputParser.PasteMaxWait = saved;
+            InputReader.Parser.Clear();
         }
     }
 

@@ -43,10 +43,12 @@ internal sealed class InputReader
             // We drain the conhost queue ourselves: .NET ReadKey swallows mouse events,
             // and blocks waiting for keys only. We call ReadKey only when a
             // key-down is at the front — then it returns instantly, losing nothing.
+            int silent = 0, motion = 0, junk = 0, takeNull = 0;
             while (true)
             {
                 if (!Terminal.TryPeek(out Terminal.InputRecord rec))
                 {
+                    silent = 0; // queue drained — progress, not a flood
                     if (!Terminal.WaitForInput(50))
                         break; // console error — legacy path
                     continue;
@@ -58,14 +60,48 @@ internal sealed class InputReader
                         // Backpressure: stale motion (something already behind it)
                         // is eaten without a render — otherwise the flood starves keys.
                         if (mev.Action == MouseAction.Move && Terminal.PendingCount() > 0)
+                        {
+                            motion++;
+                            if (Terminal.SilentPollExceeded(++silent))
+                            {
+                                InputLog.DrainFlood(silent,
+                                    $"motion={motion} junk={junk} takenull={takeNull} {Terminal.DescribeHead()}");
+                                break; // flood: fall through to the key-wait path
+                            }
                             continue;
+                        }
+                        InputLog.Yield(mev); // conhost path bypasses the parser: log here
                         return mev;
+                    }
+                    takeNull++;
+                    if (Terminal.SilentPollExceeded(++silent))
+                    {
+                        InputLog.DrainFlood(silent,
+                            $"motion={motion} junk={junk} takenull={takeNull} {Terminal.DescribeHead()}");
+                        break; // middle/right/wheel-0 storm: same recovery
                     }
                     continue;
                 }
                 if (rec.EventType != Terminal.KEY_EVENT || rec.KeyEvent.KeyDown == 0)
                 {
-                    Terminal.Take(); // key-up, resize, focus — skip
+                    int dropped = Terminal.DropJunkBatch(128);
+                    if (dropped > 0)
+                    {
+                        junk += dropped;
+                        silent += dropped;
+                    }
+                    else
+                    {
+                        Terminal.Take(); // key-up, resize, focus — skip (phantom-safe single)
+                        junk++;
+                        silent++;
+                    }
+                    if (Terminal.SilentPollExceeded(silent))
+                    {
+                        InputLog.DrainFlood(silent,
+                            $"motion={motion} junk={junk} takenull={takeNull} {Terminal.DescribeHead()}");
+                        break; // junk storm: same recovery
+                    }
                     continue;
                 }
                 break; // key-down at the front

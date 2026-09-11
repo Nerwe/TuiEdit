@@ -90,12 +90,31 @@ public sealed class LiveSearchTests : IDisposable
     }
 
     [Fact]
+    public void HostileRegexFrameBudget()
+    {
+        // Catastrophic pattern over hostile lines: one shared budget per frame,
+        // not a 500ms timeout per row (that cost 12.5s per frame with zero errors logged).
+        System.Reflection.MethodInfo m = typeof(TuiEditor).GetMethod("FindMatches", BindingFlags.Static | BindingFlags.NonPublic)!;
+        string term = "(x+x+)+y";
+        string line = new string('x', 30);
+        MatchBudget budget = new(TuiEditor.FrameMatchBudgetMs);
+        System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
+        for (int i = 0; i < 25; i++)
+            m.Invoke(null, [line, term, true, false, true, budget]);
+        sw.Stop();
+        Assert.True(sw.ElapsedMilliseconds < 5000, $"frame budget blown: {sw.ElapsedMilliseconds}ms");
+        // Sanity: normal patterns still highlight with a fresh budget.
+        bool[] ok = (bool[])m.Invoke(null, ["axb", "x", true, false, true, new MatchBudget(TuiEditor.FrameMatchBudgetMs)])!;
+        Assert.Contains(ok, b => b);
+    }
+
+    [Fact]
     public void PartialTermSafe()
     {
         // An unfinished regex/empty input must not drop the highlight mask.
         var m = typeof(TuiEditor).GetMethod("FindMatches", BindingFlags.Static | BindingFlags.NonPublic)!;
         bool[] Mask(string text, string term, bool rx) =>
-            (bool[])m.Invoke(null, [text, term, true, false, rx])!;
+            (bool[])m.Invoke(null, [text, term, true, false, rx, null])!;
         Assert.All(Mask("foo (bar", "", false), b => Assert.False(b));
         Assert.All(Mask("foo (bar", "(", true), b => Assert.False(b));
         Assert.Contains(Mask("foo bar foo", "foo", false), b => b);
