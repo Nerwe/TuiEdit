@@ -154,4 +154,13 @@ public sealed class FrameGoldenTests
 
     private static ConsoleKeyInfo K(char c, ConsoleKey k, bool shift = false, bool ctrl = false) =>
         new(c, k, shift, false, ctrl);
+
+    [Fact]
+    public void RenderThrottleWindows()
+    {
+        var t0 = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        Assert.True(TuiEditor.ShouldRender(DateTime.MinValue, t0)); // first frame always due
+        Assert.False(TuiEditor.ShouldRender(t0, t0.AddMilliseconds(TuiEditor.RenderThrottleMs - 1)));
+        Assert.True(TuiEditor.ShouldRender(t0, t0.AddMilliseconds(TuiEditor.RenderThrottleMs)));
+    }
 }

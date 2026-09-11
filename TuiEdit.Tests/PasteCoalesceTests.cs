@@ -153,6 +153,11 @@ public sealed class PasteCoalesceTests
             string text = File.ReadAllText(log);
             Assert.Contains("key=Q", text);
             Assert.Contains("yield=Key", text);
+            InputLog.Command("Paste", handled: true);
+            InputLog.Frame(123);
+            string text2 = File.ReadAllText(log);
+            Assert.Contains("command=Paste handled=True", text2);
+            Assert.Contains("slow-frame=123ms", text2);
         }
         finally
         {

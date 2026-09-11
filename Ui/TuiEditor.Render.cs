@@ -190,6 +190,33 @@ internal sealed partial class TuiEditor
         return rows + CursorSeg(lines[row], col, contentWidth);
     }
 
+    /// <summary>Whether a frame is due (pure, for tests).</summary>
+    internal static bool ShouldRender(DateTime last, DateTime now) =>
+        (now - last).TotalMilliseconds >= RenderThrottleMs;
+
+    /// <summary>
+    /// Paints unless a frame went out less than the throttle window ago: under a flood
+    /// input keeps draining at full speed while paint caps at ~25fps. Slow frames are
+    /// reported to the input log when diagnostics are on.
+    /// </summary>
+    private void RenderThrottled()
+    {
+        DateTime now = DateTime.UtcNow;
+        if (!ShouldRender(_lastRenderAt, now))
+            return;
+        _lastRenderAt = now;
+        if (!InputLog.Enabled)
+        {
+            Render();
+            return;
+        }
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Render();
+        sw.Stop();
+        if (sw.ElapsedMilliseconds >= SlowFrameMs)
+            InputLog.Frame(sw.ElapsedMilliseconds);
+    }
+
     private void Render()
     {
         int w, h;

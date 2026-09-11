@@ -66,6 +66,11 @@ internal sealed partial class TuiEditor
     // Input reads via static InputReader.Read (stateless).
     /// <summary>Lookahead stashed by burst coalescing: processed before blocking on the console.</summary>
     private InputEvent? _heldEvent;
+    /// <summary>Minimum time between frames: input always drains, paint caps at ~25fps (flood-proofing).</summary>
+    internal const int RenderThrottleMs = 40;
+    /// <summary>Frames slower than this are reported to the input log (diagnostics only).</summary>
+    internal const int SlowFrameMs = 50;
+    private DateTime _lastRenderAt = DateTime.MinValue;
     private readonly AppSettings _settings;
     private readonly SettingsStore _store;
     private string? _keyBindingsPath;
@@ -246,13 +251,12 @@ internal sealed partial class TuiEditor
         {
             try { Console.Write("\x1b[?2004h"); } catch (IOException) { }
             ApplyMouseSetting();
-            Render();
             MaybeRestore();
             if (_docs.Count == 1 && _buf.FilePath is null && !_buf.IsModified)
                 SetMessage(_loc["msg.hint"]);
+            Render();
             while (!_quitRequested)
             {
-                Render();
                 InputEvent ev;
                 if (_heldEvent is not null)
                 {
@@ -278,6 +282,7 @@ internal sealed partial class TuiEditor
                     InputReader.DrainPending(HandleInput);
                     AutoDraft();
                     MaybeReloadKeyBindings();
+                    RenderThrottled();
                 }
                 catch (Exception ex)
                 {
