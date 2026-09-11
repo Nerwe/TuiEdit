@@ -57,10 +57,13 @@ when a `v*` tag is pushed.
   bound now.
 - Phantom console records are detected, not just failures: `ReadConsoleInput`
   can report success without dequeuing a zero-type slot (proven by two dumps
-  20s apart with the fail counter stuck at 0 while spinning). `Take` now
+  20s apart with the fail counter stuck at 0 while spinning).   `Take` now
   re-peeks after every successful read and counts an unmoved head as a
   failure, so the flush breaker actually fires; record comparison covers
-  the full 16-byte union.
+  the full 16-byte union. The fail counter resets only on verified
+  consumption — resetting on raw success capped phantom streaks at 1, so
+  the breaker never fired (86 silent `drain-flood` cycles with zero
+  `stuck-flush` in one live session).
 
 ## [0.9.1] - 2026-09-10
 

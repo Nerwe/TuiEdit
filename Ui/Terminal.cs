@@ -334,12 +334,12 @@ internal static class Terminal
                 NoteTakeFailure();
                 return null;
             }
-            _takeFailStreak = 0;
             if (TryPeek(out InputRecord head) && SameRecord(head, buf[0]))
             {
                 NoteTakeFailure(); // phantom: Read "succeeded" but the head never moved
                 return null;
             }
+            _takeFailStreak = 0; // reset only on verified consumption, so phantoms accumulate
             return buf[0].EventType == MOUSE_EVENT ? TranslateMouse(buf[0].MouseEvent) : null;
         }
         catch
