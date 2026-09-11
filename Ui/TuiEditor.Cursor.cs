@@ -427,6 +427,52 @@ internal sealed partial class TuiEditor
         SetMessage(_loc.Format("msg.sorted", e - s + 1));
     }
 
+    /// <summary>Runs the line block through a shell command (:pipe).</summary>
+    private void ShellFilterFlow()
+    {
+        string? cmd = Prompt(_loc["prompt.shellfilter"], "");
+        if (string.IsNullOrWhiteSpace(cmd))
+            return;
+        ShellFilterWith(cmd);
+    }
+
+    /// <summary>
+    /// Runs the selection rows (or the current row) through cmd, replacing them
+    /// with the output in a single undo entry (empty output deletes). Errors keep
+    /// the text and show a message. Testable: no prompt here.
+    /// </summary>
+    internal void ShellFilterWith(string command)
+    {
+        var (s, e) = LineBlock();
+        string input = string.Join("\n", _buf.Lines.GetRange(s, e - s + 1));
+        var (exe, args) = ShellFilter.Split(command);
+        List<string> output;
+        try
+        {
+            output = ShellFilter.Run(exe, args, input);
+        }
+        catch (Exception ex)
+        {
+            SetMessage(DisplayError(ex));
+            return;
+        }
+        _buf.ReplaceLines(s, e, output);
+        _docs[_active].ShiftMarks(e + 1, output.Count - (e - s + 1));
+        _sel.Clear();
+        if (output.Count == 0)
+        {
+            _row = Math.Min(s, _buf.Count - 1);
+            _col = 0;
+        }
+        else
+        {
+            _row = s + output.Count - 1;
+            _col = output[^1].Length;
+        }
+        ClampCursor();
+        TrackCol();
+    }
+
     private void MoveLineBlock(int dir)
     {
         var (s, e) = LineBlock();

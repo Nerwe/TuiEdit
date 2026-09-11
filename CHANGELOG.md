@@ -7,6 +7,12 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+### Added
+- Filter through shell (`Ctrl+R`, Edit menu): runs the selection rows (or the
+  current row) through any command (`sort`, `jq`, ...), replacing them with the
+  output in a single undo entry. Timeouts, missing binaries, and nonzero exits
+  keep the text and show a message.
+
 ### Fixed
 - Mouse-touching test classes share an xUnit collection: the static
   `InputReader.MouseLevel` flipped under parallel classes is gone as a flake source.

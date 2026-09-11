@@ -606,6 +606,7 @@ internal sealed partial class TuiEditor
         [EditorCommand.ToggleFold] = _ => ToggleFold(),
         [EditorCommand.CompleteWord] = _ => CompleteWord(),
         [EditorCommand.SortLines] = _ => SortBlock(),
+        [EditorCommand.ShellFilter] = _ => ShellFilterFlow(),
         [EditorCommand.GoBracketMatch] = _ => JumpToBracket(),
         [EditorCommand.MoveLineUp] = _ => MoveLineBlock(-1),
         [EditorCommand.MoveLineDown] = _ => MoveLineBlock(1),
@@ -783,6 +784,7 @@ internal sealed partial class TuiEditor
             MenuItem.Separator,
             new(loc["menu.trimtrail"], 'M', Hint(null, EditorCommand.TrimTrailing), EditorCommand.TrimTrailing),
             new(loc["menu.selectall"], 'A', Hint("^A", EditorCommand.SelectAll), EditorCommand.SelectAll),
+            new(loc["menu.shellfilter"], 'I', Hint("^R", EditorCommand.ShellFilter), EditorCommand.ShellFilter),
         }),
         new TopMenu(loc["menu.help"], 'H', new List<MenuItem>
         {

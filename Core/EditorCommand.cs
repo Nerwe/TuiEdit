@@ -44,6 +44,7 @@ internal enum EditorCommand
     ToggleComment,
     GoBracketMatch,
     SortLines,
+    ShellFilter,
     ToggleBookmark, NextBookmark,
     CompleteWord,
     ToggleFold,

@@ -670,6 +670,19 @@ internal sealed class TextBuffer
         return n;
     }
 
+    /// <summary>Replaces lines [startRow, endRow] with new lines in a single undo entry (empty keeps one line).</summary>
+    public void ReplaceLines(int startRow, int endRow, IList<string> lines)
+    {
+        startRow = Math.Clamp(startRow, 0, Lines.Count - 1);
+        endRow = Math.Clamp(endRow, startRow, Lines.Count - 1);
+        PushUndo();
+        Lines.RemoveRange(startRow, endRow - startRow + 1);
+        if (lines.Count == 0)
+            Lines.Insert(startRow, string.Empty);
+        else
+            Lines.InsertRange(startRow, lines);
+    }
+
     /// <summary>Sorts lines [startRow, endRow] (ordinal) in a single undo entry.</summary>
     public void SortLines(int startRow, int endRow)
     {
