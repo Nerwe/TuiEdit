@@ -55,13 +55,15 @@ public sealed class DraftRestoreTests(TempDir tmp) : IClassFixture<TempDir>
         string dir = tmp.NewDir();
         string target = Path.Combine(dir, "work.txt");
         File.WriteAllText(target, "v1");
-        var ds = new DraftStore(DraftStore.DefaultDir());
+        string ddir = tmp.NewDir();
+        var ds = new DraftStore(ddir);
         try
         {
             var buf = new TextBuffer(null);
             buf.Open(target);
             var ed = new TuiEditor(buf, new AppSettings(),
                 new SettingsStore(Path.Combine(dir, "s.json")));
+            ed.SetDraftStore(new DraftStore(ddir));
             buf.InsertChar(0, 0, 'X'); // tab 1 is dirty
             ed.NewTab(); // tab 2 is clean
             Assert.Equal(1, ed.EmergencyDump());
@@ -145,13 +147,15 @@ public sealed class DraftRestoreTests(TempDir tmp) : IClassFixture<TempDir>
         string f1 = Path.Combine(dir, "one.txt"), f2 = Path.Combine(dir, "two.txt");
         File.WriteAllText(f1, "a");
         File.WriteAllText(f2, "b");
-        var ds = new DraftStore(DraftStore.DefaultDir());
+        string ddir = tmp.NewDir();
+        var ds = new DraftStore(ddir);
         try
         {
             var buf = new TextBuffer(null);
             buf.Open(f1);
             var ed = new TuiEditor(buf, new AppSettings(),
                 new SettingsStore(Path.Combine(dir, "s.json")));
+            ed.SetDraftStore(new DraftStore(ddir));
             buf.InsertChar(0, 0, 'X');
             ed.OpenStartupFile(f2, 0, 0);
             ActiveBuf(ed).InsertChar(0, 0, 'Y');
@@ -172,13 +176,15 @@ public sealed class DraftRestoreTests(TempDir tmp) : IClassFixture<TempDir>
     [Fact]
     public void UntitledDraftsDoNotCollide()
     {
-        var ds = new DraftStore(DraftStore.DefaultDir());
+        string ddir = tmp.NewDir();
+        var ds = new DraftStore(ddir);
         var before = new HashSet<string>(ds.ReadAll()
             .Where(x => x.draft.File is null).Select(x => x.key));
         try
         {
             var ed = new TuiEditor(new TextBuffer(null), new AppSettings(),
                 new SettingsStore(Path.Combine(tmp.Path, "s.json")));
+            ed.SetDraftStore(new DraftStore(ddir));
             ActiveBuf(ed).InsertChar(0, 0, 'A');
             ed.NewTab();
             ActiveBuf(ed).InsertChar(0, 0, 'B');
@@ -207,7 +213,8 @@ public sealed class DraftRestoreTests(TempDir tmp) : IClassFixture<TempDir>
         string cli = Path.Combine(dir, "cli.txt"), work = Path.Combine(dir, "work.txt");
         File.WriteAllText(cli, "CLI");
         File.WriteAllText(work, "v1");
-        var ds = new DraftStore(DraftStore.DefaultDir());
+        string ddir = tmp.NewDir();
+        var ds = new DraftStore(ddir);
         try
         {
             ds.Write(work, new List<string> { "drafted" }, 0, 3);
@@ -216,6 +223,7 @@ public sealed class DraftRestoreTests(TempDir tmp) : IClassFixture<TempDir>
             buf.Open(cli);
             var ed = new TuiEditor(buf, new AppSettings(),
                 new SettingsStore(Path.Combine(dir, "s.json")));
+            ed.SetDraftStore(new DraftStore(ddir));
             MaybeRestore(ed);
             var dlg = Dialog(ed);
             Assert.NotNull(dlg);
@@ -245,13 +253,15 @@ public sealed class DraftRestoreTests(TempDir tmp) : IClassFixture<TempDir>
         string f1 = Path.Combine(dir, "one.txt"), f2 = Path.Combine(dir, "two.txt");
         File.WriteAllText(f1, "a");
         File.WriteAllText(f2, "b");
-        var ds = new DraftStore(DraftStore.DefaultDir());
+        string ddir = tmp.NewDir();
+        var ds = new DraftStore(ddir);
         try
         {
             ds.Write(f1, new List<string> { "d1" }, 0, 0);
             ds.Write(f2, new List<string> { "d2" }, 0, 0);
             var ed = new TuiEditor(new TextBuffer(null), new AppSettings(),
                 new SettingsStore(Path.Combine(dir, "s.json")));
+            ed.SetDraftStore(new DraftStore(ddir));
             MaybeRestore(ed);
             var dlg = Dialog(ed);
             Assert.NotNull(dlg);
@@ -280,7 +290,8 @@ public sealed class DraftRestoreTests(TempDir tmp) : IClassFixture<TempDir>
         string cli = Path.Combine(dir, "cli.txt"), work = Path.Combine(dir, "work.txt");
         File.WriteAllText(cli, "CLI");
         File.WriteAllText(work, "v1");
-        var ds = new DraftStore(DraftStore.DefaultDir());
+        string ddir = tmp.NewDir();
+        var ds = new DraftStore(ddir);
         try
         {
             ds.Write(work, new List<string> { "drafted" }, 0, 0);
@@ -288,6 +299,7 @@ public sealed class DraftRestoreTests(TempDir tmp) : IClassFixture<TempDir>
             buf.Open(cli);
             var ed = new TuiEditor(buf, new AppSettings(),
                 new SettingsStore(Path.Combine(dir, "s.json")));
+            ed.SetDraftStore(new DraftStore(ddir));
             ed.SuppressRestoreDialog = true; // CLI files: edit, don't hijack startup
             MaybeRestore(ed);
             Assert.Null(Dialog(ed));

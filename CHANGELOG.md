@@ -8,6 +8,10 @@ when a `v*` tag is pushed.
 ## [Unreleased]
 
 ### Fixed
+- Draft tests are hermetic: they used the real shared drafts dir, so a live
+  app session (or a killed run) polluted counts and flaked the suite ~1/5.
+  Editors now accept an injected store (`SetDraftStore`) and tests use temp
+  dirs — proven immune with stray drafts planted.
 - Wire-speed runs paste as one undo: printable bursts with sub-20ms gaps
   (terminal paste without bracketed markers) skip AutoPair from the 4th char
   and merge undo entries, with instant echo preserved (nothing is held).
