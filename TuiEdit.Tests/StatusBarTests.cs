@@ -35,4 +35,40 @@ public sealed class StatusBarTests
     {
         Assert.Equal(" L  R ", StatusBar.Build(" L", " R ", 6));
     }
+
+    [Fact]
+    public void ExpandKeepsLiteralsAndUnknownVerbs()
+    {
+        static string? Resolve(string v) => v == "a" ? "A" : null;
+        Assert.Equal("x A $(b) $(unclosed", StatusBar.Expand("x $(a) $(b) $(unclosed", Resolve));
+        Assert.Equal("", StatusBar.Expand("", Resolve));
+        Assert.Equal("xx", StatusBar.Expand("$(a)$(a)", _ => "x"));
+    }
+
+    [Fact]
+    public void ExpandResolvesEmptyToEmpty()
+    {
+        Assert.Equal("[]", StatusBar.Expand("[$(e)]", _ => ""));
+    }
+
+    [Fact]
+    public void OptValueFormatsScalars()
+    {
+        var s = new AppSettings { WordWrap = true, RulerColumn = 80, Theme = "dark" };
+        Assert.Equal("on", StatusBar.OptValue(s, "WordWrap"));
+        Assert.Equal("off", StatusBar.OptValue(s, "ShowWhitespace"));
+        Assert.Equal("80", StatusBar.OptValue(s, "RulerColumn"));
+        Assert.Equal("dark", StatusBar.OptValue(s, "theme")); // case-insensitive
+        Assert.Null(StatusBar.OptValue(s, "Nope"));
+        Assert.Null(StatusBar.OptValue(s, "SessionTabs")); // lists are not scalars
+    }
+
+    [Fact]
+    public void BindVerbFindsDefaultBinding()
+    {
+        var table = new KeyBindingTable(KeyBindingTable.DefaultRows());
+        Assert.Equal("^S", StatusBar.BindVerb(table, "Save"));
+        Assert.Equal("^S", StatusBar.BindVerb(table, "save")); // case-insensitive
+        Assert.Equal("", StatusBar.BindVerb(table, "NoSuchCommand"));
+    }
 }

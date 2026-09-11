@@ -32,6 +32,9 @@ internal sealed class KeyBindingTable
     private List<KeyRow> _rows;
     private readonly HashSet<EditorCommand> _customized = new();
 
+    /// <summary>Rows in priority order (status bind: lookup).</summary>
+    internal IReadOnlyList<KeyRow> Rows => _rows;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="KeyBindingTable"/> class.
     /// </summary>

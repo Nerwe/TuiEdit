@@ -15,6 +15,10 @@ when a `v*` tag is pushed.
 - Jumplist (`Alt+Left`/`Alt+Right`): back/forward across grep hits, goto jumps
   and picked files (30 entries, consecutive duplicates drop, new jumps truncate
   the forward branch).
+- Custom status bar formats (`StatusFormatLeft`/`StatusFormatRight` in settings):
+  `$(...)` verbs for every block (`pos`, `sel`, `file`, `encoding`, `git`,
+  `tab`...), `$(opt:Name)` for any option, `$(bind:Command)` for its hotkey.
+  Defaults render exactly the old bar.
 
 ### Fixed
 - Frames flip atomically via synchronized output (DECSET 2026): full repaints
