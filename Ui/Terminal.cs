@@ -270,6 +270,56 @@ internal static class Terminal
     internal static bool SilentPollExceeded(int silent) => silent >= MaxSilentPoll;
 
     /// <summary>
+    /// Bulk-drops a leading run of junk records (key-up, resize, focus, ...):
+    /// peeks up to <paramref name="max"/> records, stops before the first key-down
+    /// or mouse (those need single handling), then dequeues exactly the junk prefix
+    /// in one call. Order-safe: interesting records stay queued. One bulk replaces
+    /// hundreds of peek/take round-trips (a key-up storm per Cyrillic press costs
+    /// ~300ms one-by-one and starves keys behind it). Returns the dropped count;
+    /// 0 means empty, interesting head, failure, or an undequeuable (phantom) head —
+    /// the caller falls back to single Take(), which owns the phantom case
+    /// (verify + flush). Best-effort, never throws.
+    /// </summary>
+    internal static int DropJunkBatch(int max)
+    {
+        if (!OperatingSystem.IsWindows() || max <= 0)
+            return 0;
+        try
+        {
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return 0;
+            int n = Math.Min(max, 256);
+            var buf = new InputRecord[n];
+            if (!PeekConsoleInput(h, buf, (uint)n, out uint got) || got == 0)
+                return 0;
+            int k = 0;
+            while (k < (int)got)
+            {
+                ushort t = buf[k].EventType;
+                if (t == MOUSE_EVENT)
+                    break;
+                if (t == KEY_EVENT && buf[k].KeyEvent.KeyDown != 0)
+                    break;
+                k++;
+            }
+            if (k == 0)
+                return 0;
+            InputRecord head = buf[0];
+            if (!ReadConsoleInput(h, buf, (uint)k, out uint took) || took != (uint)k)
+                return 0;
+            // Phantom guard: an undequeuable head survives the read.
+            if (TryPeek(out InputRecord now) && SameRecord(now, head))
+                return 0;
+            return k;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
     /// One-shot peek describing the queue head for diagnostics
     /// (type/keydown/char — the mouse view overlaps the same bytes).
     /// Never throws, returns "head=empty" when nothing is queued.
@@ -395,8 +445,15 @@ internal static class Terminal
                     return false;
                 if (rec.EventType == KEY_EVENT && rec.KeyEvent.KeyDown != 0)
                     return true;
-                Take(); // Consumes key-up, resize, focus and looks further
-                if (SilentPollExceeded(++silent))
+                int dropped = DropJunkBatch(128);
+                if (dropped > 0)
+                    silent += dropped;
+                else
+                {
+                    Take(); // Consumes key-up, resize, focus and looks further
+                    silent++;
+                }
+                if (SilentPollExceeded(silent))
                 {
                     InputLog.DrainFlood(silent, $"pending {DescribeHead()}");
                     return false; // phantom head: Take already flushed+logged; stop polling

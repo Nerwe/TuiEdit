@@ -62,6 +62,22 @@ public sealed class TerminalTests
     }
 
     [Fact]
+    public void DropJunkBatchHeadlessReturnsZero()
+    {
+        Assert.Equal(0, Terminal.DropJunkBatch(0));
+        Assert.Equal(0, Terminal.DropJunkBatch(-1));
+    }
+
+    [Fact]
+    public void DropJunkBatchNeverThrows()
+    {
+        int dropped = 0;
+        var ex = Record.Exception(() => dropped = Terminal.DropJunkBatch(128));
+        Assert.Null(ex);
+        Assert.True(dropped >= 0);
+    }
+
+    [Fact]
     public void DescribeHeadNeverThrows()
     {
         string? head = null;

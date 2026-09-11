@@ -57,6 +57,12 @@ when a `v*` tag is pushed.
   bound now. Flood lines carry per-branch counters and the queue-head type
   (`motion=/junk=/takenull=/head=`), so the next live report identifies
   the spinning record instead of guessing.
+- Junk input drains in bulk: every Cyrillic press leaves a storm of key-up
+  residue in the conhost queue (live log: `junk=4096`, heads like `1/0/U+00B0`),
+  and one-by-one takes cost ~300ms per keystroke, starving keys behind the
+  storm. Leading junk runs now drop up to 128 records per syscall (peek,
+  stop before the first key-down/mouse, dequeue exactly the junk prefix —
+  order-safe, phantom-guarded), so keys surface in milliseconds.
 - Phantom console records are detected, not just failures: `ReadConsoleInput`
   can report success without dequeuing a zero-type slot (proven by two dumps
   20s apart with the fail counter stuck at 0 while spinning).   `Take` now

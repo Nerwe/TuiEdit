@@ -84,9 +84,19 @@ internal sealed class InputReader
                 }
                 if (rec.EventType != Terminal.KEY_EVENT || rec.KeyEvent.KeyDown == 0)
                 {
-                    Terminal.Take(); // key-up, resize, focus — skip
-                    junk++;
-                    if (Terminal.SilentPollExceeded(++silent))
+                    int dropped = Terminal.DropJunkBatch(128);
+                    if (dropped > 0)
+                    {
+                        junk += dropped;
+                        silent += dropped;
+                    }
+                    else
+                    {
+                        Terminal.Take(); // key-up, resize, focus — skip (phantom-safe single)
+                        junk++;
+                        silent++;
+                    }
+                    if (Terminal.SilentPollExceeded(silent))
                     {
                         InputLog.DrainFlood(silent,
                             $"motion={motion} junk={junk} takenull={takeNull} {Terminal.DescribeHead()}");
