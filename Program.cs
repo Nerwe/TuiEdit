@@ -104,6 +104,8 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
         GitService.Shared, SystemClipboardService.Shared, KeyMap.Current);
     editor.TrackKeyBindings(keyBindingsPath);
     editor.SuppressRestoreDialog = files.Count > 0 || startDir is not null;
+    // Abrupt ends (window close, taskkill) skip Run's finally: restore best-effort.
+    AppDomain.CurrentDomain.ProcessExit += (_, _) => Startup.RestoreTerminal();
     if (openError is not null && firstPath is not null)
         editor.Notify(loc.Format("error.openfile", firstPath, openError));
     try
@@ -129,6 +131,7 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
             editor.OpenStartupFile(files[i].path, files[i].line, files[i].col);
     }
     editor.Run();
+    InputLog.Announce(starting: false);
     return (loc, 0, editor);
 }
 

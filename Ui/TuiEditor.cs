@@ -231,6 +231,7 @@ internal sealed partial class TuiEditor
     {
         // Setup is best-effort too: a throwing console must not mask startup
         // (the loop below guards itself; teardown guards itself in finally).
+        InputLog.Announce(starting: true);
         try { Console.TreatControlCAsInput = true; } catch { }
         try { Console.CursorVisible = false; } catch { }
         try { _screen.TrueColor = Terminal.TryEnableVirtualTerminal(); } catch { }
@@ -267,6 +268,9 @@ internal sealed partial class TuiEditor
                 try
                 {
                     HandleInput(ev);
+                    // One frame per wakeup, not per event: drain everything pending
+                    // (held keys, paste bursts) before the next render.
+                    InputReader.DrainPending(HandleInput);
                     AutoDraft();
                     MaybeReloadKeyBindings();
                 }

@@ -71,8 +71,12 @@ internal sealed class InputParser
     /// <summary>Whether queued (not console) input remains.</summary>
     public bool HasQueued => _pendingEvents.Count > 0 || _keys.Count > 0;
 
-    private ConsoleKeyInfo TakeKey() =>
-        _keys.Count > 0 ? _keys.Dequeue() : _readConsoleKey();
+    private ConsoleKeyInfo TakeKey()
+    {
+        ConsoleKeyInfo k = _keys.Count > 0 ? _keys.Dequeue() : _readConsoleKey();
+        InputLog.Key(k);
+        return k;
+    }
 
     private bool HasChar() => _keys.Count > 0 || _hasConsoleChar();
 
@@ -83,6 +87,14 @@ internal sealed class InputParser
     /// </summary>
     /// <param name="mouseEnabled">Whether SGR mouse sequences are recognized.</param>
     public InputEvent? TryRead(bool mouseEnabled)
+    {
+        InputEvent? ev = TryReadCore(mouseEnabled);
+        InputLog.Yield(ev);
+        return ev;
+    }
+
+    /// <param name="mouseEnabled">Whether SGR mouse sequences are recognized.</param>
+    private InputEvent? TryReadCore(bool mouseEnabled)
     {
         if (_pendingEvents.Count > 0)
             return _pendingEvents.Dequeue();
@@ -100,7 +112,7 @@ internal sealed class InputParser
             burst.Append(TakeKey().KeyChar);
             string s = burst.ToString();
             if (s.StartsWith("[200~", StringComparison.Ordinal))
-                return new PasteInput(ReadBracketedPaste(s[5..]));
+                return new PasteInput(ReadBracketedPaste());
             if ("[200~".StartsWith(s, StringComparison.Ordinal))
                 continue; // strict prefix of the paste marker — wait for the tail
             if (s is "[I" or "[O")
@@ -207,10 +219,16 @@ internal sealed class InputParser
             _keys.Enqueue(new ConsoleKeyInfo(c, (ConsoleKey)c, false, false, false));
     }
 
-    private string ReadBracketedPaste(string head)
+    private const string PasteEnd = "\x1b[201~";
+
+    private string ReadBracketedPaste()
     {
-        var sb = new StringBuilder(head);
-        var tail = new StringBuilder();
+        var sb = new StringBuilder();
+        // Incremental terminator scan: tracks how long a suffix of the body matches
+        // a prefix of the terminator, so chunked pastes stay O(n) overall (no
+        // per-char window rebuild). Sound because no proper prefix of the
+        // terminator is also its suffix (prefixes start with ESC, suffixes with ~).
+        int matched = 0;
         var sw = Stopwatch.StartNew();
         while (true)
         {
@@ -225,15 +243,21 @@ internal sealed class InputParser
             }
             char c = TakeKey().KeyChar;
             sb.Append(c);
-            tail.Append(c);
-            if (tail.Length > 6)
-                tail.Remove(0, 1);
-            if (tail.ToString() == "\x1b[201~")
+            matched = ExtendPasteMatch(matched, c);
+            if (matched >= PasteEnd.Length)
             {
-                sb.Length -= 6;
+                sb.Length -= PasteEnd.Length;
                 return sb.ToString();
             }
             sw.Restart();
         }
+    }
+
+    private static int ExtendPasteMatch(int matched, char c)
+    {
+        if (c == PasteEnd[matched])
+            return matched + 1;
+        // Mismatch: the terminator has no self-overlap, so only a fresh ESC can restart it.
+        return c == PasteEnd[0] ? 1 : 0;
     }
 }

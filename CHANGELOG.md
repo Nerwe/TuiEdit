@@ -15,6 +15,12 @@ when a `v*` tag is pushed.
   a single insertion (one undo step), so nothing keeps pasting after release.
 - Opening files (or a directory) no longer pops the restore-drafts picker:
   stale drafts stay saved and are still offered on plain launches.
+- Held keys no longer stack frames: each wakeup drains all pending input
+  before the next render (one frame per burst instead of one per event).
+- Killing the window (X button, taskkill) restores terminal modes via
+  a `ProcessExit` hook instead of leaving paste/mouse reporting stuck on.
+- `TUIEDIT_INPUT_LOG=<path>` captures raw input diagnostics for
+  "keys do nothing" reports (announced on stderr while active).
 
 ## [0.9.1] - 2026-09-10
 
