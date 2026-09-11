@@ -259,6 +259,40 @@ internal static class Terminal
     internal static bool TakeFailStreakTripsFlush(int streak) => streak >= TakeFailFlushThreshold;
 
     /// <summary>
+    /// Silent queue polls after which a peek/take loop stops and recovers:
+    /// polls that neither produce a key nor drain the queue mean the head
+    /// record is unconsumable (or an endless supply) — polling on burns CPU
+    /// with zero logs and starves the main loop.
+    /// </summary>
+    internal const int MaxSilentPoll = 4096;
+
+    /// <summary>Pure trip test for the silent-poll budget (unit-testable).</summary>
+    internal static bool SilentPollExceeded(int silent) => silent >= MaxSilentPoll;
+
+    /// <summary>
+    /// Byte-exact record comparison: the 16-byte Event union is fully covered
+    /// by the key-event view (4+2+2+2+2+4), which overlaps the mouse view.
+    /// </summary>
+    internal static bool SameRecord(InputRecord a, InputRecord b) =>
+        a.EventType == b.EventType
+        && a.KeyEvent.KeyDown == b.KeyEvent.KeyDown
+        && a.KeyEvent.RepeatCount == b.KeyEvent.RepeatCount
+        && a.KeyEvent.VirtualKeyCode == b.KeyEvent.VirtualKeyCode
+        && a.KeyEvent.VirtualScanCode == b.KeyEvent.VirtualScanCode
+        && a.KeyEvent.UnicodeChar == b.KeyEvent.UnicodeChar
+        && a.KeyEvent.ControlKeyState == b.KeyEvent.ControlKeyState;
+
+    private static void NoteTakeFailure()
+    {
+        if (TakeFailStreakTripsFlush(++_takeFailStreak))
+        {
+            _takeFailStreak = 0;
+            InputLog.StuckFlush(TakeFailFlushThreshold);
+            RecoverStuckInput();
+        }
+    }
+
+    /// <summary>
     /// Nukes an unconsumable queue head from outside the read path
     /// (also drops typeahead accumulated while stuck — better than a hang).
     /// Best-effort, never throws.
@@ -279,7 +313,12 @@ internal static class Terminal
         }
     }
 
-    /// <summary>Consumes one record from the front; translates a mouse event (returns null for the rest).</summary>
+    /// <summary>
+    /// Consumes one record from the front; translates a mouse event (returns null for the rest).
+    /// Verifies the head actually advanced: a successful Read does not always dequeue
+    /// (phantom zero-type ConPTY slot) — without the check both peek/take loops spin
+    /// forever with zero failures counted and zero logs.
+    /// </summary>
     internal static MouseInput? Take()
     {
         if (!OperatingSystem.IsWindows())
@@ -292,15 +331,15 @@ internal static class Terminal
             var buf = new InputRecord[1];
             if (!ReadConsoleInput(h, buf, 1, out uint n) || n != 1)
             {
-                if (TakeFailStreakTripsFlush(++_takeFailStreak))
-                {
-                    _takeFailStreak = 0;
-                    InputLog.StuckFlush(TakeFailFlushThreshold);
-                    RecoverStuckInput();
-                }
+                NoteTakeFailure();
                 return null;
             }
             _takeFailStreak = 0;
+            if (TryPeek(out InputRecord head) && SameRecord(head, buf[0]))
+            {
+                NoteTakeFailure(); // phantom: Read "succeeded" but the head never moved
+                return null;
+            }
             return buf[0].EventType == MOUSE_EVENT ? TranslateMouse(buf[0].MouseEvent) : null;
         }
         catch
@@ -330,6 +369,7 @@ internal static class Terminal
         }
         try
         {
+            int silent = 0;
             while (TryPeek(out InputRecord rec))
             {
                 if (rec.EventType == MOUSE_EVENT)
@@ -337,6 +377,11 @@ internal static class Terminal
                 if (rec.EventType == KEY_EVENT && rec.KeyEvent.KeyDown != 0)
                     return true;
                 Take(); // Consumes key-up, resize, focus and looks further
+                if (SilentPollExceeded(++silent))
+                {
+                    InputLog.DrainFlood(silent);
+                    return false; // phantom head: Take already flushed+logged; stop polling
+                }
             }
             return false;
         }

@@ -53,7 +53,14 @@ when a `v*` tag is pushed.
   jitter, synthetic storm) never let the main loop cycle — no render, no
   keys, zero logs. After 4096 silent skips Read falls through to the
   key-wait path (which eats the flood waiting for the next key); trips are
-  logged as `drain-flood`.
+  logged as `drain-flood`. The sibling `IsKeyPending` loop has the same
+  bound now.
+- Phantom console records are detected, not just failures: `ReadConsoleInput`
+  can report success without dequeuing a zero-type slot (proven by two dumps
+  20s apart with the fail counter stuck at 0 while spinning). `Take` now
+  re-peeks after every successful read and counts an unmoved head as a
+  failure, so the flush breaker actually fires; record comparison covers
+  the full 16-byte union.
 
 ## [0.9.1] - 2026-09-10
 

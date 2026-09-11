@@ -40,17 +40,32 @@ public sealed class TerminalTests
     [Fact]
     public void DrainBudgetTripsAtThreshold()
     {
-        int t = InputReader.MaxSilentDrain;
-        Assert.False(InputReader.DrainBudgetExceeded(0));
-        Assert.False(InputReader.DrainBudgetExceeded(t - 1));
-        Assert.True(InputReader.DrainBudgetExceeded(t));
-        Assert.True(InputReader.DrainBudgetExceeded(t + 1));
+        int t = Terminal.MaxSilentPoll;
+        Assert.False(Terminal.SilentPollExceeded(0));
+        Assert.False(Terminal.SilentPollExceeded(t - 1));
+        Assert.True(Terminal.SilentPollExceeded(t));
+        Assert.True(Terminal.SilentPollExceeded(t + 1));
     }
 
     [Fact]
     public void DrainFloodLogNeverThrows()
     {
-        var ex = Record.Exception(() => InputLog.DrainFlood(InputReader.MaxSilentDrain));
+        var ex = Record.Exception(() => InputLog.DrainFlood(Terminal.MaxSilentPoll));
         Assert.Null(ex);
+    }
+
+    [Fact]
+    public void SameRecordComparesFullUnion()
+    {
+        var a = new Terminal.InputRecord { EventType = Terminal.KEY_EVENT };
+        a.KeyEvent.KeyDown = 1;
+        a.KeyEvent.UnicodeChar = 'A';
+        var b = a;
+        Assert.True(Terminal.SameRecord(a, b));
+        b.KeyEvent.UnicodeChar = 'B';
+        Assert.False(Terminal.SameRecord(a, b));
+        b = a;
+        b.EventType = Terminal.MOUSE_EVENT;
+        Assert.False(Terminal.SameRecord(a, b));
     }
 }
