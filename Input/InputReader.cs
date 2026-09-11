@@ -18,6 +18,24 @@ internal sealed class InputReader
     /// </summary>
     public static InputEvent? TryReadPending() => Parser.TryRead(MouseEnabled);
 
+    /// <summary>
+    /// Handles one frame's worth of input: invokes <paramref name="handle"/> for every
+    /// pending event without blocking, so a flood costs mutations but a single frame.
+    /// Returns the handled count. A throwing handler aborts the drain (the remainder
+    /// stays queued for the next frame — natural backpressure).
+    /// </summary>
+    /// <param name="handle">Handles one input event (may throw).</param>
+    internal static int DrainPending(Action<InputEvent> handle)
+    {
+        int n = 0;
+        while (TryReadPending() is InputEvent ev)
+        {
+            handle(ev);
+            n++;
+        }
+        return n;
+    }
+
     public static InputEvent Read()
     {
         if (MouseEnabled && OperatingSystem.IsWindows())

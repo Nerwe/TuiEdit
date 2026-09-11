@@ -119,6 +119,50 @@ public sealed class PasteCoalesceTests
     }
 
     [Fact]
+    public void DrainPendingHandlesWholeBurst()
+    {
+        try
+        {
+            InputReader.Parser.Feed(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
+            InputReader.Parser.Feed(new ConsoleKeyInfo('b', ConsoleKey.B, false, false, false));
+            var got = new List<InputEvent>();
+            int n = InputReader.DrainPending(got.Add);
+            Assert.Equal(2, n);
+            Assert.Equal(2, got.Count);
+            Assert.False(InputReader.Parser.HasQueued);
+        }
+        finally
+        {
+            InputReader.Parser.Clear();
+        }
+    }
+
+    [Fact]
+    public void InputLogRecordsKeysAndEvents()
+    {
+        string log = Path.Combine(Path.GetTempPath(), "tui_inputlog_" + Guid.NewGuid().ToString("N") + ".txt");
+        string? saved = Environment.GetEnvironmentVariable("TUIEDIT_INPUT_LOG");
+        try
+        {
+            Environment.SetEnvironmentVariable("TUIEDIT_INPUT_LOG", log);
+            Assert.True(InputLog.Enabled);
+            var parser = new InputParser(() => false, () => throw new InvalidOperationException());
+            parser.Feed(new ConsoleKeyInfo('q', ConsoleKey.Q, false, false, false));
+            InputEvent? ev = parser.TryRead(mouseEnabled: false);
+            Assert.IsType<KeyInput>(ev);
+            string text = File.ReadAllText(log);
+            Assert.Contains("key=Q", text);
+            Assert.Contains("yield=Key", text);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("TUIEDIT_INPUT_LOG", saved);
+            InputReader.Parser.Clear();
+            try { File.Delete(log); } catch { }
+        }
+    }
+
+    [Fact]
     public void FocusEventBehindPasteIsStashed()
     {
         var ed = NewEditor("x");
