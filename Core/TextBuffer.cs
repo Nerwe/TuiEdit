@@ -800,7 +800,7 @@ internal sealed class TextBuffer
         return window;
     }
 
-    internal static Regex? TryBuildRegex(string term, bool matchCase, bool wholeWord)
+    internal static Regex? TryBuildRegex(string term, bool matchCase, bool wholeWord, TimeSpan? timeout = null)
     {
         if (string.IsNullOrEmpty(term)) return null;
         try
@@ -808,7 +808,7 @@ internal sealed class TextBuffer
             string pat = wholeWord ? $@"\b(?:{term})\b" : term;
             RegexOptions opts = RegexOptions.CultureInvariant;
             if (!matchCase) opts |= RegexOptions.IgnoreCase;
-            return new Regex(pat, opts, RegexTimeout);
+            return new Regex(pat, opts, timeout ?? RegexTimeout);
         }
         catch (ArgumentException)
         {

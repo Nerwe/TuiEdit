@@ -31,6 +31,9 @@ when a `v*` tag is pushed.
 - Menu separators are a mouse dead zone: hovering one no longer jumps the
   highlight to the first item, pressing or releasing on one keeps the menu
   open instead of closing or firing.
+- Regex search highlight is frame-budgeted: a catastrophic pattern used to
+  cost up to 500ms per visible row every frame (8s+ per keystroke, zero
+  errors logged); rows now share a 100ms budget with a 25ms per-row cap.
 
 ## [0.9.1] - 2026-09-10
 

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -409,6 +410,7 @@ internal sealed partial class TuiEditor
         CompiledGrammar? grammar = CurrentGrammar();
         _docs[_active].Highlight.EnsurePrefetched(_buf, grammar);
         var bracket = BracketPair();
+        var matchBudget = new MatchBudget(FrameMatchBudgetMs);
         while (y < y0 + textHeight && fileLine < _buf.Count)
         {
             if (FoldHidden(fileLine))
@@ -444,7 +446,7 @@ internal sealed partial class TuiEditor
                         _theme.EditorBg);
                 }
                 bool[] isMatch = FindMatches(TabStops.Slice(line, @base, contentWidth),
-                    EffectiveSearchTerm, _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex);
+                    EffectiveSearchTerm, _settings.SearchMatchCase, _settings.SearchWholeWord, _settings.SearchUseRegex, matchBudget);
                 int vpos = 0;
                 int ci = 0;
                 bool leading = true;
@@ -687,14 +689,22 @@ internal sealed partial class TuiEditor
         b = Math.Min(fileLine == er ? ec : lineLen, lineLen);
     }
 
-    private static bool[] FindMatches(string expanded, string term, bool matchCase, bool wholeWord, bool useRegex)
+    /// <summary>Per-row regex timeout for live highlight (search ops keep the generous one).</summary>
+    private static readonly TimeSpan HighlightRegexTimeout = TimeSpan.FromMilliseconds(25);
+
+    /// <summary>Shared per-frame budget for match highlighting (catastrophic patterns).</summary>
+    internal const long FrameMatchBudgetMs = 100;
+
+    private static bool[] FindMatches(string expanded, string term, bool matchCase, bool wholeWord, bool useRegex, MatchBudget? budget = null)
     {
         bool[] m = new bool[expanded.Length];
         if (string.IsNullOrEmpty(term))
             return m;
+        if (budget?.Exhausted == true)
+            return m; // budget spent on rows above: skip, don't stall the frame
         if (useRegex)
         {
-            Regex? rx = TextBuffer.TryBuildRegex(term, matchCase, wholeWord);
+            Regex? rx = TextBuffer.TryBuildRegex(term, matchCase, wholeWord, HighlightRegexTimeout);
             if (rx is null)
                 return m;
             try
@@ -843,4 +853,18 @@ internal sealed partial class TuiEditor
     }
 
     private string OnOff(bool v) => v ? _loc["settings.on"] : _loc["settings.off"];
+}
+
+/// <summary>
+/// Shared per-frame budget for search-match highlighting: a catastrophic regex
+/// must stall rows, never the frame. Rows past the budget render unhighlighted.
+/// </summary>
+internal sealed class MatchBudget
+{
+    private readonly Stopwatch _sw = Stopwatch.StartNew();
+    private readonly long _capMs;
+
+    internal MatchBudget(long capMs) => _capMs = capMs;
+
+    internal bool Exhausted => _sw.ElapsedMilliseconds >= _capMs;
 }
