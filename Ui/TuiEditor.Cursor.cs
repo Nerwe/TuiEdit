@@ -513,6 +513,7 @@ internal sealed partial class TuiEditor
     /// </summary>
     private void InsertPastedText(string text)
     {
+        _speedCount = 0; // paste is not typing
         DeleteSelection();
         ClampCursor();
         int pr = _row;

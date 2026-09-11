@@ -93,45 +93,61 @@ internal sealed class InputParser
         return ev;
     }
 
+    /// <summary>
+    /// PSReadLine-style dead-key heuristic: an Oem key with a null char and no Ctrl
+    /// is a dead (combining) keypress, not input — drop it so it never reaches
+    /// bindings, fields, or the buffer. Covers natively-supported layouts; full
+    /// ToUnicodeEx resolution is future work.
+    /// </summary>
+    internal static bool IsDeadKeyPress(ConsoleKeyInfo k) =>
+        k.KeyChar == '\0'
+        && (k.Modifiers & ConsoleModifiers.Control) == 0
+        && k.Key >= ConsoleKey.Oem1 && k.Key <= ConsoleKey.Oem102;
+
     /// <param name="mouseEnabled">Whether SGR mouse sequences are recognized.</param>
     private InputEvent? TryReadCore(bool mouseEnabled)
     {
         if (_pendingEvents.Count > 0)
             return _pendingEvents.Dequeue();
-        if (_keys.Count == 0 && !HasChar())
-            return null;
-        ConsoleKeyInfo k = TakeKey();
-        if (k.Key != ConsoleKey.Escape || !HasChar())
-            return new KeyInput(k);
-        var burst = new StringBuilder();
-        // Read one by one and stop at the first complete sequence:
-        // previously a burst greedily ate up to 24 chars, and fast input/paste
-        // after a click was eaten and discarded together with garbage.
-        while (HasChar() && burst.Length < MaxBurst)
+        while (true)
         {
-            burst.Append(TakeKey().KeyChar);
-            string s = burst.ToString();
-            if (s.StartsWith("[200~", StringComparison.Ordinal))
-                return new PasteInput(ReadBracketedPaste());
-            if ("[200~".StartsWith(s, StringComparison.Ordinal))
-                continue; // strict prefix of the paste marker — wait for the tail
-            if (s is "[I" or "[O")
+            if (_keys.Count == 0 && !HasChar())
+                return null;
+            ConsoleKeyInfo k = TakeKey();
+            if (IsDeadKeyPress(k))
+                continue; // combining key alone: the composed char arrives next
+            if (k.Key != ConsoleKey.Escape || !HasChar())
+                return new KeyInput(k);
+            var burst = new StringBuilder();
+            // Read one by one and stop at the first complete sequence:
+            // previously a burst greedily ate up to 24 chars, and fast input/paste
+            // after a click was eaten and discarded together with garbage.
+            while (HasChar() && burst.Length < MaxBurst)
             {
-                var focus = new FocusInput(s == "[I");
-                if (focus.GotFocus && mouseEnabled)
-                    Terminal.RestoreModes(InputReader.MouseLevel); // ConPTY may have reset DEC modes
-                return focus;
+                burst.Append(TakeKey().KeyChar);
+                string s = burst.ToString();
+                if (s.StartsWith("[200~", StringComparison.Ordinal))
+                    return new PasteInput(ReadBracketedPaste());
+                if ("[200~".StartsWith(s, StringComparison.Ordinal))
+                    continue; // strict prefix of the paste marker — wait for the tail
+                if (s is "[I" or "[O")
+                {
+                    var focus = new FocusInput(s == "[I");
+                    if (focus.GotFocus && mouseEnabled)
+                        Terminal.RestoreModes(InputReader.MouseLevel); // ConPTY may have reset DEC modes
+                    return focus;
+                }
+                if (mouseEnabled && s.Length >= 2 && s[0] == '[' && s[1] == '<')
+                {
+                    if (s[^1] is 'M' or 'm')
+                        return FinishMouse(s, k);
+                    continue; // SGR mouse without a terminator — wait
+                }
+                break; // unknown CSI — as before: drop, return Esc
             }
-            if (mouseEnabled && s.Length >= 2 && s[0] == '[' && s[1] == '<')
-            {
-                if (s[^1] is 'M' or 'm')
-                    return FinishMouse(s, k);
-                continue; // SGR mouse without a terminator — wait
-            }
-            break; // unknown CSI — as before: drop, return Esc
+            // Not paste — drop the burst so garbage does not get into the text.
+            return new KeyInput(k);
         }
-        // Not paste — drop the burst so garbage does not get into the text.
-        return new KeyInput(k);
     }
 
     /// <summary>

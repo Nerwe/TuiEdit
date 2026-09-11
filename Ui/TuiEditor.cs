@@ -58,6 +58,11 @@ internal sealed partial class TuiEditor
     private int _mousePane; // Drag start pane (focus stays mid-drag)
     private int _mouseRow; // Cursor at press time (anchor of the future drag)
     private int _mouseCol;
+    /// <summary>Double-click window (Terminal.Gui-style pending-click timeout).</summary>
+    internal static TimeSpan DoubleClickWindow = TimeSpan.FromMilliseconds(500);
+    private DateTime _lastPressAt = DateTime.MinValue;
+    private int _lastPressX = -1;
+    private int _lastPressY = -1;
     /// <summary>Press armed one of its buttons; release on the same button activates (Jumbee-style).</summary>
     private Dialog? _armedDialog;
     private int _armedButton = -1;
@@ -66,6 +71,12 @@ internal sealed partial class TuiEditor
     // Input reads via static InputReader.Read (stateless).
     /// <summary>Lookahead stashed by burst coalescing: processed before blocking on the console.</summary>
     private InputEvent? _heldEvent;
+    /// <summary>Max gap between printable chars to count as a wire-speed run (humans cannot sustain it). Mutable for tests.</summary>
+    internal static int SpeedRunGapMs = 20;
+    /// <summary>Run length from which AutoPair stops and undos merge (earlier chars keep own entries).</summary>
+    internal const int SpeedRunTailFrom = 4;
+    private DateTime _speedLastAt = DateTime.MinValue;
+    private int _speedCount;
     /// <summary>Minimum time between frames: input always drains, paint caps at ~25fps (flood-proofing).</summary>
     internal const int RenderThrottleMs = 40;
     /// <summary>Frames slower than this are reported to the input log (diagnostics only).</summary>
@@ -254,7 +265,7 @@ internal sealed partial class TuiEditor
 
         try
         {
-            try { Console.Write("\x1b[?2004h"); } catch (IOException) { }
+            try { Terminal.EnableBracketedPaste(); } catch { }
             ApplyMouseSetting();
             MaybeRestore();
             if (_docs.Count == 1 && _buf.FilePath is null && !_buf.IsModified)
@@ -274,8 +285,11 @@ internal sealed partial class TuiEditor
                     {
                         ev = InputReader.Read();
                     }
-                    catch (InvalidOperationException)
+                    catch (InvalidOperationException ex)
                     {
+                        // Console gone for good (not a blip — those retry inside Read):
+                        // log it instead of vanishing silently, then exit cleanly.
+                        try { CrashLog.Write("input", ex); } catch { }
                         return;
                     }
                 }
@@ -307,7 +321,7 @@ internal sealed partial class TuiEditor
             // nor leave raw input/mouse mode behind.
             InputLog.Session("stop");
             try { Terminal.DiscardPendingInput(); } catch { }
-            try { Console.Write("\x1b[?2004l"); } catch { }
+            try { Terminal.DisableBracketedPaste(); } catch { }
             try { Terminal.DisableMouse(); } catch { }
             try { Terminal.DisableFocusTracking(); } catch { }
             try { Terminal.RestoreInput(); } catch { }

@@ -8,6 +8,20 @@ when a `v*` tag is pushed.
 ## [Unreleased]
 
 ### Fixed
+- Wire-speed runs paste as one undo: printable bursts with sub-20ms gaps
+  (terminal paste without bracketed markers) skip AutoPair from the 4th char
+  and merge undo entries, with instant echo preserved (nothing is held).
+- Double-click selects the word under the cursor (500ms same-cell window).
+- Transient console read failures retry with backoff instead of killing the
+  session: a dying sibling process on the same console can fail a single read
+  (dotnet#88697), and a resize can surface ERROR_PIPE_NOT_CONNECTED. Permanent
+  failures still exit, but now with a crash-log entry instead of silence.
+- DEC reporting sequences are gated on VT support: without it `?1000`/`?2004`/
+  `?1004` enables (and disables) print as garbage instead of working.
+- Dead-key presses (Oem + null char, no Ctrl) are dropped in the parser, so
+  combining keys never reach bindings, fields, or the buffer on any layout.
+- AltGr (Alt+Ctrl with a printable char) inserts the char instead of dying as
+  unbound: `€`/`@` on European layouts now type instead of doing nothing.
 - Console codepages are forced to UTF-8 while running (restored on exit):
   conhost translates keyboard records through the input codepage, and a
   non-UTF8 one mangles non-ASCII key releases into garbage storms.

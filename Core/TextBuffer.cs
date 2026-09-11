@@ -293,6 +293,27 @@ internal sealed class TextBuffer
         Version++;
     }
 
+    /// <summary>
+    /// Merges the last <paramref name="count"/> undo steps into one by dropping
+    /// intermediate snapshots. Snapshots are full states, so dropping is always
+    /// text-correct — only granularity changes. Used for wire-speed runs where
+    /// every char pushed its own entry. Best-effort, never throws.
+    /// </summary>
+    internal void CoalesceUndo(int count)
+    {
+        try
+        {
+            if (count <= 1 || _undo.Count <= 1)
+                return;
+            int drop = Math.Min(count - 1, _undo.Count - 1);
+            for (int i = 0; i < drop; i++)
+                _undo.Pop();
+        }
+        catch
+        {
+        }
+    }
+
     public void InsertChar(int row, int col, char c)
     {
         PushUndo();

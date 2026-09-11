@@ -81,7 +81,7 @@ internal static class Startup
     public static void RestoreTerminal()
     {
         try { Terminal.DiscardPendingInput(); } catch { }
-        try { Console.Write("\x1b[?2004l"); } catch { }
+        try { Terminal.DisableBracketedPaste(); } catch { }
         try { Terminal.DisableMouse(); } catch { }
         try { Terminal.DisableFocusTracking(); } catch { }
         try { Terminal.RestoreInput(); } catch { }

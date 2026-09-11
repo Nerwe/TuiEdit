@@ -206,6 +206,14 @@ internal sealed class KeyBindingTable
         bool alt = (key.Modifiers & ConsoleModifiers.Alt) != 0;
         bool ctrl = (key.Modifiers & ConsoleModifiers.Control) != 0;
         bool shift = (key.Modifiers & ConsoleModifiers.Shift) != 0;
+        // AltGr (Alt+Ctrl with a printable char) is text, not a chord (PSReadLine):
+        // match it as the bare char so €/@ etc. insert instead of dying as None.
+        // No binding can rely on Ctrl+Alt (it never matched before), so this is safe.
+        if (alt && ctrl && !char.IsControl(key.KeyChar))
+        {
+            alt = false;
+            ctrl = false;
+        }
         if (alt && ctrl)
             return EditorCommand.None;
         foreach (KeyRow r in _rows)

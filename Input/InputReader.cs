@@ -1,5 +1,10 @@
 namespace TuiEdit;
 
+/// <summary>Console input entry point.</summary>
+/// <remarks>Single-reader invariant: this is the only console reader in the process
+/// (Jumbee's orphan-read and Helix/crossterm's concurrent-reader deadlock are the
+/// failure modes). Never add a background poller or a second ReadKey/ReadConsoleInput
+/// consumer: two readers split one queue and roughly every other press vanishes.</remarks>
 internal sealed class InputReader
 {
     /// <summary>Mouse capture level (AppSettings.Mouse, off by default).</summary>
@@ -10,7 +15,42 @@ internal sealed class InputReader
 
     /// <summary>Process-wide parser wired to the real console (tests build their own).</summary>
     internal static InputParser Parser { get; } =
-        new(Terminal.IsKeyPending, () => Console.ReadKey(intercept: true));
+        new(Terminal.IsKeyPending, () => ReadKeyWithRetry(() => Console.ReadKey(intercept: true)));
+
+    /// <summary>Transient console reads retried before giving up.</summary>
+    internal const int MaxConsoleReadRetries = 3;
+
+    /// <summary>Backoff between console read retries (a dying sibling process can fail one read).</summary>
+    internal const int ConsoleReadRetryMs = 50;
+
+    /// <summary>
+    /// Reads one key, retrying transient console failures with backoff: a dying
+    /// sibling process on the same console can fail a single read (dotnet#88697),
+    /// and a resize can surface ERROR_PIPE_NOT_CONNECTED — losing the session to
+    /// the blip is worse than waiting it out. Permanent failures still throw.
+    /// </summary>
+    internal static ConsoleKeyInfo ReadKeyWithRetry(Func<ConsoleKeyInfo> read)
+    {
+        int attempt = 0;
+        while (true)
+        {
+            try
+            {
+                return read();
+            }
+            catch (InvalidOperationException) when (attempt < MaxConsoleReadRetries)
+            {
+                attempt++;
+                try
+                {
+                    Thread.Sleep(ConsoleReadRetryMs);
+                }
+                catch
+                {
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Non-blocking poll for burst coalescing (held keys, paste floods):
@@ -111,7 +151,7 @@ internal sealed class InputReader
         InputEvent? ev = Parser.TryRead(MouseEnabled);
         if (ev is not null)
             return ev;
-        Parser.Feed(Console.ReadKey(intercept: true)); // intended blocking read
+        Parser.Feed(ReadKeyWithRetry(() => Console.ReadKey(intercept: true))); // intended blocking read
         // Non-null: at least one key is queued, so TryRead always produces an event.
         return Parser.TryRead(MouseEnabled)!;
     }

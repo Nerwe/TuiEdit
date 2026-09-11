@@ -188,6 +188,53 @@ internal static class Terminal
         }
     }
 
+    private static bool? _vtSupported;
+
+    /// <summary>
+    /// Whether the console honors VT sequences (cached probe): without it, DEC
+    /// enables (?1000/?2004/?1004) print as garbage instead of working, so callers
+    /// must not emit them (Jumbee's VtModeUnavailable rule). Probes by setting the
+    /// output flag and restoring it; never throws.
+    /// </summary>
+    internal static bool IsVirtualTerminalSupported()
+    {
+        if (_vtSupported.HasValue)
+            return _vtSupported.Value;
+        bool ok = false;
+        try
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                ok = Environment.GetEnvironmentVariable("TERM") switch
+                {
+                    null or "" or "dumb" or "unknown" => false,
+                    _ => true,
+                };
+            }
+            else
+            {
+                IntPtr h = GetStdHandle(STD_OUTPUT_HANDLE);
+                if (h != IntPtr.Zero && h != new IntPtr(-1) && GetConsoleMode(h, out uint mode))
+                {
+                    ok = SetConsoleMode(h, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+                    try
+                    {
+                        SetConsoleMode(h, mode);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+        }
+        catch
+        {
+            ok = false;
+        }
+        _vtSupported = ok;
+        return ok;
+    }
+
     /// <summary>Dims input processing (without VT_INPUT): clears LINE/ECHO/PROCESSED, otherwise conhost intercepts Ctrl+S as output pause (XOFF); deliberately omits VIRTUAL_TERMINAL_INPUT - with it arrows/F-keys/Alt combos arrive as ESC sequences that .NET ReadKey never collects; skips WINDOW_INPUT (resize is visible via WindowWidth/Height); does nothing on Unix.</summary>
     public static bool TryEnableRawInput()
     {
@@ -230,9 +277,11 @@ internal static class Terminal
     /// <summary>Enables mouse reports (clicks plus wheel) and the SGR extension; terminals without support ignore them.</summary>
     public static void TryEnableMouse() => SetMouseLevel(MouseLevel.Basic);
 
-    /// <summary>Enables mouse reports at the given level.</summary>
+    /// <summary>Enables mouse reports at the given level. Silent without VT (sequences would print as garbage).</summary>
     public static void SetMouseLevel(MouseLevel level)
     {
+        if (!IsVirtualTerminalSupported())
+            return;
         try
         {
             if (level == MouseLevel.Off)
@@ -248,19 +297,41 @@ internal static class Terminal
     /// <summary>Disables mouse reports (calls on exit and in the crash handler).</summary>
     public static void DisableMouse()
     {
+        if (!IsVirtualTerminalSupported())
+            return;
         try { Console.Write(MouseDisableSequence()); } catch { }
     }
 
     /// <summary>Enables window focus reports (?1004: ESC[I / ESC[O).</summary>
     public static void TryEnableFocusTracking()
     {
+        if (!IsVirtualTerminalSupported())
+            return;
         try { Console.Write("\x1b[?1004h"); } catch { }
     }
 
     /// <summary>Disables focus reports (exit, crash handler).</summary>
     public static void DisableFocusTracking()
     {
+        if (!IsVirtualTerminalSupported())
+            return;
         try { Console.Write("\x1b[?1004l"); } catch { }
+    }
+
+    /// <summary>Enables bracketed paste (?2004). Silent without VT.</summary>
+    public static void EnableBracketedPaste()
+    {
+        if (!IsVirtualTerminalSupported())
+            return;
+        try { Console.Write("\x1b[?2004h"); } catch (IOException) { } catch { }
+    }
+
+    /// <summary>Disables bracketed paste (?2004: exit, crash handler).</summary>
+    public static void DisableBracketedPaste()
+    {
+        if (!IsVirtualTerminalSupported())
+            return;
+        try { Console.Write("\x1b[?2004l"); } catch { }
     }
 
     /// <summary>
@@ -270,6 +341,8 @@ internal static class Terminal
     public static void RestoreModes(MouseLevel level)
     {
         if (level == MouseLevel.Off)
+            return;
+        if (!IsVirtualTerminalSupported())
             return;
         try
         {

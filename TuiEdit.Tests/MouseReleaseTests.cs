@@ -88,6 +88,94 @@ public sealed class MouseReleaseTests
 
     private static MouseInput Release(int x, int y) => new(x, y, MouseAction.Move);
 
+    private static TextSelection SelOf(TuiEditor ed) =>
+        (TextSelection)typeof(TuiEditor).GetField("_sel", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(ed)!;
+
+    [Fact]
+    public void IsDoubleClickNeedsSameCellAndFastGap()
+    {
+        var ed = NewEditor();
+        DateTime t = DateTime.UtcNow;
+        Assert.False(ed.IsDoubleClick(10, 5, t));
+        Assert.True(ed.IsDoubleClick(10, 5, t.AddMilliseconds(100)));
+        Assert.False(ed.IsDoubleClick(11, 5, t.AddMilliseconds(150)));
+        Assert.False(ed.IsDoubleClick(10, 5, t.AddSeconds(10)));
+    }
+
+    [Fact]
+    public void DoubleClickSelectsWord()
+    {
+        WithMouse(() =>
+        {
+            var ed = NewEditor();
+            (int x, int y, int c) = FindWordCell(ed);
+            ed.HandleMouseAt(Press(x, y), W, H);
+            ed.HandleMouseAt(Press(x, y), W, H); // fast second press: double-click
+            var sel = SelOf(ed);
+            var (r, c2) = Cursor(ed);
+            Assert.True(sel.HasSelection(r, c2));
+            var (sr, sc, er, ec) = sel.Normalize(r, c2);
+            string line = BufLine(ed, 0);
+            Assert.Equal(0, sr);
+            Assert.Equal(0, er);
+            Assert.True(sc <= c && c <= ec); // clicked cell inside
+            Assert.True(sc == 0 || !TextBuffer.IsWordChar(line[sc - 1])); // word-bounded
+            Assert.True(ec >= line.Length || !TextBuffer.IsWordChar(line[ec]));
+            Assert.True(ec > sc); // non-empty
+        });
+    }
+
+    private static string BufLine(TuiEditor ed, int row)
+    {
+        object? buf = typeof(TuiEditor).GetProperty("_buf", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(ed);
+        var lines = (System.Collections.Generic.List<string>)buf!.GetType()
+            .GetProperty("Lines")!.GetValue(buf)!;
+        return lines[row];
+    }
+
+    [Fact]
+    public void SingleClickSelectsNothing()
+    {
+        WithMouse(() =>
+        {
+            var ed = NewEditor();
+            (int x, int y, int _) = FindWordCell(ed);
+            // Neighbor cell: differs from the discovery anchor by construction,
+            // so this is a single click (gutter hits also select nothing).
+            ed.HandleMouseAt(Press(x - 1, y), W, H);
+            var (r, c) = Cursor(ed);
+            Assert.False(SelOf(ed).HasSelection(r, c));
+        });
+    }
+
+    /// <summary>
+    /// Finds a cell that clicks onto a word char, returning the cell and the buffer
+    /// column it maps to. Parks the cursor past the last char first, so early-return
+    /// cells (gutter, status) that leave the cursor alone can never false-positive.
+    /// Text starts at screen row 1 here (no tabs: TabH=0, Y0=1); row 0 is the menu bar.
+    /// </summary>
+    private static (int x, int y, int col) FindWordCell(TuiEditor ed)
+    {
+        string line = BufLine(ed, 0);
+        var arrow = new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false);
+        HandleKey(ed, arrow);
+        HandleKey(ed, arrow);
+        HandleKey(ed, arrow);
+        HandleKey(ed, arrow); // park past the last char: parked pos never satisfies acceptance below
+        for (int y = 1; y < H; y++)
+            for (int x = 0; x < W; x++)
+            {
+                ed.HandleMouseAt(Press(x, y), W, H);
+                var (r, c) = Cursor(ed);
+                if (r == 0 && c >= 0 && c < line.Length && TextBuffer.IsWordChar(line[c]))
+                    return (x, y, c);
+            }
+        Assert.Fail("no word cell found");
+        return (-1, -1, -1);
+    }
+
     /// <summary>Finds one cell per button of the overwrite dialog (HitButton is pure).</summary>
     private static Dictionary<int, (int x, int y)> ButtonCells()
     {
