@@ -104,6 +104,74 @@ public sealed class TerminalTests
     }
 
     [Fact]
+    public void ReadKeyWithRetryRecoversAfterBlips()
+    {
+        int calls = 0;
+        var key = new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false);
+        ConsoleKeyInfo got = InputReader.ReadKeyWithRetry(() =>
+        {
+            calls++;
+            if (calls < 3)
+                throw new InvalidOperationException("blip");
+            return key;
+        });
+        Assert.Equal(key, got);
+        Assert.Equal(3, calls);
+    }
+
+    [Fact]
+    public void ReadKeyWithRetryGivesUpAfterBudget()
+    {
+        int calls = 0;
+        Assert.Throws<InvalidOperationException>(() => InputReader.ReadKeyWithRetry(() =>
+        {
+            calls++;
+            throw new InvalidOperationException("gone");
+        }));
+        Assert.Equal(InputReader.MaxConsoleReadRetries + 1, calls);
+    }
+
+    [Fact]
+    public void VirtualTerminalProbeIsStable()
+    {
+        bool first = Terminal.IsVirtualTerminalSupported();
+        Assert.Equal(first, Terminal.IsVirtualTerminalSupported());
+    }
+
+    [Fact]
+    public void BracketedPasteTogglesNeverThrow()
+    {
+        var ex = Record.Exception(() =>
+        {
+            Terminal.EnableBracketedPaste();
+            Terminal.DisableBracketedPaste();
+        });
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void IsDeadKeyPressMatchesHeuristic()
+    {
+        Assert.True(InputParser.IsDeadKeyPress(new ConsoleKeyInfo('\0', ConsoleKey.Oem3, false, false, false)));
+        Assert.False(InputParser.IsDeadKeyPress(new ConsoleKeyInfo('\0', ConsoleKey.Oem3, false, false, true)));
+        Assert.False(InputParser.IsDeadKeyPress(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false)));
+        Assert.False(InputParser.IsDeadKeyPress(new ConsoleKeyInfo('\0', ConsoleKey.F1, false, false, false)));
+        Assert.False(InputParser.IsDeadKeyPress(new ConsoleKeyInfo(';', ConsoleKey.Oem1, false, false, false)));
+    }
+
+    [Fact]
+    public void ParserDropsDeadKeyBeforeRealKey()
+    {
+        var parser = new InputParser(() => false, () => throw new InvalidOperationException());
+        parser.Feed(new ConsoleKeyInfo('\0', ConsoleKey.Oem3, false, false, false));
+        parser.Feed(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
+        InputEvent? ev = parser.TryRead(false);
+        var key = Assert.IsType<KeyInput>(ev);
+        Assert.Equal('a', key.Key.KeyChar);
+        Assert.Null(parser.TryRead(false));
+    }
+
+    [Fact]
     public void DescribeHeadNeverThrows()
     {
         string? head = null;

@@ -58,4 +58,20 @@ public sealed class KeyBindingTableTests
 
     private static ConsoleKeyInfo K(char ch, ConsoleKey key, bool ctrl = false, bool shift = false) =>
         new(ch, key, shift, false, ctrl);
+
+    [Fact]
+    public void AltGrPrintableInsertsInsteadOfNone()
+    {
+        var table = new KeyBindingTable(KeyBindingTable.DefaultRows());
+        var altGr = new ConsoleKeyInfo('€', ConsoleKey.E, shift: false, alt: true, control: true);
+        Assert.Equal(EditorCommand.InsertChar, table.Map(altGr));
+    }
+
+    [Fact]
+    public void CtrlAltControlCharStaysNone()
+    {
+        var table = new KeyBindingTable(KeyBindingTable.DefaultRows());
+        var ctrlAlt = new ConsoleKeyInfo('\x01', ConsoleKey.A, shift: false, alt: true, control: true);
+        Assert.Equal(EditorCommand.None, table.Map(ctrlAlt));
+    }
 }

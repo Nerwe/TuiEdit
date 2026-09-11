@@ -254,7 +254,7 @@ internal sealed partial class TuiEditor
 
         try
         {
-            try { Console.Write("\x1b[?2004h"); } catch (IOException) { }
+            try { Terminal.EnableBracketedPaste(); } catch { }
             ApplyMouseSetting();
             MaybeRestore();
             if (_docs.Count == 1 && _buf.FilePath is null && !_buf.IsModified)
@@ -274,8 +274,11 @@ internal sealed partial class TuiEditor
                     {
                         ev = InputReader.Read();
                     }
-                    catch (InvalidOperationException)
+                    catch (InvalidOperationException ex)
                     {
+                        // Console gone for good (not a blip — those retry inside Read):
+                        // log it instead of vanishing silently, then exit cleanly.
+                        try { CrashLog.Write("input", ex); } catch { }
                         return;
                     }
                 }
@@ -307,7 +310,7 @@ internal sealed partial class TuiEditor
             // nor leave raw input/mouse mode behind.
             InputLog.Session("stop");
             try { Terminal.DiscardPendingInput(); } catch { }
-            try { Console.Write("\x1b[?2004l"); } catch { }
+            try { Terminal.DisableBracketedPaste(); } catch { }
             try { Terminal.DisableMouse(); } catch { }
             try { Terminal.DisableFocusTracking(); } catch { }
             try { Terminal.RestoreInput(); } catch { }
