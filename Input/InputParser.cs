@@ -221,6 +221,14 @@ internal sealed class InputParser
 
     private const string PasteEnd = "\x1b[201~";
 
+    /// <summary>
+    /// Absolute bound for one bracketed paste: the silence timeout below never fires
+    /// under continuous input (every char restarts it), so without this a terminator
+    /// lost on the wire hangs the app forever on ~2% CPU with zero errors logged —
+    /// and every hammered key extends the trap. Mutable for tests; restore after.
+    /// </summary>
+    internal static TimeSpan PasteMaxWait = TimeSpan.FromSeconds(30);
+
     private string ReadBracketedPaste()
     {
         var sb = new StringBuilder();
@@ -229,13 +237,22 @@ internal sealed class InputParser
         // per-char window rebuild). Sound because no proper prefix of the
         // terminator is also its suffix (prefixes start with ESC, suffixes with ~).
         int matched = 0;
-        var sw = Stopwatch.StartNew();
+        var sw = Stopwatch.StartNew(); // silence budget (restarted per char)
+        var total = Stopwatch.StartNew(); // absolute budget (never restarted)
         while (true)
         {
+            if (total.Elapsed > PasteMaxWait)
+            {
+                InputLog.PasteTimeout(sb.Length, "absolute");
+                return sb.ToString();
+            }
             while (!HasChar())
             {
                 if (sw.ElapsedMilliseconds > 1500)
+                {
+                    InputLog.PasteTimeout(sb.Length, "silence");
                     return sb.ToString();
+                }
                 if (OperatingSystem.IsWindows())
                     Terminal.WaitForInput((int)Math.Min(50, 1500 - sw.ElapsedMilliseconds));
                 else

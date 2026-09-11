@@ -32,6 +32,9 @@ when a `v*` tag is pushed.
   overlapping instances sharing one log file are told apart, clean quits proven.
 - Input log marks every loop iteration and every painted frame, so a hang's
   tail shows exactly where the main loop stalled (read, handler, or render).
+- Bracketed paste has an absolute 30s bound: a terminator lost on the wire
+  used to hang the app forever (~2% CPU, zero errors, hammered keys fed the
+  trap because every char restarted the silence timeout). Timeouts are logged.
 - Input log covers conhost mouse events too (they bypass the parser, so a
   motion flood used to look like ghost loop iterations with no events).
 - Menu separators are a mouse dead zone: hovering one no longer jumps the

@@ -175,6 +175,33 @@ public sealed class PasteCoalesceTests
     }
 
     [Fact]
+    public async Task PasteFloodWithoutTerminatorTerminates()
+    {
+        // The silence timeout restarts on every char, so a terminator lost on the
+        // wire hung the app forever (~2% CPU, zero logs) while hammered keys fed it.
+        // The absolute cap bounds it; the test fails by timeout instead of hanging.
+        TimeSpan saved = InputParser.PasteMaxWait;
+        try
+        {
+            InputParser.PasteMaxWait = TimeSpan.FromMilliseconds(100);
+            InputParser parser = new(() => true, () => new ConsoleKeyInfo('x', (ConsoleKey)'x', false, false, false));
+            parser.Feed(new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
+            foreach (char c in "[200~")
+                parser.Feed(new ConsoleKeyInfo(c, (ConsoleKey)c, false, false, false));
+            Task<InputEvent?> task = Task.Run(() => parser.TryRead(mouseEnabled: false));
+            Task winner = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(15)));
+            Assert.True(winner == task, "paste wait did not terminate (infinite trap)");
+            PasteInput paste = Assert.IsType<PasteInput>(await task);
+            Assert.True(paste.Text.Length > 0);
+        }
+        finally
+        {
+            InputParser.PasteMaxWait = saved;
+            InputReader.Parser.Clear();
+        }
+    }
+
+    [Fact]
     public void FocusEventBehindPasteIsStashed()
     {
         var ed = NewEditor("x");

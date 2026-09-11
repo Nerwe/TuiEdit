@@ -65,6 +65,15 @@ internal static class InputLog
         Write(path, "paint");
     }
 
+    /// <summary>Logs a bracketed paste that ended by timeout instead of terminator.</summary>
+    internal static void PasteTimeout(int chars, string reason)
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, $"paste-timeout={chars} chars reason={reason}");
+    }
+
     /// <summary>Logs a frame slower than the slow-frame budget.</summary>
     internal static void Frame(long ms)
     {
