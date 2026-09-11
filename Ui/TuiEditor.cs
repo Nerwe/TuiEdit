@@ -242,6 +242,7 @@ internal sealed partial class TuiEditor
         // Setup is best-effort too: a throwing console must not mask startup
         // (the loop below guards itself; teardown guards itself in finally).
         InputLog.Announce(starting: true);
+        InputLog.Session("start");
         try { Console.TreatControlCAsInput = true; } catch { }
         try { Console.CursorVisible = false; } catch { }
         try { _screen.TrueColor = Terminal.TryEnableVirtualTerminal(); } catch { }
@@ -299,6 +300,7 @@ internal sealed partial class TuiEditor
         {
             // Every step guarded: teardown must never mask the original error
             // nor leave raw input/mouse mode behind.
+            InputLog.Session("stop");
             try { Terminal.DiscardPendingInput(); } catch { }
             try { Console.Write("\x1b[?2004l"); } catch { }
             try { Terminal.DisableMouse(); } catch { }

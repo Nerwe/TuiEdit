@@ -74,11 +74,22 @@ internal static class InputLog
         }
     }
 
+    /// <summary>Logs a session boundary (main loop entry/exit): proves clean quits and tells instances apart.</summary>
+    internal static void Session(string phase)
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, $"session={phase}");
+    }
+
     private static void Write(string path, string line)
     {
         try
         {
-            File.AppendAllText(path, DateTime.Now.ToString("HH:mm:ss.fff ", System.Globalization.CultureInfo.InvariantCulture) + line + Environment.NewLine);
+            File.AppendAllText(path, string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"{DateTime.Now:HH:mm:ss.fff} [{Environment.ProcessId}] {line}{Environment.NewLine}"));
         }
         catch
         {

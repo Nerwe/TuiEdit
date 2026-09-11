@@ -155,9 +155,12 @@ public sealed class PasteCoalesceTests
             Assert.Contains("yield=Key", text);
             InputLog.Command("Paste", handled: true);
             InputLog.Frame(123);
+            InputLog.Session("start");
             string text2 = File.ReadAllText(log);
             Assert.Contains("command=Paste handled=True", text2);
             Assert.Contains("slow-frame=123ms", text2);
+            Assert.Contains($"[{Environment.ProcessId}]", text2);
+            Assert.Contains("session=start", text2);
         }
         finally
         {
