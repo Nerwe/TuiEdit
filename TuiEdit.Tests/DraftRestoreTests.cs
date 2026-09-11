@@ -273,6 +273,33 @@ public sealed class DraftRestoreTests(TempDir tmp) : IClassFixture<TempDir>
         }
     }
 
+    [Fact]
+    public void SuppressRestoreDialogSkipsPicker()
+    {
+        string dir = tmp.NewDir();
+        string cli = Path.Combine(dir, "cli.txt"), work = Path.Combine(dir, "work.txt");
+        File.WriteAllText(cli, "CLI");
+        File.WriteAllText(work, "v1");
+        var ds = new DraftStore(DraftStore.DefaultDir());
+        try
+        {
+            ds.Write(work, new List<string> { "drafted" }, 0, 0);
+            var buf = new TextBuffer(null);
+            buf.Open(cli);
+            var ed = new TuiEditor(buf, new AppSettings(),
+                new SettingsStore(Path.Combine(dir, "s.json")));
+            ed.SuppressRestoreDialog = true; // CLI files: edit, don't hijack startup
+            MaybeRestore(ed);
+            Assert.Null(Dialog(ed));
+            // Drafts survive for a plain launch.
+            Assert.Contains(ds.ReadAll(), x => x.key == DraftStore.KeyFor(work));
+        }
+        finally
+        {
+            try { ds.Delete(work); } catch { }
+        }
+    }
+
     private static TextBuffer ActiveBuf(TuiEditor ed) =>
         (TextBuffer)typeof(TuiEditor).GetProperty("_buf",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!

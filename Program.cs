@@ -103,6 +103,7 @@ static (Loc loc, int exit, TuiEditor? editor) RunApp(string[] args)
     var editor = new TuiEditor(buffer, settings, store,
         GitService.Shared, SystemClipboardService.Shared, KeyMap.Current);
     editor.TrackKeyBindings(keyBindingsPath);
+    editor.SuppressRestoreDialog = files.Count > 0 || startDir is not null;
     if (openError is not null && firstPath is not null)
         editor.Notify(loc.Format("error.openfile", firstPath, openError));
     try
