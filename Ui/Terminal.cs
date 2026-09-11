@@ -219,6 +219,10 @@ internal static class Terminal
 
     /// <summary>
     /// Peeks the first input queue record without consuming it (Windows only).
+    /// A successfully peeked record counts as present even with an unknown
+    /// (zero) type: conhost does emit those, and treating present-as-absent
+    /// spins the read loop forever on a signaled handle (100% CPU, no progress,
+    /// no logs). Both consumers skip non-key/non-mouse records via Take().
     /// </summary>
     internal static bool TryPeek(out InputRecord rec)
     {
@@ -231,7 +235,10 @@ internal static class Terminal
             if (h == IntPtr.Zero || h == new IntPtr(-1))
                 return false;
             var buf = new InputRecord[1];
-            return PeekConsoleInput(h, buf, 1, out uint n) && n == 1 && (rec = buf[0]).EventType != 0;
+            if (!PeekConsoleInput(h, buf, 1, out uint n) || n != 1)
+                return false;
+            rec = buf[0];
+            return true;
         }
         catch
         {
