@@ -63,6 +63,8 @@ internal enum EditorCommand
     NextTab, PrevTab,
     GoTabNumber,
     ListTabs,
+    JumpBack,
+    JumpForward,
     SplitPane,
     NextPane, PrevPane,
     GoPaneNumber,

@@ -73,7 +73,10 @@ internal sealed partial class TuiEditor
             loc => files.Select(f => (PaletteEntry)new FileEntry(f, RelativeToRoot(root, f))).ToList(),
             path => pickedPath = path));
         if (pickedPath is not null)
+        {
+            PushJump();
             OpenPicked(pickedPath);
+        }
     }
 
     private static string RelativeToRoot(string root, string file)
@@ -121,6 +124,7 @@ internal sealed partial class TuiEditor
                 SetMessage(_loc.Format("cmdline.set.done", set.Key));
                 return;
             case CommandLineOp.Goto g:
+                PushJump();
                 GoToPosition(g.Line, g.Col);
                 _sel.Clear();
                 return;
@@ -144,6 +148,7 @@ internal sealed partial class TuiEditor
         if (index < 0 || index >= _grepHits.Count)
             return;
         GrepHit h = _grepHits[index];
+        PushJump();
         _pendingGrepRow = h.Row + 1;
         OpenPicked(h.File);
         if (_pending == PendingOp.None)
@@ -230,6 +235,7 @@ internal sealed partial class TuiEditor
         if (s is null) return;
         if (ParseGoTo(s) is (int line, int col))
         {
+            PushJump();
             GoToPosition(line, col);
             _sel.Clear(); // Jump clears the selection
         }

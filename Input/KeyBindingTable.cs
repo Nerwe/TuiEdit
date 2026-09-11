@@ -108,6 +108,8 @@ internal sealed class KeyBindingTable
         R(ConsoleKey.OemMinus, EditorCommand.ToggleFold, alt: true),
         R(ConsoleKey.UpArrow, EditorCommand.MoveLineUp, alt: true),
         R(ConsoleKey.DownArrow, EditorCommand.MoveLineDown, alt: true),
+        R(ConsoleKey.LeftArrow, EditorCommand.JumpBack, alt: true),
+        R(ConsoleKey.RightArrow, EditorCommand.JumpForward, alt: true),
         R(ConsoleKey.D1, EditorCommand.GoTabNumber, alt: true),
         R(ConsoleKey.D2, EditorCommand.GoTabNumber, alt: true),
         R(ConsoleKey.D3, EditorCommand.GoTabNumber, alt: true),

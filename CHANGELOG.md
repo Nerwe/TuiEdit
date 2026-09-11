@@ -7,6 +7,11 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+### Added
+- Jumplist (`Alt+Left`/`Alt+Right`): back/forward across grep hits, goto jumps
+  and picked files (30 entries, consecutive duplicates drop, new jumps truncate
+  the forward branch).
+
 ### Fixed
 - Mouse-touching test classes share an xUnit collection: the static
   `InputReader.MouseLevel` flipped under parallel classes is gone as a flake source.
