@@ -172,6 +172,19 @@ public sealed class TerminalTests
     }
 
     [Fact]
+    public void ParserNeverDropsRapidChars()
+    {
+        var parser = new InputParser(() => false, () => throw new InvalidOperationException());
+        parser.Feed(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false));
+        parser.Feed(new ConsoleKeyInfo('b', ConsoleKey.B, false, false, false));
+        var first = Assert.IsType<KeyInput>(parser.TryRead(false));
+        var second = Assert.IsType<KeyInput>(parser.TryRead(false));
+        Assert.Equal('a', first.Key.KeyChar);
+        Assert.Equal('b', second.Key.KeyChar);
+        Assert.Null(parser.TryRead(false));
+    }
+
+    [Fact]
     public void DescribeHeadNeverThrows()
     {
         string? head = null;

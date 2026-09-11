@@ -8,6 +8,10 @@ when a `v*` tag is pushed.
 ## [Unreleased]
 
 ### Fixed
+- Wire-speed runs paste as one undo: printable bursts with sub-20ms gaps
+  (terminal paste without bracketed markers) skip AutoPair from the 4th char
+  and merge undo entries, with instant echo preserved (nothing is held).
+- Double-click selects the word under the cursor (500ms same-cell window).
 - Transient console read failures retry with backoff instead of killing the
   session: a dying sibling process on the same console can fail a single read
   (dotnet#88697), and a resize can surface ERROR_PIPE_NOT_CONNECTED. Permanent

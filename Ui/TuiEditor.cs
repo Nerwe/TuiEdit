@@ -58,6 +58,11 @@ internal sealed partial class TuiEditor
     private int _mousePane; // Drag start pane (focus stays mid-drag)
     private int _mouseRow; // Cursor at press time (anchor of the future drag)
     private int _mouseCol;
+    /// <summary>Double-click window (Terminal.Gui-style pending-click timeout).</summary>
+    internal static TimeSpan DoubleClickWindow = TimeSpan.FromMilliseconds(500);
+    private DateTime _lastPressAt = DateTime.MinValue;
+    private int _lastPressX = -1;
+    private int _lastPressY = -1;
     /// <summary>Press armed one of its buttons; release on the same button activates (Jumbee-style).</summary>
     private Dialog? _armedDialog;
     private int _armedButton = -1;
@@ -66,6 +71,12 @@ internal sealed partial class TuiEditor
     // Input reads via static InputReader.Read (stateless).
     /// <summary>Lookahead stashed by burst coalescing: processed before blocking on the console.</summary>
     private InputEvent? _heldEvent;
+    /// <summary>Max gap between printable chars to count as a wire-speed run (humans cannot sustain it). Mutable for tests.</summary>
+    internal static int SpeedRunGapMs = 20;
+    /// <summary>Run length from which AutoPair stops and undos merge (earlier chars keep own entries).</summary>
+    internal const int SpeedRunTailFrom = 4;
+    private DateTime _speedLastAt = DateTime.MinValue;
+    private int _speedCount;
     /// <summary>Minimum time between frames: input always drains, paint caps at ~25fps (flood-proofing).</summary>
     internal const int RenderThrottleMs = 40;
     /// <summary>Frames slower than this are reported to the input log (diagnostics only).</summary>

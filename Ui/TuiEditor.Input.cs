@@ -192,10 +192,46 @@ internal sealed partial class TuiEditor
         _col = col;
         ClampCursor();
         TrackCol();
+        if (m.Action == MouseAction.LeftPress && IsDoubleClick(m.X, m.Y, DateTime.UtcNow))
+        {
+            SelectWordAt(_row, _col);
+            return; // word selected: no drag anchor
+        }
         _mouseDrag = true; // Press in text: drag anchor
         _mousePane = pane;
         _mouseRow = _row;
         _mouseCol = _col;
+    }
+
+    /// <summary>Same cell within the double-click window (updates the anchor either way).</summary>
+    internal bool IsDoubleClick(int x, int y, DateTime now)
+    {
+        bool dbl = x == _lastPressX && y == _lastPressY && (now - _lastPressAt) <= DoubleClickWindow;
+        _lastPressX = x;
+        _lastPressY = y;
+        _lastPressAt = now;
+        return dbl;
+    }
+
+    /// <summary>Selects the word under the cursor (double-click); no word — plain click stands.</summary>
+    private void SelectWordAt(int row, int col)
+    {
+        if (row < 0 || row >= _buf.Count)
+            return;
+        string line = _buf.Lines[row];
+        int start = Math.Min(col, line.Length), end = start;
+        while (start > 0 && TextBuffer.IsWordChar(line[start - 1]))
+            start--;
+        while (end < line.Length && TextBuffer.IsWordChar(line[end]))
+            end++;
+        if (start == end)
+            return;
+        _sel.Clear();
+        _sel.Start(row, start);
+        _row = row;
+        _col = end;
+        ClampCursor();
+        TrackCol();
     }
 
     /// <summary>Gets the active pane text geometry (gutter follows its buffer).</summary>
@@ -447,6 +483,25 @@ internal sealed partial class TuiEditor
         _ => false,
     };
 
+    /// <summary>
+    /// Tracks wire-speed printable runs (terminal paste without bracketed markers,
+    /// PSReadLine-style speed inference): returns true from the 4th consecutive
+    /// sub-20ms char. Anything else resets. The InsertChar handler uses it to skip
+    /// AutoPair and merge undos; instant echo is preserved (no holding).
+    /// </summary>
+    private bool TrackSpeedRun(ConsoleKeyInfo k)
+    {
+        if (char.IsControl(k.KeyChar) || (k.Modifiers & (ConsoleModifiers.Alt | ConsoleModifiers.Control)) != 0)
+        {
+            _speedCount = 0;
+            return false;
+        }
+        DateTime now = DateTime.UtcNow;
+        _speedCount = (now - _speedLastAt).TotalMilliseconds < SpeedRunGapMs ? _speedCount + 1 : 1;
+        _speedLastAt = now;
+        return _speedCount >= SpeedRunTailFrom;
+    }
+
     /// <summary>Command-to-handler map for the dispatcher (built once per editor).</summary>
     private Dictionary<EditorCommand, Action<ConsoleKeyInfo>> BuildCommandMap() => new()
     {
@@ -607,17 +662,29 @@ internal sealed partial class TuiEditor
         [EditorCommand.SelectAll] = _ => SelectAll(),
         [EditorCommand.InsertChar] = k =>
         {
-            DeleteSelection(); // Replaces the selection with input
-            if (_settings.AutoPairs && TryAutoPair(k.KeyChar))
+            if (DeleteSelection()) // Replaces the selection with input
+                _speedCount = 0;
+            bool speedTail = TrackSpeedRun(k);
+            if (_settings.AutoPairs && !speedTail && TryAutoPair(k.KeyChar))
+            {
+                _speedCount = 0;
                 return;
+            }
             _buf.InsertChar(_row, _col, k.KeyChar);
             _col++;
+            if (speedTail)
+                _buf.CoalesceUndo(_speedCount);
             TrackCol();
         },
         // EditorCommand.None — no entry: Esc outside dialogs, Alt, unknown Ctrl combos do nothing.
     };
 
-    private void Execute(EditorCommand cmd, ConsoleKeyInfo k) => _dispatcher.Execute(cmd, k);
+    private void Execute(EditorCommand cmd, ConsoleKeyInfo k)
+    {
+        if (cmd != EditorCommand.InsertChar)
+            _speedCount = 0; // any other command ends a wire-speed run
+        _dispatcher.Execute(cmd, k);
+    }
 
     /// <summary>Routes a key while a menu is open.</summary>
     private void HandleMenuKey(ConsoleKeyInfo k)

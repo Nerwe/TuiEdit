@@ -1,5 +1,10 @@
 namespace TuiEdit;
 
+/// <summary>Console input entry point.</summary>
+/// <remarks>Single-reader invariant: this is the only console reader in the process
+/// (Jumbee's orphan-read and Helix/crossterm's concurrent-reader deadlock are the
+/// failure modes). Never add a background poller or a second ReadKey/ReadConsoleInput
+/// consumer: two readers split one queue and roughly every other press vanishes.</remarks>
 internal sealed class InputReader
 {
     /// <summary>Mouse capture level (AppSettings.Mouse, off by default).</summary>

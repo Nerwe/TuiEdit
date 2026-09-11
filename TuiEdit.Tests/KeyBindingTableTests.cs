@@ -59,6 +59,77 @@ public sealed class KeyBindingTableTests
     private static ConsoleKeyInfo K(char ch, ConsoleKey key, bool ctrl = false, bool shift = false) =>
         new(ch, key, shift, false, ctrl);
 
+    private static string FirstLine(TuiEditor ed)
+    {
+        object? buf = typeof(TuiEditor).GetProperty("_buf", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(ed);
+        var lines = (System.Collections.Generic.List<string>)buf!.GetType()
+            .GetProperty("Lines")!.GetValue(buf)!;
+        return lines[0];
+    }
+
+    private static void Undo(TuiEditor ed) =>
+        HandleKey(ed, K('\x1a', ConsoleKey.Z, ctrl: true));
+
+    [Fact]
+    public void SpeedRunMergesUndoIntoOne()
+    {
+        int saved = TuiEditor.SpeedRunGapMs;
+        TuiEditor.SpeedRunGapMs = 100000; // every gap counts as wire-speed
+        try
+        {
+            var ed = NewEditor();
+            foreach (char c in "abcdef")
+                HandleKey(ed, K(c, (ConsoleKey)char.ToUpperInvariant(c)));
+            Assert.Equal("abcdef", FirstLine(ed));
+            Undo(ed);
+            Assert.Equal("", FirstLine(ed)); // one undo removes the whole run
+        }
+        finally
+        {
+            TuiEditor.SpeedRunGapMs = saved;
+        }
+    }
+
+    [Fact]
+    public void SlowTypingKeepsSeparateUndos()
+    {
+        int saved = TuiEditor.SpeedRunGapMs;
+        TuiEditor.SpeedRunGapMs = 0; // no gap counts as wire-speed
+        try
+        {
+            var ed = NewEditor();
+            HandleKey(ed, K('a', ConsoleKey.A));
+            HandleKey(ed, K('b', ConsoleKey.B));
+            Assert.Equal("ab", FirstLine(ed));
+            Undo(ed);
+            Assert.Equal("a", FirstLine(ed)); // only the last char undone
+        }
+        finally
+        {
+            TuiEditor.SpeedRunGapMs = saved;
+        }
+    }
+
+    [Fact]
+    public void SingleCharKeepsOwnUndo()
+    {
+        var ed = NewEditor();
+        HandleKey(ed, K('a', ConsoleKey.A));
+        Assert.Equal("a", FirstLine(ed));
+        Undo(ed);
+        Assert.Equal("", FirstLine(ed));
+    }
+
+    [Fact]
+    public void RapidCharsAreNeverDropped()
+    {
+        var ed = NewEditor();
+        HandleKey(ed, K('a', ConsoleKey.A));
+        HandleKey(ed, K('b', ConsoleKey.B));
+        Assert.Equal("ab", FirstLine(ed));
+    }
+
     [Fact]
     public void AltGrPrintableInsertsInsteadOfNone()
     {
