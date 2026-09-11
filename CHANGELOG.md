@@ -5,7 +5,7 @@ renames the section to the version number. `release.yml` builds the GitHub
 release notes from that version's section (falling back to `Unreleased`)
 when a `v*` tag is pushed.
 
-## [Unreleased]
+## [0.9.2] - 2026-09-11
 
 ### Fixed
 - Control characters (ESC and friends) are shown as `�` instead of going raw
