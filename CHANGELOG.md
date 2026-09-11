@@ -21,6 +21,8 @@ when a `v*` tag is pushed.
   a `ProcessExit` hook instead of leaving paste/mouse reporting stuck on.
 - `TUIEDIT_INPUT_LOG=<path>` captures raw input diagnostics for
   "keys do nothing" reports (announced on stderr while active).
+- Mouse clicks fire on release, not on press: a press arms the dialog button
+  or menu item, releasing elsewhere cancels (misclicks are recoverable).
 
 ## [0.9.1] - 2026-09-10
 

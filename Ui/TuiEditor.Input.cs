@@ -80,9 +80,13 @@ internal sealed partial class TuiEditor
         _mouseY = m.Y;
         if (m.Action == MouseAction.Move)
         {
-            // Hover tracks position only; drag with held left extends,
-            // release (m) finishes. Activation on release is
-            // deliberately absent: triggers always fire on press (see below).
+            // Release (no button) with an armed click: the press armed it, the release decides.
+            if (m.Button == MouseButton.None && (_armedDialog is not null || _armedMenu is not null))
+            {
+                ReleaseMouse(m, w, h);
+                return;
+            }
+            // Hover tracks position only; drag with held left extends, release finishes.
             if (_mouseDrag && m.Button == MouseButton.Left)
                 ExtendMouseDrag(m, w, h);
             else if (_mouseDrag)
@@ -90,6 +94,7 @@ internal sealed partial class TuiEditor
             return;
         }
         _mouseDrag = false; // Any non-motion without viewport-press disarms the drag
+        DisarmMouse(); // A fresh press replaces any armed click (re-armed below when applicable)
         if (_dialog is ModalDialog md)
         {
             if (m.Action is MouseAction.WheelUp or MouseAction.WheelDown)
@@ -101,10 +106,17 @@ internal sealed partial class TuiEditor
             }
             if (m.Action != MouseAction.LeftPress)
                 return; // Middle/right have no consumers
-            if (!md.HandleClick(m.X, m.Y, w, h, _loc))
+            int? hit = md.HitButton(m.X, m.Y, w, h, _loc);
+            if (hit is null)
             {
                 // Missed the box - acts as Esc: cancels without outcome (was a focus trap).
                 md.HandleKey(new ConsoleKeyInfo('\x1b', ConsoleKey.Escape, false, false, false));
+            }
+            else
+            {
+                // Arm only: releasing on the same button fires (dragging off cancels).
+                _armedDialog = md;
+                _armedButton = hit.Value;
             }
             if (ReferenceEquals(_dialog, md) && md.Closed)
                 _dialog = null; // Matches the keyboard path: clears an outcome without a new dialog
@@ -114,7 +126,7 @@ internal sealed partial class TuiEditor
             return; // RunDialog dialogs (settings, manager): no mouse yet
         if (m.Action == MouseAction.RightPress && _menu is not null)
             return; // Ignores right-click on menus, items click with left only
-        if (_menu is not null && HandleMenuMouse(m))
+        if (_menu is not null && HandleMenuMouse(m, w, h))
             return;
         // Missed the menu (closed) - lets the click reach text, like a key in HandleMenuKey.
         if (w < 20 || h < 5)
@@ -277,18 +289,8 @@ internal sealed partial class TuiEditor
     /// Handles mouse with an open menu: bar opens/switches, dropdown picks an item, miss closes.
     /// Returns false when a stray click closed the menu (the click reaches text).
     /// </summary>
-    private bool HandleMenuMouse(MouseInput m)
+    private bool HandleMenuMouse(MouseInput m, int w, int h)
     {
-        int w, h;
-        try
-        {
-            w = Console.WindowWidth;
-            h = Console.WindowHeight;
-        }
-        catch
-        {
-            return true;
-        }
         if (_menu is null)
             return true;
         if (m.Action != MouseAction.LeftPress)
@@ -307,17 +309,65 @@ internal sealed partial class TuiEditor
             // Repeat on own / miss on cells stays closed
             return true;
         }
-        int menuX = 0;
-        for (int i = 0; i < _menu.OpenIndex && i < menus.Count; i++)
-            menuX += menus[i].Label.Length + 2;
-        int? item = MenuHit.DropdownHit(_menu.Current, menuX, m.X, m.Y, w, h);
+        int? item = MenuItemHit(_menu, m.X, m.Y, w, h);
         if (item is null)
         {
             _menu = null;
             return false; // Miss closes and passes the click to text
         }
-        ActivateMenuItem(_menu.Current.Items[item.Value]);
+        // Arm only: releasing over an item fires it (allows press-drag-release).
+        _armedMenu = _menu;
         return true;
+    }
+
+    /// <summary>Clears an armed press-release click (a new press or wheel replaces it).</summary>
+    private void DisarmMouse()
+    {
+        _armedDialog = null;
+        _armedButton = -1;
+        _armedMenu = null;
+    }
+
+    /// <summary>Hits the dropdown item under coordinates (null outside).</summary>
+    private static int? MenuItemHit(MenuState menu, int x, int y, int w, int h)
+    {
+        List<TopMenu> menus = menu.Menus;
+        int menuX = 0;
+        for (int i = 0; i < menu.OpenIndex && i < menus.Count; i++)
+            menuX += menus[i].Label.Length + 2;
+        return MenuHit.DropdownHit(menu.Current, menuX, x, y, w, h);
+    }
+
+    /// <summary>
+    /// Finishes an armed click: a release on the armed dialog button fires it,
+    /// a release over a menu item fires that item (press-drag-release slides);
+    /// releasing anywhere else just disarms (menu closes without touching text).
+    /// Stale arms (dialog/menu gone meanwhile) are swallowed quietly.
+    /// </summary>
+    private void ReleaseMouse(MouseInput m, int w, int h)
+    {
+        Dialog? dlg = _armedDialog;
+        int btn = _armedButton;
+        MenuState? menu = _armedMenu;
+        DisarmMouse();
+        if (dlg is ModalDialog md && ReferenceEquals(_dialog, md))
+        {
+            if (md.HitButton(m.X, m.Y, w, h, _loc) == btn)
+            {
+                md.HandleClick(m.X, m.Y, w, h, _loc);
+                if (ReferenceEquals(_dialog, md) && md.Closed)
+                    _dialog = null;
+            }
+            return;
+        }
+        if (menu is not null && ReferenceEquals(_menu, menu))
+        {
+            int? item = MenuItemHit(menu, m.X, m.Y, w, h);
+            if (item is null)
+                _menu = null;
+            else
+                ActivateMenuItem(menu.Current.Items[item.Value]);
+        }
     }
 
     /// <summary>Scrolls on wheel: moves the cursor +-3 rows per tick (steps merges a tick batch).</summary>

@@ -58,6 +58,11 @@ internal sealed partial class TuiEditor
     private int _mousePane; // Drag start pane (focus stays mid-drag)
     private int _mouseRow; // Cursor at press time (anchor of the future drag)
     private int _mouseCol;
+    /// <summary>Press armed one of its buttons; release on the same button activates (Jumbee-style).</summary>
+    private Dialog? _armedDialog;
+    private int _armedButton = -1;
+    /// <summary>Press armed a menu item; release activates the item under the cursor (allows sliding).</summary>
+    private MenuState? _armedMenu;
     // Input reads via static InputReader.Read (stateless).
     /// <summary>Lookahead stashed by burst coalescing: processed before blocking on the console.</summary>
     private InputEvent? _heldEvent;
