@@ -90,6 +90,7 @@ internal sealed class KeyBindingTable
         R(ConsoleKey.D8, EditorCommand.GoPaneNumber, ctrl: true),
         R(ConsoleKey.D9, EditorCommand.GoPaneNumber, ctrl: true),
         R(ConsoleKey.E, EditorCommand.GoEnd, ctrl: true),
+        R(ConsoleKey.R, EditorCommand.ShellFilter, ctrl: true),
         R(ConsoleKey.Home, EditorCommand.GoDocStart, ctrl: true),
         R(ConsoleKey.End, EditorCommand.GoDocEnd, ctrl: true),
         R(ConsoleKey.LeftArrow, EditorCommand.WordLeft, ctrl: true),

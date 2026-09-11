@@ -27,6 +27,7 @@
   "menu.grep": "Поиск по файлам...",
   "menu.trimtrail": "Убрать висячие пробелы",
   "menu.selectall": "Выделить всё",
+  "menu.shellfilter": "Фильтр через shell...",
   "menu.helpitem": "Справка",
   "menu.about": "О программе",
 
@@ -132,6 +133,7 @@
   "prompt.goto": "Номер строки (1-{0}): ",
   "prompt.grep.pattern": "Поиск: ",
   "prompt.grep.dir": "Папка: ",
+  "prompt.shellfilter": "Команда shell: ",
   "modal.grep.title": "Поиск",
 
   "error.save": "Ошибка сохранения",

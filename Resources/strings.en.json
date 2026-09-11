@@ -27,6 +27,7 @@
   "menu.grep": "Grep in files...",
   "menu.trimtrail": "Trim trailing whitespace",
   "menu.selectall": "Select all",
+  "menu.shellfilter": "Filter through shell...",
   "menu.helpitem": "Help",
   "menu.about": "About",
 
@@ -132,6 +133,7 @@
   "prompt.goto": "Line number (1-{0}): ",
   "prompt.grep.pattern": "Grep: ",
   "prompt.grep.dir": "Folder: ",
+  "prompt.shellfilter": "Shell command: ",
   "modal.grep.title": "Grep",
 
   "error.save": "Save error",

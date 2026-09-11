@@ -7,6 +7,12 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+### Added
+- Filter through shell (`Ctrl+R`, Edit menu): runs the selection rows (or the
+  current row) through any command (`sort`, `jq`, ...), replacing them with the
+  output in a single undo entry. Timeouts, missing binaries, and nonzero exits
+  keep the text and show a message.
+
 ### Fixed
 - Frames flip atomically via synchronized output (DECSET 2026): full repaints
   no longer tear mid-frame on supporting terminals (Windows Terminal does);
