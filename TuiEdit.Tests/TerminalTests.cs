@@ -78,6 +78,32 @@ public sealed class TerminalTests
     }
 
     [Fact]
+    public void Utf8CodePagesNeverThrow()
+    {
+        var ex = Record.Exception(() =>
+        {
+            Terminal.TryEnableUtf8();
+            Terminal.RestoreCodePages();
+            Terminal.RestoreCodePages(); // second restore is a no-op
+        });
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void IsSgrMouseTerminalMatchesWtSession()
+    {
+        bool expected = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WT_SESSION"));
+        Assert.Equal(expected, Terminal.IsSgrMouseTerminal());
+    }
+
+    [Fact]
+    public void MouseSourceLogNeverThrows()
+    {
+        var ex = Record.Exception(() => InputLog.MouseSource("sgr"));
+        Assert.Null(ex);
+    }
+
+    [Fact]
     public void DescribeHeadNeverThrows()
     {
         string? head = null;

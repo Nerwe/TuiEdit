@@ -228,6 +228,9 @@ internal sealed partial class TuiEditor
             Terminal.TryEnableFocusTracking(); // Needs DEC mode restore on focus-in
         }
         Terminal.ApplyMouseInput(_settings.Mouse != MouseLevel.Off);
+        InputLog.MouseSource(_settings.Mouse == MouseLevel.Off
+            ? "off"
+            : Terminal.IsSgrMouseTerminal() ? "sgr" : "conhost+sgr");
     }
 
     private string DisplayError(Exception ex) => ex switch
@@ -247,6 +250,7 @@ internal sealed partial class TuiEditor
         try { Console.CursorVisible = false; } catch { }
         try { _screen.TrueColor = Terminal.TryEnableVirtualTerminal(); } catch { }
         try { Terminal.TryEnableRawInput(); } catch { }
+        try { Terminal.TryEnableUtf8(); } catch { }
 
         try
         {
@@ -307,6 +311,7 @@ internal sealed partial class TuiEditor
             try { Terminal.DisableMouse(); } catch { }
             try { Terminal.DisableFocusTracking(); } catch { }
             try { Terminal.RestoreInput(); } catch { }
+            try { Terminal.RestoreCodePages(); } catch { }
             try { Console.ResetColor(); } catch { }
             try { Console.Clear(); } catch { }
             try { Console.CursorVisible = true; } catch { }

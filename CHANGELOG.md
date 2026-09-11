@@ -5,6 +5,18 @@ renames the section to the version number. `release.yml` builds the GitHub
 release notes from that version's section (falling back to `Unreleased`)
 when a `v*` tag is pushed.
 
+## [Unreleased]
+
+### Fixed
+- Console codepages are forced to UTF-8 while running (restored on exit):
+  conhost translates keyboard records through the input codepage, and a
+  non-UTF8 one mangles non-ASCII key releases into garbage storms.
+- Single mouse source on Windows Terminal: with `WT_SESSION` set, SGR reports
+  cover clicks/wheel/motion, so the conhost mouse bit stays off — every click
+  no longer arrives twice and motion no longer floods the queue. Legacy
+  conhost keeps conhost records (its only source). The active source is
+  logged as `mouse-source=` when diagnostics are on.
+
 ## [0.9.2] - 2026-09-11
 
 ### Fixed

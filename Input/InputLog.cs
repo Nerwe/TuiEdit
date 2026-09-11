@@ -121,6 +121,15 @@ internal static class InputLog
         }
     }
 
+    /// <summary>Logs which layer reports the mouse (off, sgr-only, or conhost+sgr).</summary>
+    internal static void MouseSource(string source)
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, $"mouse-source={source}");
+    }
+
     /// <summary>Logs a session boundary (main loop entry/exit): proves clean quits and tells instances apart.</summary>
     internal static void Session(string phase)
     {

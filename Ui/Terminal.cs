@@ -92,6 +92,71 @@ internal static class Terminal
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool FlushConsoleInputBuffer(IntPtr hConsoleInput);
 
+    private const uint CP_UTF8 = 65001;
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetConsoleCP();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetConsoleCP(uint wCodePageID);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetConsoleOutputCP();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetConsoleOutputCP(uint wCodePageID);
+
+    private static uint _cpInSaved;
+    private static uint _cpOutSaved;
+    private static bool _cpSaved;
+
+    /// <summary>
+    /// Forces UTF-8 console codepages (input and output): conhost translates
+    /// keyboard records through the input codepage, and a non-UTF8 one mangles
+    /// non-ASCII key releases into garbage (live: Cyrillic key-ups arriving as
+    /// U+00B0/U+0086 storms). Saves both for <see cref="RestoreCodePages"/>.
+    /// Best-effort, never throws.
+    /// </summary>
+    public static bool TryEnableUtf8()
+    {
+        if (!OperatingSystem.IsWindows())
+            return true;
+        try
+        {
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return false;
+            _cpInSaved = GetConsoleCP();
+            _cpOutSaved = GetConsoleOutputCP();
+            _cpSaved = true;
+            bool okIn = SetConsoleCP(CP_UTF8);
+            bool okOut = SetConsoleOutputCP(CP_UTF8);
+            return okIn && okOut;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Restores the console codepages saved by TryEnableUtf8 (calls on exit).</summary>
+    public static void RestoreCodePages()
+    {
+        if (!_cpSaved)
+            return;
+        _cpSaved = false;
+        try
+        {
+            if (!OperatingSystem.IsWindows())
+                return;
+            SetConsoleCP(_cpInSaved);
+            SetConsoleOutputCP(_cpOutSaved);
+        }
+        catch
+        {
+        }
+    }
+
     private const int TCIFLUSH = 0;
 
     [DllImport("libc")]
@@ -536,8 +601,29 @@ internal static class Terminal
         (buttons & FROM_LEFT_1ST_BUTTON_PRESSED) != 0 ? MouseButton.Left : MouseButton.None;
 
     /// <summary>
+    /// Whether the terminal reports the mouse via SGR sequences, making conhost
+    /// mouse records redundant: with both sources on, every click arrives twice
+    /// and motion floods the queue. Windows Terminal always sets WT_SESSION (and
+    /// speaks SGR); legacy conhost never does — there conhost records stay the
+    /// only source. Unknown terminals keep both (status quo, no regression).
+    /// </summary>
+    internal static bool IsSgrMouseTerminal()
+    {
+        try
+        {
+            return !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WT_SESSION"));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Toggles mouse via conhost-API (.NET ReadKey never reports it). Disabling also restores
     /// QuickEdit as it was (RestoreInput on exit restores everything).
+    /// On SGR-speaking terminals the conhost bit stays off (single source);
+    /// QuickEdit is still disabled so clicks never go to conhost selection.
     /// </summary>
     public static void ApplyMouseInput(bool on)
     {
@@ -557,7 +643,9 @@ internal static class Terminal
             {
                 // Disables QuickEdit, otherwise clicks go to the conhost selection.
                 // EXTENDED_FLAGS is required to change QuickEdit.
-                next = (mode & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS | ENABLE_MOUSE_INPUT;
+                next = (mode & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS;
+                if (!IsSgrMouseTerminal())
+                    next |= ENABLE_MOUSE_INPUT; // legacy conhost: SGR unavailable
             }
             else
             {

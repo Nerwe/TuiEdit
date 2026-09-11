@@ -85,6 +85,7 @@ internal static class Startup
         try { Terminal.DisableMouse(); } catch { }
         try { Terminal.DisableFocusTracking(); } catch { }
         try { Terminal.RestoreInput(); } catch { }
+        try { Terminal.RestoreCodePages(); } catch { }
         try { Console.ResetColor(); } catch { }
         try { Console.CursorVisible = true; } catch { }
         try { Console.TreatControlCAsInput = false; } catch { }
