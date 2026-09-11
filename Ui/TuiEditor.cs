@@ -45,7 +45,10 @@ internal sealed partial class TuiEditor
     private readonly List<GrepHit> _grepHits = new();
     private int _pendingGrepRow;
     private readonly List<string> _recentPaths = new(); // Paths from the recent modal
-    private readonly DraftStore _drafts = new(DraftStore.DefaultDir());
+    private DraftStore _drafts = new(DraftStore.DefaultDir());
+
+    /// <summary>Redirects drafts (tests: hermetic temp dir instead of the shared one).</summary>
+    internal void SetDraftStore(DraftStore store) => _drafts = store;
     private readonly BackupStore _backups;
     private DateTime _lastDraftAt = DateTime.MinValue;
     private readonly List<(string key, DocDraft draft)> _restoreDrafts = new();
