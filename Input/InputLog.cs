@@ -74,6 +74,15 @@ internal static class InputLog
         Write(path, $"paste-timeout={chars} chars reason={reason}");
     }
 
+    /// <summary>Logs a queue flush that recovered an unconsumable console record.</summary>
+    internal static void StuckFlush(int fails)
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, $"stuck-flush={fails} fails");
+    }
+
     /// <summary>Logs a frame slower than the slow-frame budget.</summary>
     internal static void Frame(long ms)
     {

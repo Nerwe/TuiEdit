@@ -43,6 +43,11 @@ when a `v*` tag is pushed.
 - Regex search highlight is frame-budgeted: a catastrophic pattern used to
   cost up to 500ms per visible row every frame (8s+ per keystroke, zero
   errors logged); rows now share a 100ms budget with a 25ms per-row cap.
+- An unconsumable console record no longer hangs input forever: a zero-type
+  slot Peek reports but Read cannot take used to spin both read loops with
+  zero errors logged (caught live via dotnet-stack + dotnet-dump); after
+  1000 failed takes the queue is flushed once and the recovery is logged
+  as `stuck-flush`.
 
 ## [0.9.1] - 2026-09-10
 

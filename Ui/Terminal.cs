@@ -246,6 +246,39 @@ internal static class Terminal
         }
     }
 
+    /// <summary>
+    /// Consecutive <see cref="Take"/> read failures that prove an unconsumable
+    /// record (Peek reports it, Read cannot take it — a zero-type ConPTY slot),
+    /// then the queue is flushed once. Legit records of any type always read,
+    /// so a streak this long means the head is pathological, not busy.
+    /// </summary>
+    internal const int TakeFailFlushThreshold = 1000;
+    private static int _takeFailStreak;
+
+    /// <summary>Pure trip test for the stuck-record breaker (unit-testable).</summary>
+    internal static bool TakeFailStreakTripsFlush(int streak) => streak >= TakeFailFlushThreshold;
+
+    /// <summary>
+    /// Nukes an unconsumable queue head from outside the read path
+    /// (also drops typeahead accumulated while stuck — better than a hang).
+    /// Best-effort, never throws.
+    /// </summary>
+    internal static void RecoverStuckInput()
+    {
+        try
+        {
+            if (!OperatingSystem.IsWindows())
+                return;
+            IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+            if (h == IntPtr.Zero || h == new IntPtr(-1))
+                return;
+            FlushConsoleInputBuffer(h);
+        }
+        catch
+        {
+        }
+    }
+
     /// <summary>Consumes one record from the front; translates a mouse event (returns null for the rest).</summary>
     internal static MouseInput? Take()
     {
@@ -258,7 +291,16 @@ internal static class Terminal
                 return null;
             var buf = new InputRecord[1];
             if (!ReadConsoleInput(h, buf, 1, out uint n) || n != 1)
+            {
+                if (TakeFailStreakTripsFlush(++_takeFailStreak))
+                {
+                    _takeFailStreak = 0;
+                    InputLog.StuckFlush(TakeFailFlushThreshold);
+                    RecoverStuckInput();
+                }
                 return null;
+            }
+            _takeFailStreak = 0;
             return buf[0].EventType == MOUSE_EVENT ? TranslateMouse(buf[0].MouseEvent) : null;
         }
         catch
