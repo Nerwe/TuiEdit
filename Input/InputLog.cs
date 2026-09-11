@@ -47,6 +47,24 @@ internal static class InputLog
         Write(path, $"command={command} handled={handled}");
     }
 
+    /// <summary>Logs a main-loop iteration (an input event was obtained).</summary>
+    internal static void Loop()
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, "loop");
+    }
+
+    /// <summary>Logs that a frame actually renders (throttle may skip).</summary>
+    internal static void Paint()
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, "paint");
+    }
+
     /// <summary>Logs a frame slower than the slow-frame budget.</summary>
     internal static void Frame(long ms)
     {

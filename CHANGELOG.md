@@ -30,6 +30,8 @@ when a `v*` tag is pushed.
   traced to `TUIEDIT_INPUT_LOG` when diagnostics are on.
 - Input log lines carry the process id, plus session start/stop markers:
   overlapping instances sharing one log file are told apart, clean quits proven.
+- Input log marks every loop iteration and every painted frame, so a hang's
+  tail shows exactly where the main loop stalled (read, handler, or render).
 - Menu separators are a mouse dead zone: hovering one no longer jumps the
   highlight to the first item, pressing or releasing on one keeps the menu
   open instead of closing or firing.

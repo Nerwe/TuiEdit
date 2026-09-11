@@ -156,11 +156,15 @@ public sealed class PasteCoalesceTests
             InputLog.Command("Paste", handled: true);
             InputLog.Frame(123);
             InputLog.Session("start");
+            InputLog.Loop();
+            InputLog.Paint();
             string text2 = File.ReadAllText(log);
             Assert.Contains("command=Paste handled=True", text2);
             Assert.Contains("slow-frame=123ms", text2);
             Assert.Contains($"[{Environment.ProcessId}]", text2);
             Assert.Contains("session=start", text2);
+            Assert.Contains("loop", text2);
+            Assert.Contains("paint", text2);
         }
         finally
         {

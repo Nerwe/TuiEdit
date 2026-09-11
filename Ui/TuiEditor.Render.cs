@@ -206,6 +206,7 @@ internal sealed partial class TuiEditor
         if (!ShouldRender(_lastRenderAt, now))
             return;
         _lastRenderAt = now;
+        InputLog.Paint();
         if (!InputLog.Enabled)
         {
             Render();

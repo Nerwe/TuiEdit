@@ -275,6 +275,7 @@ internal sealed partial class TuiEditor
                         return;
                     }
                 }
+                InputLog.Loop();
                 try
                 {
                     HandleInput(ev);
