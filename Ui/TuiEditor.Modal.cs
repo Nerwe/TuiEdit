@@ -71,6 +71,8 @@ internal sealed partial class TuiEditor
 
     private void MaybeRestore()
     {
+        if (SuppressRestoreDialog)
+            return; // explicit CLI target: edit it, don't hijack startup with recovery
         List<(string key, DocDraft draft)> all;
         try
         {

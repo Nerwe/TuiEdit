@@ -105,6 +105,13 @@ internal sealed partial class TuiEditor
     /// <summary>Command dispatcher (every <see cref="EditorCommand"/> except None must resolve).</summary>
     internal ICommandDispatcher Dispatcher => _dispatcher;
 
+    /// <summary>
+    /// Skips the restore-drafts picker at startup: explicit files (or a start directory)
+    /// on the command line mean work, not recovery. Drafts are kept and still offered
+    /// on plain launches. Set by the composition root; tests set it directly.
+    /// </summary>
+    internal bool SuppressRestoreDialog { get; set; }
+
     /// <summary>Tracks an external keybindings file for live reload (no restart needed).</summary>
     /// <param name="path">The keybindings.json path (null disables tracking).</param>
     internal void TrackKeyBindings(string? path)

@@ -13,6 +13,8 @@ when a `v*` tag is pushed.
   (dead screen, blinking cursor, no errors — looked like a total freeze).
 - Held `Ctrl+V` no longer outruns the frame: pending paste repeats merge into
   a single insertion (one undo step), so nothing keeps pasting after release.
+- Opening files (or a directory) no longer pops the restore-drafts picker:
+  stale drafts stay saved and are still offered on plain launches.
 
 ## [0.9.1] - 2026-09-10
 
