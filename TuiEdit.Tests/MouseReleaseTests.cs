@@ -4,10 +4,17 @@ using Xunit;
 
 namespace TuiEdit.Tests;
 
+/// <summary>Shared xUnit collection: classes mutating the static InputReader.MouseLevel run sequentially.</summary>
+[CollectionDefinition("MouseInput")]
+public sealed class MouseInputTestGroup
+{
+}
+
 /// <summary>
 /// Clicks fire on release, not on press (Jumbee-style): press arms, release on
 /// the same target activates, releasing elsewhere cancels. Text/drag/tab behavior stays on press.
 /// </summary>
+[Collection("MouseInput")]
 public sealed class MouseReleaseTests
 {
     private const int W = 80;

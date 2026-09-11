@@ -5,6 +5,12 @@ renames the section to the version number. `release.yml` builds the GitHub
 release notes from that version's section (falling back to `Unreleased`)
 when a `v*` tag is pushed.
 
+## [Unreleased]
+
+### Fixed
+- Mouse-touching test classes share an xUnit collection: the static
+  `InputReader.MouseLevel` flipped under parallel classes is gone as a flake source.
+
 ## [0.9.3] - 2026-09-11
 
 ### Fixed

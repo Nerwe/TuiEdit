@@ -6,6 +6,7 @@ namespace TuiEdit.Tests;
 // A throwing mouse path must park the mouse for the session, log the crash,
 // and keep the editor alive — never propagate.
 [Trait("Category", "Integration")]
+[Collection("MouseInput")]
 public sealed class MouseGuardTests
 {
     [Fact]
