@@ -36,6 +36,19 @@ internal sealed class InputReader
         return n;
     }
 
+    /// <summary>
+    /// Silent drain iterations (stale motion, key-up/resize/focus, middle/right)
+    /// after which Read stops skipping and falls through to the key-wait path:
+    /// every skip consumes a record, so an infinite run means an infinite supply
+    /// (jittering sensor, synthetic storm) and the main loop would never cycle —
+    /// no render, no keys, zero logs. The fall-through ReadKey eats the flood
+    /// waiting for the next key, so the app stays alive and responsive.
+    /// </summary>
+    internal const int MaxSilentDrain = 4096;
+
+    /// <summary>Pure trip test for the drain flood budget (unit-testable).</summary>
+    internal static bool DrainBudgetExceeded(int silent) => silent >= MaxSilentDrain;
+
     public static InputEvent Read()
     {
         if (MouseEnabled && OperatingSystem.IsWindows())
@@ -43,10 +56,12 @@ internal sealed class InputReader
             // We drain the conhost queue ourselves: .NET ReadKey swallows mouse events,
             // and blocks waiting for keys only. We call ReadKey only when a
             // key-down is at the front — then it returns instantly, losing nothing.
+            int silent = 0;
             while (true)
             {
                 if (!Terminal.TryPeek(out Terminal.InputRecord rec))
                 {
+                    silent = 0; // queue drained — progress, not a flood
                     if (!Terminal.WaitForInput(50))
                         break; // console error — legacy path
                     continue;
@@ -58,15 +73,32 @@ internal sealed class InputReader
                         // Backpressure: stale motion (something already behind it)
                         // is eaten without a render — otherwise the flood starves keys.
                         if (mev.Action == MouseAction.Move && Terminal.PendingCount() > 0)
+                        {
+                            if (DrainBudgetExceeded(++silent))
+                            {
+                                InputLog.DrainFlood(silent);
+                                break; // flood: fall through to the key-wait path
+                            }
                             continue;
+                        }
                         InputLog.Yield(mev); // conhost path bypasses the parser: log here
                         return mev;
+                    }
+                    if (DrainBudgetExceeded(++silent))
+                    {
+                        InputLog.DrainFlood(silent);
+                        break; // middle/right/wheel-0 storm: same recovery
                     }
                     continue;
                 }
                 if (rec.EventType != Terminal.KEY_EVENT || rec.KeyEvent.KeyDown == 0)
                 {
                     Terminal.Take(); // key-up, resize, focus — skip
+                    if (DrainBudgetExceeded(++silent))
+                    {
+                        InputLog.DrainFlood(silent);
+                        break; // junk storm: same recovery
+                    }
                     continue;
                 }
                 break; // key-down at the front

@@ -48,6 +48,12 @@ when a `v*` tag is pushed.
   zero errors logged (caught live via dotnet-stack + dotnet-dump); after
   1000 failed takes the queue is flushed once and the recovery is logged
   as `stuck-flush`.
+- The mouse drain loop no longer skips silently forever: stale motion and
+  junk used to `continue` without bound, so an endless supply (sensor
+  jitter, synthetic storm) never let the main loop cycle — no render, no
+  keys, zero logs. After 4096 silent skips Read falls through to the
+  key-wait path (which eats the flood waiting for the next key); trips are
+  logged as `drain-flood`.
 
 ## [0.9.1] - 2026-09-10
 

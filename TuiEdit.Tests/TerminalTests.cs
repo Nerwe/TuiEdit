@@ -36,4 +36,21 @@ public sealed class TerminalTests
         var ex = Record.Exception(() => InputLog.StuckFlush(Terminal.TakeFailFlushThreshold));
         Assert.Null(ex);
     }
+
+    [Fact]
+    public void DrainBudgetTripsAtThreshold()
+    {
+        int t = InputReader.MaxSilentDrain;
+        Assert.False(InputReader.DrainBudgetExceeded(0));
+        Assert.False(InputReader.DrainBudgetExceeded(t - 1));
+        Assert.True(InputReader.DrainBudgetExceeded(t));
+        Assert.True(InputReader.DrainBudgetExceeded(t + 1));
+    }
+
+    [Fact]
+    public void DrainFloodLogNeverThrows()
+    {
+        var ex = Record.Exception(() => InputLog.DrainFlood(InputReader.MaxSilentDrain));
+        Assert.Null(ex);
+    }
 }

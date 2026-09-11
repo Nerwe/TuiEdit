@@ -83,6 +83,15 @@ internal static class InputLog
         Write(path, $"stuck-flush={fails} fails");
     }
 
+    /// <summary>Logs a drain-loop flood that fell through to the key-wait path.</summary>
+    internal static void DrainFlood(int skipped)
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, $"drain-flood={skipped} skipped");
+    }
+
     /// <summary>Logs a frame slower than the slow-frame budget.</summary>
     internal static void Frame(long ms)
     {
