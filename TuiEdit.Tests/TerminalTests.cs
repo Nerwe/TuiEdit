@@ -185,6 +185,24 @@ public sealed class TerminalTests
     }
 
     [Fact]
+    public void SyncUpdateSequencesAreExact()
+    {
+        Assert.Equal("\x1b[?2026h", Terminal.SyncUpdateBeginSequence());
+        Assert.Equal("\x1b[?2026l", Terminal.SyncUpdateEndSequence());
+    }
+
+    [Fact]
+    public void SyncUpdateTogglesNeverThrow()
+    {
+        var ex = Record.Exception(() =>
+        {
+            Terminal.BeginSynchronizedUpdate();
+            Terminal.EndSynchronizedUpdate();
+        });
+        Assert.Null(ex);
+    }
+
+    [Fact]
     public void DescribeHeadNeverThrows()
     {
         string? head = null;

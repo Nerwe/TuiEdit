@@ -334,6 +334,34 @@ internal static class Terminal
         try { Console.Write("\x1b[?2004l"); } catch { }
     }
 
+    /// <summary>Builds the synchronized-output begin marker (DECSET 2026, pure function for tests).</summary>
+    internal static string SyncUpdateBeginSequence() => "\x1b[?2026h";
+
+    /// <summary>Builds the synchronized-output end marker (pure function for tests).</summary>
+    internal static string SyncUpdateEndSequence() => "\x1b[?2026l";
+
+    /// <summary>
+    /// Begins a synchronized update: the terminal holds painting until
+    /// <see cref="EndSynchronizedUpdate"/>, then flips the whole frame at once
+    /// (no tearing on full repaints). Ignored by terminals without support;
+    /// gated on VT like other DEC sequences. Always pair with the end marker
+    /// (terminals time out an unclosed frame in ~100ms; ours are milliseconds).
+    /// </summary>
+    public static void BeginSynchronizedUpdate()
+    {
+        if (!IsVirtualTerminalSupported())
+            return;
+        try { Console.Write(SyncUpdateBeginSequence()); } catch { }
+    }
+
+    /// <summary>Ends a synchronized update (always send, even when the frame threw).</summary>
+    public static void EndSynchronizedUpdate()
+    {
+        if (!IsVirtualTerminalSupported())
+            return;
+        try { Console.Write(SyncUpdateEndSequence()); } catch { }
+    }
+
     /// <summary>
     /// Resends active modes: Windows Terminal/ConPTY silently resets
     /// DEC modes on focus loss. Calls on focus-in (ESC[I).
