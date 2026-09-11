@@ -35,6 +35,12 @@ internal sealed class AppSettings
     /// <summary>Gets or sets the highlighted ruler column (0 disables it).</summary>
     public int RulerColumn { get; set; }
 
+    /// <summary>Gets or sets the status bar left format ($(msg), $(pos), $(sel), $(file), $(opt:name), $(bind:Command)).</summary>
+    public string StatusFormatLeft { get; set; } = " $(msg)$(pos)$(sel)";
+
+    /// <summary>Gets or sets the status bar right format ($(encoding), $(ending), $(indent), $(file), $(git), $(tab), $(pane)).</summary>
+    public string StatusFormatRight { get; set; } = " $(encoding) | $(ending) | $(indent) | $(file)$(git)$(tab)$(pane)";
+
     /// <summary>Gets or sets a value that indicates whether long lines wrap softly.</summary>
     public bool WordWrap { get; set; }
 

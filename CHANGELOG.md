@@ -7,6 +7,12 @@ when a `v*` tag is pushed.
 
 ## [Unreleased]
 
+### Added
+- Custom status bar formats (`StatusFormatLeft`/`StatusFormatRight` in settings):
+  `$(...)` verbs for every block (`pos`, `sel`, `file`, `encoding`, `git`,
+  `tab`...), `$(opt:Name)` for any option, `$(bind:Command)` for its hotkey.
+  Defaults render exactly the old bar.
+
 ### Fixed
 - Mouse-touching test classes share an xUnit collection: the static
   `InputReader.MouseLevel` flipped under parallel classes is gone as a flake source.

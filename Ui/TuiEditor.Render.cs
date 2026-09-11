@@ -294,20 +294,8 @@ internal sealed partial class TuiEditor
         DrawSidebar();
         DrawPaneDividers(paneXs, y0, textHeight);
 
-        string msg = CurrentMessage;
-        string pos = _loc.Format("status.pos", _row + 1, _buf.Count, _col + 1) + (_buf.IsModified ? " *" : "");
-        if (_sel.HasSelection(_row, _col))
-        {
-            var (sr, sc, er, ec) = _sel.Normalize(_row, _col);
-            pos += " | " + _loc.Format("status.sel", SelectionLength(sr, sc, er, ec));
-        }
-        string left = string.IsNullOrEmpty(msg) ? $" {pos}" : $" {msg}";
-        string file = _buf.FilePath is null ? _loc["status.noname"] : Path.GetFileName(_buf.FilePath);
-        if (_buf.IsReadOnly)
-            file += " " + _loc["status.readonly"];
-        string right = StatusBar.BuildRight(
-            _buf.EncodingLabel, _buf.EndingLabel, _buf.IndentLabel, file,
-            _git.StatusSegment(_buf.FilePath), _active, _docs.Count, _pane, _panes.Count);
+        string left = StatusBar.Expand(_settings.StatusFormatLeft, StatusVerb);
+        string right = StatusBar.Expand(_settings.StatusFormatRight, StatusVerb);
         _screen.Text(0, h - 1, StatusBar.Build(left, right, w), _theme.StatusFg, _theme.StatusBg);
 
         // Over text: open menu and active dialog.
@@ -318,6 +306,54 @@ internal sealed partial class TuiEditor
             mdd.HoverButton = _mouseActive ? mdd.HitButton(_mouseX, _mouseY, w, h, _loc) : null;
         }
         _dialog?.Draw(_screen, _theme, _loc);
+    }
+
+    /// <summary>Resolves one $(verb) for the status formats (unknown verbs pass through).</summary>
+    private string? StatusVerb(string verb)
+    {
+        string msg = CurrentMessage;
+        bool hasMsg = !string.IsNullOrEmpty(msg);
+        if (verb.StartsWith("opt:", StringComparison.Ordinal))
+            return StatusBar.OptValue(_settings, verb["opt:".Length..]);
+        if (verb.StartsWith("bind:", StringComparison.Ordinal))
+            return StatusBar.BindVerb(_keys, verb["bind:".Length..]);
+        if (verb == "msg")
+            return msg;
+        if (verb == "modified")
+            return _buf.IsModified ? "*" : "";
+        if (hasMsg && (verb == "pos" || verb == "sel"))
+            return "";
+        switch (verb)
+        {
+            case "pos":
+                return _loc.Format("status.pos", _row + 1, _buf.Count, _col + 1)
+                    + (_buf.IsModified ? " *" : "");
+            case "sel":
+                if (!_sel.HasSelection(_row, _col))
+                    return "";
+                var (sr, sc, er, ec) = _sel.Normalize(_row, _col);
+                return " | " + _loc.Format("status.sel", SelectionLength(sr, sc, er, ec));
+            case "file":
+                string file = _buf.FilePath is null ? _loc["status.noname"] : Path.GetFileName(_buf.FilePath);
+                if (_buf.IsReadOnly)
+                    file += " " + _loc["status.readonly"];
+                return file + " "; // trailing space matches the historical "| {file} " layout
+            case "encoding":
+                return _buf.EncodingLabel;
+            case "ending":
+                return _buf.EndingLabel;
+            case "indent":
+                return _buf.IndentLabel;
+            case "git":
+                string? seg = _git.StatusSegment(_buf.FilePath);
+                return seg is null ? "" : "| " + seg + " ";
+            case "tab":
+                return _docs.Count > 1 ? $"| {_active + 1}/{_docs.Count} " : "";
+            case "pane":
+                return _panes.Count > 1 ? $"| P{_pane + 1}/{_panes.Count} " : "";
+            default:
+                return null;
+        }
     }
 
     /// <summary>Places the hardware cursor (console only; frames stay headless).</summary>
