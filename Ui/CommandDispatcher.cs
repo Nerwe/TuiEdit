@@ -45,7 +45,14 @@ internal sealed class CommandDispatcher : ICommandDispatcher
     public void Execute(EditorCommand command, ConsoleKeyInfo key)
     {
         if (_handlers.TryGetValue(command, out Action<ConsoleKeyInfo>? handler))
+        {
+            InputLog.Command(command.ToString(), handled: true);
             handler(key);
+        }
+        else
+        {
+            InputLog.Command(command.ToString(), handled: false);
+        }
     }
 
     /// <inheritdoc/>

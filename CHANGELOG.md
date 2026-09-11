@@ -25,6 +25,9 @@ when a `v*` tag is pushed.
   or menu item, releasing elsewhere cancels (misclicks are recoverable).
 - Quitting no longer leaks queued input: pending typeahead and held-key
   repeats are discarded during teardown instead of spilling into the shell.
+- Render is throttled to ~25fps while input always drains: any flood costs
+  mutations, never a frame backlog. Slow frames and dispatched commands are
+  traced to `TUIEDIT_INPUT_LOG` when diagnostics are on.
 
 ## [0.9.1] - 2026-09-10
 

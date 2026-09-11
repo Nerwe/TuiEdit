@@ -38,6 +38,24 @@ internal static class InputLog
         });
     }
 
+    /// <summary>Logs a dispatched editor command and whether it had a handler.</summary>
+    internal static void Command(string command, bool handled)
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, $"command={command} handled={handled}");
+    }
+
+    /// <summary>Logs a frame slower than the slow-frame budget.</summary>
+    internal static void Frame(long ms)
+    {
+        string? path = LogPath();
+        if (path is null)
+            return;
+        Write(path, $"slow-frame={ms}ms");
+    }
+
     /// <summary>Announces on stderr that logging is on (so a forgotten variable can't cost silently).</summary>
     internal static void Announce(bool starting)
     {
