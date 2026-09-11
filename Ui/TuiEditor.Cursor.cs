@@ -538,12 +538,14 @@ internal sealed partial class TuiEditor
     private string DrainPasteRun()
     {
         var sb = new System.Text.StringBuilder();
+        string? clip = null; // joined once: per-event Join would be quadratic on big clipboards
         while (InputReader.TryReadPending() is InputEvent ev)
         {
             if (ev is PasteInput p && p.Text.Length > 0) { sb.Append(p.Text); continue; }
             if (ev is KeyInput ki && _keys.Map(ki.Key) == EditorCommand.Paste && _clipboard.Count > 0)
             {
-                sb.Append(string.Join("\n", _clipboard));
+                clip ??= string.Join("\n", _clipboard);
+                sb.Append(clip);
                 continue;
             }
             _heldEvent = ev;
