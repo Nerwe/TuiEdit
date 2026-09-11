@@ -5,7 +5,7 @@ renames the section to the version number. `release.yml` builds the GitHub
 release notes from that version's section (falling back to `Unreleased`)
 when a `v*` tag is pushed.
 
-## [Unreleased]
+## [0.9.3] - 2026-09-11
 
 ### Fixed
 - Draft tests are hermetic: they used the real shared drafts dir, so a live
