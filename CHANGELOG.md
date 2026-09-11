@@ -32,6 +32,8 @@ when a `v*` tag is pushed.
   overlapping instances sharing one log file are told apart, clean quits proven.
 - Input log marks every loop iteration and every painted frame, so a hang's
   tail shows exactly where the main loop stalled (read, handler, or render).
+- Input log covers conhost mouse events too (they bypass the parser, so a
+  motion flood used to look like ghost loop iterations with no events).
 - Menu separators are a mouse dead zone: hovering one no longer jumps the
   highlight to the first item, pressing or releasing on one keeps the menu
   open instead of closing or firing.

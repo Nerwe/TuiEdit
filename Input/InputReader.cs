@@ -59,6 +59,7 @@ internal sealed class InputReader
                         // is eaten without a render — otherwise the flood starves keys.
                         if (mev.Action == MouseAction.Move && Terminal.PendingCount() > 0)
                             continue;
+                        InputLog.Yield(mev); // conhost path bypasses the parser: log here
                         return mev;
                     }
                     continue;
