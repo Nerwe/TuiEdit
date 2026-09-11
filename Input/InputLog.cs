@@ -84,12 +84,14 @@ internal static class InputLog
     }
 
     /// <summary>Logs a drain-loop flood that fell through to the key-wait path.</summary>
-    internal static void DrainFlood(int skipped)
+    internal static void DrainFlood(int skipped, string detail = "")
     {
         string? path = LogPath();
         if (path is null)
             return;
-        Write(path, $"drain-flood={skipped} skipped");
+        Write(path, string.IsNullOrEmpty(detail)
+            ? $"drain-flood={skipped} skipped"
+            : $"drain-flood={skipped} skipped {detail}");
     }
 
     /// <summary>Logs a frame slower than the slow-frame budget.</summary>

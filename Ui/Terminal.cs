@@ -270,6 +270,25 @@ internal static class Terminal
     internal static bool SilentPollExceeded(int silent) => silent >= MaxSilentPoll;
 
     /// <summary>
+    /// One-shot peek describing the queue head for diagnostics
+    /// (type/keydown/char — the mouse view overlaps the same bytes).
+    /// Never throws, returns "head=empty" when nothing is queued.
+    /// </summary>
+    internal static string DescribeHead()
+    {
+        try
+        {
+            if (TryPeek(out InputRecord rec))
+                return $"head={rec.EventType}/{rec.KeyEvent.KeyDown}/U+{(int)rec.KeyEvent.UnicodeChar:X4}";
+            return "head=empty";
+        }
+        catch
+        {
+            return "head=error";
+        }
+    }
+
+    /// <summary>
     /// Byte-exact record comparison: the 16-byte Event union is fully covered
     /// by the key-event view (4+2+2+2+2+4), which overlaps the mouse view.
     /// </summary>
@@ -379,7 +398,7 @@ internal static class Terminal
                 Take(); // Consumes key-up, resize, focus and looks further
                 if (SilentPollExceeded(++silent))
                 {
-                    InputLog.DrainFlood(silent);
+                    InputLog.DrainFlood(silent, $"pending {DescribeHead()}");
                     return false; // phantom head: Take already flushed+logged; stop polling
                 }
             }

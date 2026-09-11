@@ -55,6 +55,22 @@ public sealed class TerminalTests
     }
 
     [Fact]
+    public void DrainFloodLogWithDetailNeverThrows()
+    {
+        var ex = Record.Exception(() => InputLog.DrainFlood(Terminal.MaxSilentPoll, "motion=1 junk=2 head=empty"));
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void DescribeHeadNeverThrows()
+    {
+        string? head = null;
+        var ex = Record.Exception(() => head = Terminal.DescribeHead());
+        Assert.Null(ex);
+        Assert.False(string.IsNullOrEmpty(head));
+    }
+
+    [Fact]
     public void SameRecordComparesFullUnion()
     {
         var a = new Terminal.InputRecord { EventType = Terminal.KEY_EVENT };

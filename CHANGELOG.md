@@ -54,7 +54,9 @@ when a `v*` tag is pushed.
   keys, zero logs. After 4096 silent skips Read falls through to the
   key-wait path (which eats the flood waiting for the next key); trips are
   logged as `drain-flood`. The sibling `IsKeyPending` loop has the same
-  bound now.
+  bound now. Flood lines carry per-branch counters and the queue-head type
+  (`motion=/junk=/takenull=/head=`), so the next live report identifies
+  the spinning record instead of guessing.
 - Phantom console records are detected, not just failures: `ReadConsoleInput`
   can report success without dequeuing a zero-type slot (proven by two dumps
   20s apart with the fail counter stuck at 0 while spinning).   `Take` now

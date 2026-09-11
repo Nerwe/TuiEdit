@@ -43,7 +43,7 @@ internal sealed class InputReader
             // We drain the conhost queue ourselves: .NET ReadKey swallows mouse events,
             // and blocks waiting for keys only. We call ReadKey only when a
             // key-down is at the front — then it returns instantly, losing nothing.
-            int silent = 0;
+            int silent = 0, motion = 0, junk = 0, takeNull = 0;
             while (true)
             {
                 if (!Terminal.TryPeek(out Terminal.InputRecord rec))
@@ -61,9 +61,11 @@ internal sealed class InputReader
                         // is eaten without a render — otherwise the flood starves keys.
                         if (mev.Action == MouseAction.Move && Terminal.PendingCount() > 0)
                         {
+                            motion++;
                             if (Terminal.SilentPollExceeded(++silent))
                             {
-                                InputLog.DrainFlood(silent);
+                                InputLog.DrainFlood(silent,
+                                    $"motion={motion} junk={junk} takenull={takeNull} {Terminal.DescribeHead()}");
                                 break; // flood: fall through to the key-wait path
                             }
                             continue;
@@ -71,9 +73,11 @@ internal sealed class InputReader
                         InputLog.Yield(mev); // conhost path bypasses the parser: log here
                         return mev;
                     }
+                    takeNull++;
                     if (Terminal.SilentPollExceeded(++silent))
                     {
-                        InputLog.DrainFlood(silent);
+                        InputLog.DrainFlood(silent,
+                            $"motion={motion} junk={junk} takenull={takeNull} {Terminal.DescribeHead()}");
                         break; // middle/right/wheel-0 storm: same recovery
                     }
                     continue;
@@ -81,9 +85,11 @@ internal sealed class InputReader
                 if (rec.EventType != Terminal.KEY_EVENT || rec.KeyEvent.KeyDown == 0)
                 {
                     Terminal.Take(); // key-up, resize, focus — skip
+                    junk++;
                     if (Terminal.SilentPollExceeded(++silent))
                     {
-                        InputLog.DrainFlood(silent);
+                        InputLog.DrainFlood(silent,
+                            $"motion={motion} junk={junk} takenull={takeNull} {Terminal.DescribeHead()}");
                         break; // junk storm: same recovery
                     }
                     continue;
