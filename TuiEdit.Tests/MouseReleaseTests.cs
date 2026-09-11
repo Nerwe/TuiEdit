@@ -48,6 +48,34 @@ public sealed class MouseReleaseTests
         typeof(TuiEditor).GetField("_menu", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(ed);
 
+    private static MenuState MenuStateOf(TuiEditor ed) =>
+        (MenuState)typeof(TuiEditor).GetField("_menu", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(ed)!;
+
+    private static Screen ScreenOf(TuiEditor ed) =>
+        (Screen)typeof(TuiEditor).GetField("_screen", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(ed)!;
+
+    private static Theme ThemeOf(TuiEditor ed) =>
+        (Theme)typeof(TuiEditor).GetField("_theme", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(ed)!;
+
+    private static void SetMouse(TuiEditor ed, bool active, int x, int y)
+    {
+        var t = typeof(TuiEditor);
+        t.GetField("_mouseActive", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(ed, active);
+        t.GetField("_mouseX", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(ed, x);
+        t.GetField("_mouseY", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(ed, y);
+    }
+
+    private static (int row, int col) Cursor(TuiEditor ed)
+    {
+        var t = typeof(TuiEditor);
+        return (
+            (int)t.GetField("_row", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!,
+            (int)t.GetField("_col", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(ed)!);
+    }
+
     private static void OpenMenu(TuiEditor ed, int index) =>
         typeof(TuiEditor).GetMethod("OpenMenu", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(ed, [index]);
@@ -206,6 +234,78 @@ public sealed class MouseReleaseTests
             ed.HandleMouseAt(Release(0, H - 1), W, H); // status bar: off-menu
             Assert.Null(Menu(ed));
             Assert.StartsWith("X", FirstLine(ed)); // nothing ran, cursor untouched by release
+        });
+    }
+
+    /// <summary>Finds a cell on item 0 and a cell on a separator of the File menu.</summary>
+    private static ((int x, int y) item, (int x, int y) sep) FileMenuCells()
+    {
+        var menus = TuiEditor.BuildMenus(En());
+        var file = menus[0];
+        var state = new MenuState(menus);
+        state.Open(0);
+        int menuX = MenuHit.MenuX(state);
+        (int x, int y)? item = null;
+        (int x, int y)? sep = null;
+        for (int y = 1; y < 14 && (item is null || sep is null); y++)
+            for (int x = menuX; x < menuX + 24 && (item is null || sep is null); x++)
+            {
+                if (item is null && MenuHit.DropdownHit(file, menuX, x, y, W, H) == 0)
+                    item = (menuX + 2, y); // label area, not the border cell
+                if (sep is null && MenuHit.IsSeparatorHit(file, menuX, x, y, W, H))
+                    sep = (menuX + 2, y);
+            }
+        Assert.True(item is not null && sep is not null, "item and separator cells not found");
+        return (item!.Value, sep!.Value);
+    }
+
+    [Fact]
+    public void MenuSeparatorHoverLightsNothing()
+    {
+        WithMouse(() =>
+        {
+            var (item, sep) = FileMenuCells();
+            var theme = ThemeOf(NewEditor());
+            var ed = NewEditor();
+            OpenMenu(ed, 0);
+            // Hovering the item lights it.
+            SetMouse(ed, true, item.x, item.y);
+            ed.RenderFrame(W, H);
+            Assert.Equal(theme.DropSelBg, ScreenOf(ed).At(item.x, item.y).Bg);
+            // Hovering the separator lights nothing (used to jump to item 0).
+            SetMouse(ed, true, sep.x, sep.y);
+            ed.RenderFrame(W, H);
+            Assert.NotEqual(theme.DropSelBg, ScreenOf(ed).At(item.x, item.y).Bg);
+            Assert.NotEqual(theme.DropSelBg, ScreenOf(ed).At(sep.x, sep.y).Bg);
+        });
+    }
+
+    [Fact]
+    public void MenuPressSeparatorKeepsMenuOpen()
+    {
+        WithMouse(() =>
+        {
+            var (_, sep) = FileMenuCells();
+            var ed = NewEditor();
+            OpenMenu(ed, 0);
+            ed.HandleMouseAt(Press(sep.x, sep.y), W, H);
+            Assert.NotNull(Menu(ed)); // dead zone: no close, no fall-through to text
+            Assert.Equal((0, 0), Cursor(ed));
+        });
+    }
+
+    [Fact]
+    public void MenuReleaseSeparatorKeepsMenuOpen()
+    {
+        WithMouse(() =>
+        {
+            var (item, sep) = FileMenuCells();
+            var ed = NewEditor();
+            OpenMenu(ed, 0);
+            ed.HandleMouseAt(Press(item.x, item.y), W, H);
+            ed.HandleMouseAt(Release(sep.x, sep.y), W, H); // armed, released on separator
+            Assert.NotNull(Menu(ed));
+            Assert.Equal(1, ed.TabCount); // NewTab did not fire
         });
     }
 

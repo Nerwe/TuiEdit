@@ -801,13 +801,13 @@ internal sealed partial class TuiEditor
         if (maxRows < 3)
             return;
         int rows = Math.Min(m.Items.Count, maxRows - 2);
+        // Hover inside the box owns the highlight (a separator row lights nothing);
+        // outside it the keyboard selection stays visible instead of jumping to item 0.
+        int r = _mouseY - (y + 1);
+        bool mouseInBox = _mouseActive && _mouseX >= x && _mouseX < x + boxW && r >= 0 && r < rows;
         int hoverRow = -1;
-        if (_mouseActive && _mouseX >= x && _mouseX < x + boxW)
-        {
-            int r = _mouseY - (y + 1);
-            if (r >= 0 && r < rows && !m.Items[r].IsSeparator)
-                hoverRow = r;
-        }
+        if (mouseInBox && !m.Items[r].IsSeparator)
+            hoverRow = r;
 
         Rgb borderFg = _theme.DropBorderFg;
         Rgb borderBg = _theme.DropBg;
@@ -820,7 +820,7 @@ internal sealed partial class TuiEditor
                 _screen.Text(x, y + 1 + i, "├" + new string('─', boxW - 2) + "┤", borderFg, borderBg);
                 continue;
             }
-            int effRow = _mouseActive && hoverRow >= 0 ? hoverRow : _menu.SelectedIndex;
+            int effRow = mouseInBox ? hoverRow : _menu.SelectedIndex;
             bool sel = i == effRow;
             (Rgb fg, Rgb bg) = sel
                 ? (_theme.DropSelFg, _theme.DropSelBg)

@@ -312,6 +312,8 @@ internal sealed partial class TuiEditor
         int? item = MenuItemHit(_menu, m.X, m.Y, w, h);
         if (item is null)
         {
+            if (MenuHit.IsSeparatorHit(_menu.Current, MenuHit.MenuX(_menu), m.X, m.Y, w, h))
+                return true; // separator: dead zone, menu stays open
             _menu = null;
             return false; // Miss closes and passes the click to text
         }
@@ -329,14 +331,8 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>Hits the dropdown item under coordinates (null outside).</summary>
-    private static int? MenuItemHit(MenuState menu, int x, int y, int w, int h)
-    {
-        List<TopMenu> menus = menu.Menus;
-        int menuX = 0;
-        for (int i = 0; i < menu.OpenIndex && i < menus.Count; i++)
-            menuX += menus[i].Label.Length + 2;
-        return MenuHit.DropdownHit(menu.Current, menuX, x, y, w, h);
-    }
+    private static int? MenuItemHit(MenuState menu, int x, int y, int w, int h) =>
+        MenuHit.DropdownHit(menu.Current, MenuHit.MenuX(menu), x, y, w, h);
 
     /// <summary>
     /// Finishes an armed click: a release on the armed dialog button fires it,
@@ -363,10 +359,10 @@ internal sealed partial class TuiEditor
         if (menu is not null && ReferenceEquals(_menu, menu))
         {
             int? item = MenuItemHit(menu, m.X, m.Y, w, h);
-            if (item is null)
-                _menu = null;
-            else
+            if (item is not null)
                 ActivateMenuItem(menu.Current.Items[item.Value]);
+            else if (!MenuHit.IsSeparatorHit(menu.Current, MenuHit.MenuX(menu), m.X, m.Y, w, h))
+                _menu = null; // off-menu: close; separator: disarm only, menu stays
         }
     }
 

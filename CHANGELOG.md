@@ -28,6 +28,9 @@ when a `v*` tag is pushed.
 - Render is throttled to ~25fps while input always drains: any flood costs
   mutations, never a frame backlog. Slow frames and dispatched commands are
   traced to `TUIEDIT_INPUT_LOG` when diagnostics are on.
+- Menu separators are a mouse dead zone: hovering one no longer jumps the
+  highlight to the first item, pressing or releasing on one keeps the menu
+  open instead of closing or firing.
 
 ## [0.9.1] - 2026-09-10
 
