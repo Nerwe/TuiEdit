@@ -133,6 +133,67 @@ internal sealed partial class TuiEditor
         }
     }
 
+    /// <summary>Records the current spot before a big jump (grep/goto/pick).</summary>
+    internal void PushJump() => _jumps.Push(new JumpPosition(_buf.FilePath, _row, _col));
+
+    /// <summary>Returns to the previous jump spot (saving the current one at the tip).</summary>
+    internal void JumpBack()
+    {
+        JumpPosition? t = _jumps.Back(new JumpPosition(_buf.FilePath, _row, _col));
+        if (t is not null)
+            GoToJump(t);
+    }
+
+    /// <summary>Re-jumps forward after stepping back.</summary>
+    internal void JumpForward()
+    {
+        JumpPosition? t = _jumps.Forward();
+        if (t is not null)
+            GoToJump(t);
+    }
+
+    /// <summary>
+    /// Goes to a jump target: same file moves the cursor, otherwise the file is
+    /// revealed (open tab) or opened. A dirty buffer prompts as usual; then the row
+    /// precision is v1-limited (the file opens at top after resolve).
+    /// Untitled entries apply to the current buffer only (tab identity is not tracked).
+    /// </summary>
+    internal void GoToJump(JumpPosition t)
+    {
+        if (_buf.Count == 0)
+            return;
+        if ((t.File is null && _buf.FilePath is null) || SamePath(t.File, _buf.FilePath))
+        {
+            // Untitled entries apply to the current buffer (tab identity is not tracked, v1).
+            _row = Math.Clamp(t.Row, 0, _buf.Count - 1);
+            _col = Math.Clamp(t.Col, 0, _buf.GetLine(_row).Length);
+            _sel.Clear();
+            ClampCursor();
+            TrackCol();
+            return;
+        }
+        if (t.File is null)
+            return;
+        int tab = FindTabByPath(t.File);
+        if (tab >= 0)
+            SwitchTab(tab);
+        else
+            OpenPicked(t.File);
+        if (_dialog is null)
+        {
+            GoToPosition(t.Row + 1, t.Col + 1);
+            _sel.Clear();
+        }
+    }
+
+    private int FindTabByPath(string path)
+    {
+        for (int i = 0; i < _docs.Count; i++)
+            if (SamePath(_docs[i].Buf.FilePath, path))
+                return i;
+        return -1;
+    }
+
     /// <summary>Jumps to a 1-based line and column (0 leaves that axis alone).</summary>
     internal void GoToPosition(int line, int col)
     {

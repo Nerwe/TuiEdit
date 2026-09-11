@@ -12,6 +12,9 @@ when a `v*` tag is pushed.
   current row) through any command (`sort`, `jq`, ...), replacing them with the
   output in a single undo entry. Timeouts, missing binaries, and nonzero exits
   keep the text and show a message.
+- Jumplist (`Alt+Left`/`Alt+Right`): back/forward across grep hits, goto jumps
+  and picked files (30 entries, consecutive duplicates drop, new jumps truncate
+  the forward branch).
 
 ### Fixed
 - Frames flip atomically via synchronized output (DECSET 2026): full repaints

@@ -74,6 +74,8 @@ internal sealed partial class TuiEditor
     // Input reads via static InputReader.Read (stateless).
     /// <summary>Lookahead stashed by burst coalescing: processed before blocking on the console.</summary>
     private InputEvent? _heldEvent;
+    /// <summary>Back/forward jump history (jumplist).</summary>
+    private readonly JumpList _jumps = new();
     /// <summary>Max gap between printable chars to count as a wire-speed run (humans cannot sustain it). Mutable for tests.</summary>
     internal static int SpeedRunGapMs = 20;
     /// <summary>Run length from which AutoPair stops and undos merge (earlier chars keep own entries).</summary>

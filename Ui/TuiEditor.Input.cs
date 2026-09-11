@@ -607,6 +607,8 @@ internal sealed partial class TuiEditor
         [EditorCommand.CompleteWord] = _ => CompleteWord(),
         [EditorCommand.SortLines] = _ => SortBlock(),
         [EditorCommand.ShellFilter] = _ => ShellFilterFlow(),
+        [EditorCommand.JumpBack] = _ => JumpBack(),
+        [EditorCommand.JumpForward] = _ => JumpForward(),
         [EditorCommand.GoBracketMatch] = _ => JumpToBracket(),
         [EditorCommand.MoveLineUp] = _ => MoveLineBlock(-1),
         [EditorCommand.MoveLineDown] = _ => MoveLineBlock(1),
