@@ -89,6 +89,14 @@ internal static class Terminal
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetNumberOfConsoleInputEvents(IntPtr hConsoleInput, out uint lpcNumberOfEvents);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool FlushConsoleInputBuffer(IntPtr hConsoleInput);
+
+    private const int TCIFLUSH = 0;
+
+    [DllImport("libc")]
+    private static extern int tcflush(int fd, int queue);
+
     /// <summary>Enables VT sequence processing for output; on Unix VT exists from the start (except dumb terminals).</summary>
     public static bool TryEnableVirtualTerminal()
     {
@@ -389,6 +397,32 @@ internal static class Terminal
                     : next & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS;
             }
             SetConsoleMode(h, next);
+        }
+        catch
+        {
+        }
+    }
+
+    /// <summary>
+    /// Discards queued console input: typeahead and flood leftovers (e.g. held-key
+    /// repeats still arriving at quit) must not leak into the shell after exit.
+    /// Best-effort, never throws.
+    /// </summary>
+    public static void DiscardPendingInput()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                IntPtr h = GetStdHandle(STD_INPUT_HANDLE);
+                if (h == IntPtr.Zero || h == new IntPtr(-1))
+                    return;
+                FlushConsoleInputBuffer(h);
+            }
+            else
+            {
+                _ = tcflush(0, TCIFLUSH);
+            }
         }
         catch
         {

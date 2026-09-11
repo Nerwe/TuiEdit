@@ -80,6 +80,7 @@ internal static class Startup
     /// <summary>Restores a sane terminal (mirrors the crash handler; never throws).</summary>
     public static void RestoreTerminal()
     {
+        try { Terminal.DiscardPendingInput(); } catch { }
         try { Console.Write("\x1b[?2004l"); } catch { }
         try { Terminal.DisableMouse(); } catch { }
         try { Terminal.DisableFocusTracking(); } catch { }

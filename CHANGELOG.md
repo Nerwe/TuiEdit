@@ -23,6 +23,8 @@ when a `v*` tag is pushed.
   "keys do nothing" reports (announced on stderr while active).
 - Mouse clicks fire on release, not on press: a press arms the dialog button
   or menu item, releasing elsewhere cancels (misclicks are recoverable).
+- Quitting no longer leaks queued input: pending typeahead and held-key
+  repeats are discarded during teardown instead of spilling into the shell.
 
 ## [0.9.1] - 2026-09-10
 

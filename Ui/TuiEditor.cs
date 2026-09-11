@@ -294,6 +294,7 @@ internal sealed partial class TuiEditor
         {
             // Every step guarded: teardown must never mask the original error
             // nor leave raw input/mouse mode behind.
+            try { Terminal.DiscardPendingInput(); } catch { }
             try { Console.Write("\x1b[?2004l"); } catch { }
             try { Terminal.DisableMouse(); } catch { }
             try { Terminal.DisableFocusTracking(); } catch { }
