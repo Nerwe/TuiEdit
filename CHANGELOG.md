@@ -5,7 +5,7 @@ renames the section to the version number. `release.yml` builds the GitHub
 release notes from that version's section (falling back to `Unreleased`)
 when a `v*` tag is pushed.
 
-## [Unreleased]
+## [1.0.0] - 2026-09-13
 
 ### Added
 - Filter through shell (`Ctrl+R`, Edit menu): runs the selection rows (or the
