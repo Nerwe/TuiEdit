@@ -7,18 +7,20 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Features
 
-- Editing: undo/redo (per keystroke and per block), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), toggle line comment (`Ctrl+/`), matching-bracket highlight and jump (`Alt+]`), move lines (`Alt+↑/↓`), word-wise delete/move, trim trailing whitespace, sort lines, auto-pairs for brackets/quotes (toggle in Settings).
+- Editing: undo/redo (per keystroke and per block) plus time travel (`F12`: `earlier`/`later` by steps or `5m`/`30s`), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), toggle line comment (`Ctrl+/`), matching-bracket highlight and jump (`Alt+]`), move lines (`Alt+↑/↓`), word-wise delete/move, trim trailing whitespace, sort lines, auto-pairs for brackets/quotes (toggle in Settings).
+- More editing power: surround with any pair (`^L` add, `Alt+L` change, `Alt+J` delete), light registers (`^X` then `a-z`/`0-9`), filter selection through any shell command (`^R`, e.g. `sort`, `jq`), jumplist back/forward (`Alt+←/→`).
 - Find (`^F`, `F3`/`Shift+F3`): live highlight while typing, wrap-around, `k/N` counter, match case / whole words / regex toggles right in the prompt (`Alt+C/W/R`). Instant whole-document replace (`^H`) in a single undo step, with confirmation past 50 matches showing a before/after preview of the first hit. Grep across files (`Ctrl+Shift+F`) with jump-to-hit.
 - Syntax highlighting from JSON grammars (C#, Python, JavaScript/TypeScript, JSON, Markdown, PowerShell, XML, INI built in). On first run the grammars are extracted to the `grammars` folder next to `settings.json` — edit them to customize, drop in your own.
 - File manager for Open/Save as: drives, `..`, file highlight with sizes, overwrite confirmation in a separate window. `F7` new folder, `F2` rename, `F8` delete (with confirmation, recursive), `Ctrl+H` hidden files. Name field and Find/Replace/GoTo prompts share one line editor: selection (`Shift`), word-wise motion (`Ctrl+arrows`), word delete (`Ctrl+BS/Del`), `Alt+←/→` navigation in the manager.
 - Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save; all three are switched in the File format dialog (`F9`, shown in the status bar). Read-only files are flagged `[read-only]` and refuse to save.
-- `dark`/`light` themes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), indent guides, whitespace marks (`Alt+.`), ruler column, git diff gutter, help screen (`F1`).
+- Five built-in themes (`dark`, `light`, `3024 Night`, `Paper`, `Posting`) plus your own schemes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), indent guides, whitespace marks (`Alt+.`), ruler column, git diff gutter, help screen (`F1`). The status bar layout is customizable (`StatusFormatLeft/Right` with `$(...)` verbs) and states render as pills (`[*]`, `[read-only]`).
 - Bookmarks (`F2` toggle, `Shift+F2` next, gutter `●`), indent folding (`Alt+-`), buffer-word completion (`Ctrl+Space`), document stats (`F4`).
 - Optional session restore: reopen the previous tabs with cursor positions when started without arguments (off by default, toggle in Settings); dirty untitled tabs round-trip with their content.
 - File tree (`Ctrl+B`): fixed-width sidebar with an expandable folder tree (`Enter`/`←`/`→`), git change marks (folders aggregate), `Enter` opens files, `Esc` back to text. Walking the tree previews files in a single tab (same tab is reused; `Enter` pins it, edits pin it automatically). `F7` new file/folder, `F2` rename, `Del` delete with two-step confirm. Entries are color-coded: dirs, hidden and executables.
-- Tabs: open tab bar (`Ctrl+T` new, `Ctrl+W` close, `Ctrl+PgDn/PgUp` switch, `Alt+1..9,0` jump, `Ctrl+P` list); long rows scroll with the active tab always visible; dirty tabs ask on close, quitting walks through them one by one. Quick-open files by name across the project (`Alt+O`), command line (`F12`: `set` incl. `encoding`/`ending`/`indent`, `goto`, `find`, `save`, `quit`).
+- Tabs: open tab bar (`Ctrl+T` new, `Ctrl+W` close, `Ctrl+PgDn/PgUp` switch, `Alt+1..9,0` jump, `Ctrl+P` list); long rows scroll with the active tab always visible; dirty tabs ask on close, quitting walks through them one by one. Quick-open files by name across the project (`Alt+O`, `ft:cs` filters by extension), command line (`F12`: `set` incl. `encoding`/`ending`/`indent`, `goto`, `find`, `earlier`, `later`, `save`, `quit`) with history (`Up`/`Down`) and completion (`Tab`).
+- Startup dashboard with recent files (`1-9`/`Enter` to open, any key types through).
 - Split view (`Alt+S`): two or more panes side by side, each with its own tabs; `F6`/`Shift+F6` or `Ctrl+1..9` move focus (tab keys act on the focused pane).
-- System clipboard via OSC52 (Windows Terminal): `^C` copies, paste with `Ctrl+V`.
+- System clipboard via OSC52 (Windows Terminal) with fallback to native tools (`clip`, `pbcopy`, `wl-copy`/`xclip`/`xsel`): `^C` copies, paste with `Ctrl+V`.
 
 ## Hotkeys
 
@@ -29,6 +31,8 @@ File menu — Save all, File format (`F9`)
   (in Find: Alt+C match case, Alt+W whole words, Alt+R regex)
 ^K cut line  ^U/^V paste  ^C copy line  ^D duplicate
 Ctrl+/ toggle line comment  Alt+] matching bracket
+^R filter through shell  ^L surround  Alt+L change surround  Alt+J unwrap
+^X register, then yank/paste  Alt+Left/Right — jumplist back/forward
 ^C also puts the copy into the system clipboard (Windows Terminal) — paste with Ctrl+V
 ^Z undo  ^Y redo  ^A select all   Shift+arrows — selection
 arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Ctrl+BS/Del — delete word, Ctrl+E/Home/End — doc start/end, Alt+up/down — move line
@@ -68,7 +72,19 @@ Full list: `tui-edit --help` or `F1` in the editor.
 |---|---|---|
 | ![Replace](docs/shots/replace.png) | ![Palette](docs/shots/palette.png) | ![Prompt](docs/shots/prompt.png) |
 
-![Help](docs/shots/help.png)
+| Dashboard | Help |
+|---|---|
+| ![Dashboard](docs/shots/dashboard.png) | ![Help](docs/shots/help.png) |
+
+## Themes
+
+Five built-ins, switchable in Settings or via `F12`: `set theme <name>`.
+
+| dark | Posting (dark) |
+|---|---|
+| ![dark theme](docs/shots/editor.png) | ![Posting theme](docs/shots/editor-posting.png) |
+
+Also `light`, `3024 Night` and `Paper` — plus your own schemes (see [Custom themes](#custom-themes)).
 
 ## Build & run
 
