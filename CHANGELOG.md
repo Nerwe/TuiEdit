@@ -35,6 +35,12 @@ when a `v*` tag is pushed.
   or paste, one-shot.
 
 ### Fixed
+- Cursor motion stays flat deep in files: `EnsureVisible` walked from row 0
+  every frame (233 us and 922 KB at row 5500), now it walks relatively from
+  `_top` (~44 us, ~21 KB at any depth); empty fold sets skip enumeration.
+- Scroll repaints cost one console write: `FlushAnsi` batches the whole diff
+  (inline CUP addressing) instead of ~600 `SetCursorPosition`/`Write` calls
+  per full-viewport frame.
 - Clipboard export falls back past OSC 52: terminal detection covers common
   emulators, then platform tools (`clip`, `pbcopy`, `wl-copy`/`xclip`/`xsel`),
   then internal-only; oversized texts skip OSC 52 for the tools directly.

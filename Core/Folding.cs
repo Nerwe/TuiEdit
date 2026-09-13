@@ -44,6 +44,8 @@ internal static class Folding
     /// <summary>Determines whether a line hides inside a fold (the start line always stays visible).</summary>
     public static bool IsHidden(IReadOnlyList<string> lines, SortedSet<int> folds, int row)
     {
+        if (folds.Count == 0)
+            return false;
         foreach (int f in folds)
         {
             if (f >= row)

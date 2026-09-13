@@ -146,29 +146,42 @@ internal sealed class Screen
         Swap();
     }
 
-    private static void FlushAnsi(List<DrawOp> ops)
+    /// <summary>
+    /// Builds one ANSI payload for the whole diff: cursor addressing rides inline
+    /// (CUP), so a full-viewport scroll costs a single console write, not ~600.
+    /// Pure (no console access) for tests.
+    /// </summary>
+    internal static string BuildAnsiFrame(List<DrawOp> ops)
     {
+        var sb = new System.Text.StringBuilder(ops.Count * 32);
         Rgb lastFg = default;
         Rgb lastBg = default;
         bool first = true;
         foreach (DrawOp op in ops)
         {
-            Console.SetCursorPosition(op.X, op.Y);
+            sb.Append("\x1b[");
+            sb.Append(op.Y + 1);
+            sb.Append(';');
+            sb.Append(op.X + 1);
+            sb.Append('H');
             if (first || !op.Fg.Equals(lastFg))
             {
-                Console.Write(op.Fg.ToAnsiFg());
+                sb.Append(op.Fg.ToAnsiFg());
                 lastFg = op.Fg;
             }
             if (first || !op.Bg.Equals(lastBg))
             {
-                Console.Write(op.Bg.ToAnsiBg());
+                sb.Append(op.Bg.ToAnsiBg());
                 lastBg = op.Bg;
             }
             first = false;
-            Console.Write(op.Text);
+            sb.Append(op.Text);
         }
-        Console.Write("\x1b[0m");
+        sb.Append("\x1b[0m");
+        return sb.ToString();
     }
+
+    private static void FlushAnsi(List<DrawOp> ops) => Console.Write(BuildAnsiFrame(ops));
 
     private static void FlushLegacy(List<DrawOp> ops)
     {
