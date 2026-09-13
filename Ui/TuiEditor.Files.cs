@@ -789,6 +789,16 @@ internal sealed partial class TuiEditor
         _ => _loc["sidebar.error.unknown"],
     };
 
+    /// <summary>Shows the startup dashboard on plain launches (recent files, hints).</summary>
+    private void ShowDashboard()
+    {
+        _settings.PruneRecent();
+        var dlg = new DashboardDialog(AppVersion, _settings.RecentFiles, OpenPicked);
+        RunDialog(dlg);
+        if (dlg.DismissKey is KeyInput key)
+            _heldEvent = key; // printable types through into the fresh buffer
+    }
+
     private void DoRecent()
     {
         _settings.PruneRecent();

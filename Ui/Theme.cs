@@ -39,7 +39,7 @@ internal sealed record Theme(
 
 internal static class Themes
 {
-    public static readonly string[] Names = ["dark", "light", "3024 Night (dark)", "Paper (light)"];
+    public static readonly string[] Names = ["dark", "light", "3024 Night (dark)", "Paper (light)", "Posting (dark)"];
 
     public static Theme Dark { get; } = new(
         Name: "dark",
@@ -146,12 +146,40 @@ internal static class Themes
         AccentFg: new Rgb(0x00, 0x77, 0xB6),
         RulerBg: new Rgb(0xED, 0xE6, 0xD6));
 
+    /// <summary>Gets the dark "Posting" theme (posting galaxy palette).</summary>
+    public static Theme Posting { get; } = new(
+        Name: "Posting (dark)",
+        EditorBg: new Rgb(0x0F, 0x0F, 0x1F), EditorFg: new Rgb(0xD8, 0xD8, 0xE8),
+        CurLineBg: new Rgb(0x1E, 0x1E, 0x3F), CurLineFg: new Rgb(0xD8, 0xD8, 0xE8),
+        GutterFg: new Rgb(0x6B, 0x6B, 0x8A), FillerFg: new Rgb(0x3A, 0x3A, 0x55),
+        GitAddFg: new Rgb(0x00, 0xFA, 0x9A), GitModFg: new Rgb(0xFF, 0xD7, 0x00),
+        SelBg: new Rgb(0x4E, 0x29, 0x6D), SelFg: new Rgb(0xD8, 0xD8, 0xE8),
+        MatchBg: new Rgb(0xFF, 0xD7, 0x00), MatchFg: new Rgb(0x0F, 0x0F, 0x1F),
+        MenuBarBg: new Rgb(0x1E, 0x1E, 0x3F), MenuFg: new Rgb(0xD8, 0xD8, 0xE8), MenuHotkeyFg: new Rgb(0xFF, 0x69, 0xB4),
+        MenuOpenBg: new Rgb(0xC4, 0x5A, 0xFF), MenuOpenFg: new Rgb(0x0F, 0x0F, 0x1F),
+        DropBg: new Rgb(0x1E, 0x1E, 0x3F), DropFg: new Rgb(0xD8, 0xD8, 0xE8), DropBorderFg: new Rgb(0x5A, 0x5A, 0x85),
+        DropSelBg: new Rgb(0xC4, 0x5A, 0xFF), DropSelFg: new Rgb(0x0F, 0x0F, 0x1F), DropDimFg: new Rgb(0x6B, 0x6B, 0x8A),
+        StatusBg: new Rgb(0xC4, 0x5A, 0xFF), StatusFg: new Rgb(0x0F, 0x0F, 0x1F),
+        PromptBg: new Rgb(0x1E, 0x1E, 0x3F), PromptFg: new Rgb(0xD8, 0xD8, 0xE8),
+        ModalBg: new Rgb(0x1E, 0x1E, 0x3F), ModalFg: new Rgb(0xD8, 0xD8, 0xE8),
+        ModalDangerBg: new Rgb(0xFF, 0x45, 0x00), ModalDangerFg: new Rgb(0x0F, 0x0F, 0x1F),
+        ModalHintFg: new Rgb(0x6B, 0x6B, 0x8A), ModalHintDangerFg: new Rgb(0x0F, 0x0F, 0x1F),
+        ButtonSelBg: new Rgb(0xC4, 0x5A, 0xFF), ButtonSelFg: new Rgb(0x0F, 0x0F, 0x1F),
+        PickerDirFg: new Rgb(0xA6, 0x84, 0xE8), PickerUpFg: new Rgb(0x6B, 0x6B, 0x8A), PickerFileFg: new Rgb(0xD8, 0xD8, 0xE8),
+        PickerHiddenFg: new Rgb(0x6B, 0x6B, 0x8A), PickerExeFg: new Rgb(0x00, 0xFA, 0x9A),
+        PickerEmptyFg: new Rgb(0x6B, 0x6B, 0x8A), PickerErrorFg: new Rgb(0xFF, 0x45, 0x00), PickerHintFg: new Rgb(0x6B, 0x6B, 0x8A),
+        SynKeywordFg: new Rgb(0xC4, 0x5A, 0xFF), SynStringFg: new Rgb(0x00, 0xFA, 0x9A), SynCommentFg: new Rgb(0x6B, 0x6B, 0x8A), SynNumberFg: new Rgb(0xFF, 0xD7, 0x00), SynTypeFg: new Rgb(0xA6, 0x84, 0xE8),
+        IndentGuideFg: new Rgb(0x3A, 0x3A, 0x55),
+        AccentFg: new Rgb(0xFF, 0x69, 0xB4),
+        RulerBg: new Rgb(0x1E, 0x1E, 0x3F));
+
     /// <summary>Gets a theme by name (unknown falls back to dark).</summary>
     public static Theme Get(string? name) => name switch
     {
         "light" => Light,
         "3024 Night (dark)" => Night3024,
         "Paper (light)" => Paper,
+        "Posting (dark)" => Posting,
         _ => Dark,
     };
 }

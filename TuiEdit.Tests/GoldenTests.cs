@@ -43,6 +43,15 @@ public sealed class GoldenTests
     }
 
     [Fact]
+    public void DashboardFrame()
+    {
+        var scr = NewScreen();
+        new DashboardDialog("0.5.0", ["C:\\work\\alpha.txt", "C:\\work\\beta.txt"], _ => { })
+            .Draw(scr, _theme, _loc);
+        Golden.AssertMatch("dashboard.en.txt", scr);
+    }
+
+    [Fact]
     public void ErrorModalFrame()
     {
         var scr = NewScreen();

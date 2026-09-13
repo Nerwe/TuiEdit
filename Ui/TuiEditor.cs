@@ -321,7 +321,10 @@ internal sealed partial class TuiEditor
             try { Terminal.EnableBracketedPaste(); } catch { }
             ApplyMouseSetting();
             MaybeRestore();
-            if (_docs.Count == 1 && _buf.FilePath is null && !_buf.IsModified)
+            if (_dialog is null && !SuppressRestoreDialog
+                && _docs.Count == 1 && _buf.FilePath is null && !_buf.IsModified)
+                ShowDashboard();
+            else if (_docs.Count == 1 && _buf.FilePath is null && !_buf.IsModified)
                 SetMessage(_loc["msg.hint"]);
             Render();
             while (!_quitRequested)

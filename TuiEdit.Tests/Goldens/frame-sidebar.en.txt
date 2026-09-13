@@ -1,5 +1,5 @@
  File  Edit  Help                                                     untitled*
-▸ tui_frame_golden     │ Untitled.txt* │ Untitled.txt*
+▸ tui_frame_golden     │  Untitled.txt*    Untitled.txt*
 ▾ src                  │    1 │
     main.cs            │~
   README.md            │~
@@ -21,4 +21,4 @@
                        │~
                        │~
                        │~
- Ln 1/1 Col 1 *                               UTF-8 | LF | 4sp | untitled | 2/2
+ Ln 1/1 Col 1 [*]                             UTF-8 | LF | 4sp | untitled | 2/2
