@@ -33,6 +33,13 @@ when a `v*` tag is pushed.
 - Light registers (`Ctrl+X` then `a-z`/`0-9`, palette): every yank fills the
   unnamed register plus `0` (last yank); an explicit register pins one yank
   or paste, one-shot.
+- Startup dashboard: plain launches show the version, recent files
+  (`1-9`/`Enter` to open) and hints; any printable key types straight
+  through into the fresh buffer.
+- Posting-style tabs: no separators, the active tab is an inverted block and
+  inactive tabs stay dim; dividers touching the focused pane use the accent
+  color. Modified, read-only and git-dirty states render as inverted pills
+  (`[*]`, `[read-only]`) in the status bar.
 
 ### Fixed
 - Cursor motion stays flat deep in files: `EnsureVisible` walked from row 0

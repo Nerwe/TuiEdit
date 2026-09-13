@@ -116,6 +116,11 @@ public sealed class ResourcesTests
     [InlineData("modal.about.date")]
     [InlineData("modal.about.author")]
     [InlineData("modal.about.license")]
+    [InlineData("dashboard.title")]
+    [InlineData("dashboard.version")]
+    [InlineData("dashboard.recent")]
+    [InlineData("dashboard.empty")]
+    [InlineData("dashboard.hint")]
     public void KeyExistsInBoth(string key)
     {
         var (ru, en) = Both();

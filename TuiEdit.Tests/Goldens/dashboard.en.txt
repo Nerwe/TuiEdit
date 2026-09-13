@@ -1,0 +1,24 @@
+
+
+
+
+
+
+                    ┌─ Welcome ────────────────────────esc┐
+                    │            Version 0.5.0            │
+                    │── Recent files ──────────────────── │
+                    │ 1  C:\work\alpha.txt                │
+                    │ 2  C:\work\beta.txt                 │
+                    │  1-9 open • Enter open • Esc close  │
+                    └─────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
