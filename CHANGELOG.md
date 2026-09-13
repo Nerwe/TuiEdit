@@ -40,6 +40,8 @@ when a `v*` tag is pushed.
   inactive tabs stay dim; dividers touching the focused pane use the accent
   color. Modified, read-only and git-dirty states render as inverted pills
   (`[*]`, `[read-only]`) in the status bar.
+- Posting (dark) theme: posting's galaxy palette (purple primary, pink
+  accent, mint/gold syntax) as a fifth built-in, cyclable in settings.
 
 ### Fixed
 - Cursor motion stays flat deep in files: `EnsureVisible` walked from row 0

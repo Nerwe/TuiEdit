@@ -98,7 +98,7 @@ public sealed class ThemesTests : IDisposable
             Colors = new Dictionary<string, string> { ["EditorBg"] = "#000000" },
         });
         Assert.Equal(new Rgb(0, 0, 0), ThemeCatalog.Resolve(s, "dark").EditorBg);
-        Assert.Equal(new List<string> { "dark", "light", "3024 Night (dark)", "Paper (light)" },
+        Assert.Equal(new List<string> { "dark", "light", "3024 Night (dark)", "Paper (light)", "Posting (dark)" },
             ThemeCatalog.Names(s)); // no duplicates
     }
 
@@ -178,7 +178,7 @@ public sealed class ThemesTests : IDisposable
     public void NamesAndDisplay()
     {
         var s = SettingsWith(new ThemeScheme { Name = "Mine" }, new ThemeScheme { Name = " " });
-        Assert.Equal(new List<string> { "dark", "light", "3024 Night (dark)", "Paper (light)", "Mine" },
+        Assert.Equal(new List<string> { "dark", "light", "3024 Night (dark)", "Paper (light)", "Posting (dark)", "Mine" },
             ThemeCatalog.Names(s));
         var loc = Loc.Load("en");
         Assert.Equal("Dark", ThemeCatalog.DisplayName(loc, "dark"));
@@ -226,6 +226,20 @@ public sealed class ThemesTests : IDisposable
     }
 
     [Fact]
+    public void PostingMatchesGalaxyPalette()
+    {
+        var s = new AppSettings();
+        Theme posting = ThemeCatalog.Resolve(s, "Posting (dark)");
+        Assert.Equal("Posting (dark)", posting.Name);
+        Assert.Equal(new Rgb(0x0F, 0x0F, 0x1F), posting.EditorBg);
+        Assert.Equal(new Rgb(0xC4, 0x5A, 0xFF), posting.MenuOpenBg);
+        Assert.Equal(new Rgb(0xFF, 0x69, 0xB4), posting.AccentFg);
+        Assert.Equal(new Rgb(0x00, 0xFA, 0x9A), posting.SynStringFg);
+        Assert.Equal(new Rgb(0xFF, 0xD7, 0x00), posting.SynNumberFg);
+        Assert.Equal(Themes.Posting, posting);
+    }
+
+    [Fact]
     public void DialogCyclesCustom()
     {
         var settings = SettingsWith(new ThemeScheme { Name = "Mine" });
@@ -239,10 +253,12 @@ public sealed class ThemesTests : IDisposable
         dlg.HandleKey(K('\0', ConsoleKey.RightArrow));
         Assert.Equal("Paper (light)", settings.Theme);
         dlg.HandleKey(K('\0', ConsoleKey.RightArrow));
+        Assert.Equal("Posting (dark)", settings.Theme);
+        dlg.HandleKey(K('\0', ConsoleKey.RightArrow));
         Assert.Equal("Mine", settings.Theme);
         Assert.True(applied);
         Assert.True(File.Exists(Path.Combine(_cfgDir, "settings.json")));
         dlg.HandleKey(K('\0', ConsoleKey.LeftArrow));
-        Assert.Equal("Paper (light)", settings.Theme);
+        Assert.Equal("Posting (dark)", settings.Theme);
     }
 }
