@@ -4,7 +4,7 @@
 │── Find & replace ─────────────────────────────────────────────────────────── │
 │   ^F find       F3 next / Shift+F3 prev   ^H replace   ^G go to line   Ctrl+S│
 │── Edit ───────────────────────────────────────────────────────────────────── │
-│   ^K cut line  ^U/^V paste  ^C copy line  ^D duplicate  Ctrl+/ comment       │
+│   ^K cut line  ^U/^V paste  ^C copy line  ^D duplicate  Ctrl+/ comment  ^L su│
 │   ^C also puts the copy into the system clipboard (Windows Terminal) — paste │
 │   ^Z undo  ^Y redo  ^A select all   Shift+arrows — selection                 │
 │   Terminal clipboard paste — as full text in a single undo step              │

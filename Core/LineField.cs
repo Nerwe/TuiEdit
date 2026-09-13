@@ -80,6 +80,9 @@ internal sealed class LineField
     /// <summary>Moves with arrows (select moves with selection).</summary>
     public void Move(int delta, bool select) => MoveTo(Pos + delta, select);
 
+    /// <summary>Moves the caret (clears the selection).</summary>
+    public void MoveTo(int pos) => MoveTo(pos, select: false);
+
     /// <summary>Moves to the start (select moves with selection).</summary>
     public void Home(bool select) => MoveTo(0, select);
 

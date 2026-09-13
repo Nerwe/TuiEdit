@@ -171,6 +171,7 @@ internal sealed class CommandPaletteDialog : Dialog
         all.Add(new CommandEntry(EditorCommand.DelWordAfter, loc["palette.cmd.delwordafter"], "Ctrl+Del"));
         all.Add(new CommandEntry(EditorCommand.ListTabs, loc["palette.cmd.listtabs"], "Ctrl+P"));
         all.Add(new CommandEntry(EditorCommand.QuickOpen, loc["palette.cmd.quickopen"], "Alt+O"));
+        all.Add(new CommandEntry(EditorCommand.RegisterPick, loc["palette.cmd.register"], "Ctrl+X"));
         all.Add(new CommandEntry(EditorCommand.CommandLine, loc["palette.cmd.cmdline"], "F12"));
         all.Add(new CommandEntry(EditorCommand.NextTab, loc["palette.cmd.nexttab"], "Ctrl+PgDn"));
         all.Add(new CommandEntry(EditorCommand.PrevTab, loc["palette.cmd.prevtab"], "Ctrl+PgUp"));
@@ -182,15 +183,51 @@ internal sealed class CommandPaletteDialog : Dialog
         return all;
     }
 
-    /// <summary>Filters entries purely (substring over label and value/shortcut).</summary>
+    /// <summary>
+    /// Splits a quick-open filter into a remainder query plus file extensions
+    /// (an <c>ft:</c> token, comma/semicolon separated, dot optional).
+    /// </summary>
+    internal static (string Remainder, HashSet<string> Exts) SplitFileFilter(string filter)
+    {
+        HashSet<string> exts = new(StringComparer.OrdinalIgnoreCase);
+        List<string> rest = [];
+        foreach (string token in filter.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (token.StartsWith("ft:", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (string raw in token[3..].Split([',', ';'], StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string ext = raw.Trim().TrimStart('.', '*').ToLowerInvariant();
+                    if (ext.Length > 0)
+                        exts.Add(ext);
+                }
+            }
+            else
+            {
+                rest.Add(token);
+            }
+        }
+        bool hasFt = exts.Count > 0 || filter.Contains("ft:", StringComparison.OrdinalIgnoreCase);
+        return (hasFt ? string.Join(' ', rest) : filter, exts);
+    }
+
+    /// <summary>Filters entries purely (substring over label and value/shortcut, plus ft: for files).</summary>
     internal static List<PaletteEntry> ApplyFilter(
         IReadOnlyList<PaletteEntry> all, string filter, AppSettings settings, Loc loc)
     {
+        (string query, HashSet<string> exts) = SplitFileFilter(filter);
+        bool filesOnly = exts.Count > 0 && all.Count > 0 && all.All(e => e is FileEntry);
         var view = new List<PaletteEntry>();
         foreach (PaletteEntry e in all)
         {
-            if (filter.Length == 0
-                || e.MatchText(settings, loc).Contains(filter, StringComparison.OrdinalIgnoreCase))
+            if (filesOnly && e is FileEntry f)
+            {
+                string ext = Path.GetExtension(f.Path).TrimStart('.').ToLowerInvariant();
+                if (!exts.Contains(ext))
+                    continue;
+            }
+            if (query.Length == 0
+                || e.MatchText(settings, loc).Contains(query, StringComparison.OrdinalIgnoreCase))
                 view.Add(e);
         }
         return view;
@@ -298,7 +335,7 @@ internal sealed class CommandPaletteDialog : Dialog
     private void PaintFilterMatches(
         Screen screen, Theme theme, DialogBox rowsBox, List<string> labels, int selVis)
     {
-        string filter = _state.Filter;
+        string filter = SplitFileFilter(_state.Filter).Remainder;
         if (filter.Length == 0)
             return;
         for (int i = 0; i < labels.Count; i++)

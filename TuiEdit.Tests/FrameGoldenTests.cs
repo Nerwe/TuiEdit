@@ -163,4 +163,14 @@ public sealed class FrameGoldenTests
         Assert.False(TuiEditor.ShouldRender(t0, t0.AddMilliseconds(TuiEditor.RenderThrottleMs - 1)));
         Assert.True(TuiEditor.ShouldRender(t0, t0.AddMilliseconds(TuiEditor.RenderThrottleMs)));
     }
+
+    [Fact]
+    public void FlushDuePaintsQuietWakeupsAndThrottlesFloods()
+    {
+        var t0 = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        DateTime inside = t0.AddMilliseconds(TuiEditor.RenderThrottleMs - 1);
+        Assert.True(TuiEditor.FlushDue(0, t0, inside)); // single event: immediate, 1:1
+        Assert.False(TuiEditor.FlushDue(3, t0, inside)); // flood: throttled
+        Assert.True(TuiEditor.FlushDue(3, t0, t0.AddMilliseconds(TuiEditor.RenderThrottleMs)));
+    }
 }

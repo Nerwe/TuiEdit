@@ -14,29 +14,6 @@ internal sealed partial class TuiEditor
         return Math.Max(1, h - 2);
     }
 
-    private int VisibleRow(int row)
-    {
-        int v = 0;
-        for (int r = 0; r < row && r < _buf.Count; r++)
-            if (!FoldHidden(r))
-                v++;
-        return v;
-    }
-
-    private int FileRowAt(int vis)
-    {
-        int v = -1;
-        for (int r = 0; r < _buf.Count; r++)
-        {
-            if (FoldHidden(r))
-                continue;
-            v++;
-            if (v == vis)
-                return r;
-        }
-        return _buf.Count - 1;
-    }
-
     /// <summary>Locates a click in content coordinates: vis is the row from the text top, vc is the visual column.</summary>
     /// <summary>Shared single-segment list for the no-wrap path (read-only, never mutated).</summary>
     private static readonly List<int> SingleSegment = [0];
@@ -117,12 +94,13 @@ internal sealed partial class TuiEditor
         if (!wrap)
         {
             _topSeg = 0;
-            int vr = VisibleRow(_row), vt = VisibleRow(_top);
-            if (vr < vt)
-                vt = vr;
-            if (vr >= vt + textHeight)
-                vt = vr - textHeight + 1;
-            _top = FileRowAt(vt);
+            // Relative walk from _top (viewport-sized), not from row 0:
+            // full scans here cost O(cursor) time and an enumerator per row.
+            int d = VisibleDistance(_top, _row);
+            if (d < 0)
+                _top = _row;
+            else if (d >= textHeight)
+                _top = AdvanceVisible(_top, d - textHeight + 1);
             int vcol = TabStops.VisualWidth(_buf.GetLine(_row), _col);
             if (vcol < _left) _left = vcol;
             if (vcol >= _left + contentWidth) _left = vcol - contentWidth + 1;
@@ -155,6 +133,43 @@ internal sealed partial class TuiEditor
             rows = CursorVisualRow(_buf.Lines, _top, _topSeg, _row, _col, contentWidth, true, textHeight, folds);
         }
         if (_top < 0) { _top = 0; _topSeg = 0; }
+    }
+
+    /// <summary>
+    /// Counts visible rows from <paramref name="from"/> (inclusive) to <paramref name="to"/>
+    /// (exclusive); negative when <paramref name="to"/> sits above. Costs O(distance),
+    /// not O(file) — the hot path for cursor motion calls this every frame.
+    /// </summary>
+    private int VisibleDistance(int from, int to)
+    {
+        if (from == to)
+            return 0;
+        if (to > from)
+        {
+            int d = 0;
+            for (int r = from; r < to; r++)
+                if (!FoldHidden(r))
+                    d++;
+            return d;
+        }
+        int u = 0;
+        for (int r = to; r < from; r++)
+            if (!FoldHidden(r))
+                u++;
+        return -u;
+    }
+
+    /// <summary>Advances <paramref name="steps"/> visible rows down from <paramref name="top"/>.</summary>
+    private int AdvanceVisible(int top, int steps)
+    {
+        int r = top;
+        while (steps > 0 && r < _buf.Count - 1)
+        {
+            r++;
+            if (!FoldHidden(r))
+                steps--;
+        }
+        return r;
     }
 
     internal static int CursorSeg(string line, int col, int contentWidth)
@@ -196,14 +211,21 @@ internal sealed partial class TuiEditor
         (now - last).TotalMilliseconds >= RenderThrottleMs;
 
     /// <summary>
-    /// Paints unless a frame went out less than the throttle window ago: under a flood
-    /// input keeps draining at full speed while paint caps at ~25fps. Slow frames are
-    /// reported to the input log when diagnostics are on.
+    /// Whether this wakeup paints: a quiet one (nothing else was pending) renders
+    /// 1:1 with input; a flood stays throttled, so any flood costs mutations,
+    /// never a frame backlog. Pure, for tests.
     /// </summary>
-    private void RenderThrottled()
+    internal static bool FlushDue(int drained, DateTime last, DateTime now) =>
+        drained <= 0 || ShouldRender(last, now);
+
+    /// <summary>
+    /// Paints quiet wakeups immediately and throttles floods to ~25fps.
+    /// Slow frames are reported to the input log when diagnostics are on.
+    /// </summary>
+    private void RenderDue(int drained)
     {
         DateTime now = DateTime.UtcNow;
-        if (!ShouldRender(_lastRenderAt, now))
+        if (!FlushDue(drained, _lastRenderAt, now))
             return;
         _lastRenderAt = now;
         InputLog.Paint();

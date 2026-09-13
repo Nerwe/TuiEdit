@@ -19,8 +19,36 @@ when a `v*` tag is pushed.
   `$(...)` verbs for every block (`pos`, `sel`, `file`, `encoding`, `git`,
   `tab`...), `$(opt:Name)` for any option, `$(bind:Command)` for its hotkey.
   Defaults render exactly the old bar.
+- Time-undo (`F12`: `earlier`/`later` with steps or ages like `5m`, `30s`):
+  undo snapshots carry timestamps, so recent edits roll back by age and
+  redos walk forward again; plain counts still work (`earlier 3`).
+- Quick-open `ft:` filter (`Alt+O`): `ft:cs,txt` narrows by extension while
+  the rest still matches names as a substring.
+- Prompt history and Tab-completion: `Up`/`Down` recall per-prompt history
+  (find, replace, goto, command line, ...); `Tab` completes `F12` verbs and
+  `set` keys or buffer words in find prompts.
+- Surround (`Ctrl+L` add, `Alt+L` change, `Alt+J` delete, Edit menu): wraps
+  the selection (or the word under the cursor) in a prompted pair, swaps or
+  removes it — each in a single undo entry.
+- Light registers (`Ctrl+X` then `a-z`/`0-9`, palette): every yank fills the
+  unnamed register plus `0` (last yank); an explicit register pins one yank
+  or paste, one-shot.
 
 ### Fixed
+- Cursor motion stays flat deep in files: `EnsureVisible` walked from row 0
+  every frame (233 us and 922 KB at row 5500), now it walks relatively from
+  `_top` (~44 us, ~21 KB at any depth); empty fold sets skip enumeration.
+- Scroll repaints cost one console write: `FlushAnsi` batches the whole diff
+  (inline CUP addressing) instead of ~600 `SetCursorPosition`/`Write` calls
+  per full-viewport frame.
+- Quiet input paints 1:1: wakeups with nothing else pending skip the 40 ms
+  gate (single keypresses track key repeat like microsoft/edit); floods still
+  throttle to ~25fps, so input always drains first.
+- Clipboard export falls back past OSC 52: terminal detection covers common
+  emulators, then platform tools (`clip`, `pbcopy`, `wl-copy`/`xclip`/`xsel`),
+  then internal-only; oversized texts skip OSC 52 for the tools directly.
+- Files that fail strict UTF-8 validation open as Latin1 (byte-preserving)
+  instead of mojibake, round-trip on save, and `set encoding latin1` works.
 - Frames flip atomically via synchronized output (DECSET 2026): full repaints
   no longer tear mid-frame on supporting terminals (Windows Terminal does);
   others ignore the markers. Gated on VT like other DEC sequences, with the

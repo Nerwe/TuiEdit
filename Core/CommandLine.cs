@@ -15,6 +15,12 @@ internal abstract record CommandLineOp
     public sealed record Save : CommandLineOp;
 
     public sealed record Quit : CommandLineOp;
+
+    /// <summary>Travels back: either steps or an age (time-undo).</summary>
+    public sealed record Earlier(int Steps, TimeSpan? Age) : CommandLineOp;
+
+    /// <summary>Travels forward: either steps or an age (time-undo).</summary>
+    public sealed record Later(int Steps, TimeSpan? Age) : CommandLineOp;
 }
 
 /// <summary>
@@ -44,9 +50,45 @@ internal static class CommandLine
                 return new CommandLineOp.Save();
             case "quit" or "q" or "exit" when parts.Length == 1:
                 return new CommandLineOp.Quit();
+            case "earlier" or "ear" when parts.Length is 1 or 2:
+                return ParseTimeTravel(parts.Length == 2 ? parts[1] : "1", earlier: true);
+            case "later" or "lat" when parts.Length is 1 or 2:
+                return ParseTimeTravel(parts.Length == 2 ? parts[1] : "1", earlier: false);
             default:
                 return null;
         }
+    }
+
+    /// <summary>Parses a time-travel arg: plain steps ("3") or an age ("30s", "5m", "2h", "1d").</summary>
+    private static CommandLineOp? ParseTimeTravel(string arg, bool earlier)
+    {
+        string a = arg.Trim().ToLowerInvariant();
+        if (a.Length == 0)
+            return null;
+        // Age suffix form.
+        if (a is [.., 's' or 'm' or 'h' or 'd'])
+        {
+            char unit = a[^1];
+            // Guard "m" vs "min"/"sec" long forms.
+            string num = unit == 'm' && (a.EndsWith("min", StringComparison.Ordinal) ? true : false)
+                ? a[..^3]
+                : unit == 's' && a.EndsWith("sec", StringComparison.Ordinal)
+                    ? a[..^3]
+                    : a[..^1];
+            if (!int.TryParse(num, out int n) || n < 0)
+                return null;
+            TimeSpan age = unit switch
+            {
+                's' => TimeSpan.FromSeconds(n),
+                'm' => TimeSpan.FromMinutes(n),
+                'h' => TimeSpan.FromHours(n),
+                _ => TimeSpan.FromDays(n),
+            };
+            return earlier ? new CommandLineOp.Earlier(0, age) : new CommandLineOp.Later(0, age);
+        }
+        if (!int.TryParse(a, out int steps) || steps < 0)
+            return null;
+        return earlier ? new CommandLineOp.Earlier(steps, null) : new CommandLineOp.Later(steps, null);
     }
 
     /// <summary>

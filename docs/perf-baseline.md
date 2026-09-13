@@ -21,3 +21,20 @@ shared runners are too noisy; compare manually against this file).
 
 Known allocation sinks for future passes: regex full scan (770 KB),
 full highlight pass (2 MB), sequential typing with undo history (2.4 MB).
+
+## Frame composition (120x30, 12000-line C# buffer, `*Frame*` filter)
+
+- Date: 2026-09-13
+- Machine: Windows 11, X64 RyuJIT AVX-512, .NET 10.0.12, BenchmarkDotNet 0.15.2
+
+| Method              | Mean    | Allocated |
+|-------------------- |--------:|----------:|
+| FrameCursorTop      | 38.7 us |   19.9 KB |
+| FrameCursorDeep     | 44.0 us |   21.2 KB |
+| FrameCursorDeepWrap | 42.6 us |   23.2 KB |
+
+History: before the `EnsureVisible` fix, `FrameCursorDeep` cost 233 us and
+922 KB (O(cursor) scans from row 0 plus a `SortedSet` enumerator per row);
+the relative walk from `_top` flattened it. Scroll steps repaint the whole
+viewport (~197 diff ops), so `Screen.FlushAnsi` batches them into a single
+`Console.Write` with inline CUP addressing instead of ~600 syscalls.

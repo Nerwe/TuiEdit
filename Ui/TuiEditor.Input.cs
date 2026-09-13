@@ -15,7 +15,7 @@ internal sealed partial class TuiEditor
                 return;
             }
             _menu = null;
-            InsertPastedText(paste.Text + DrainPasteRun());
+            InsertPastedText(paste.Text + DrainPasteRun(string.Join("\n", _clipboard)));
             return;
         }
         if (input is MouseInput mouse)
@@ -289,8 +289,7 @@ internal sealed partial class TuiEditor
         if (!_sel.HasSelection(_row, _col))
             return;
         var (sr, sc, er, ec) = _sel.Normalize(_row, _col);
-        _clipboard.Clear();
-        _clipboard.AddRange(_buf.GetRangeText(sr, sc, er, ec));
+        StoreYank(_buf.GetRangeText(sr, sc, er, ec).ToList(), isDelete: false);
         _clipboardSvc.Export(_clipboard);
         SetMessage(_loc.Format("msg.copy.sel", SelectionLength(sr, sc, er, ec)));
         _sel.Clear();
@@ -599,6 +598,7 @@ internal sealed partial class TuiEditor
         [EditorCommand.CutLine] = _ => CutLine(),
         [EditorCommand.CopyLine] = _ => CopyLine(),
         [EditorCommand.Paste] = _ => Paste(),
+        [EditorCommand.RegisterPick] = _ => RegisterPickFlow(),
         [EditorCommand.DuplicateLine] = _ => DuplicateBlock(),
         [EditorCommand.ToggleComment] = _ => ToggleComment(),
         [EditorCommand.ToggleBookmark] = _ => ToggleBookmark(),
@@ -607,6 +607,9 @@ internal sealed partial class TuiEditor
         [EditorCommand.CompleteWord] = _ => CompleteWord(),
         [EditorCommand.SortLines] = _ => SortBlock(),
         [EditorCommand.ShellFilter] = _ => ShellFilterFlow(),
+        [EditorCommand.SurroundAdd] = _ => SurroundAddFlow(),
+        [EditorCommand.SurroundChange] = _ => SurroundChangeFlow(),
+        [EditorCommand.SurroundDelete] = _ => SurroundDeleteFlow(),
         [EditorCommand.JumpBack] = _ => JumpBack(),
         [EditorCommand.JumpForward] = _ => JumpForward(),
         [EditorCommand.GoBracketMatch] = _ => JumpToBracket(),
@@ -686,6 +689,9 @@ internal sealed partial class TuiEditor
     {
         if (cmd != EditorCommand.InsertChar)
             _speedCount = 0; // any other command ends a wire-speed run
+        if (cmd is not (EditorCommand.CutLine or EditorCommand.CopyLine
+                or EditorCommand.Paste or EditorCommand.RegisterPick))
+            _pendingRegister = null; // a picked register is one-shot for the next yank/paste
         _dispatcher.Execute(cmd, k);
     }
 
@@ -787,6 +793,9 @@ internal sealed partial class TuiEditor
             new(loc["menu.trimtrail"], 'M', Hint(null, EditorCommand.TrimTrailing), EditorCommand.TrimTrailing),
             new(loc["menu.selectall"], 'A', Hint("^A", EditorCommand.SelectAll), EditorCommand.SelectAll),
             new(loc["menu.shellfilter"], 'I', Hint("^R", EditorCommand.ShellFilter), EditorCommand.ShellFilter),
+            new(loc["menu.surround.add"], 'V', Hint("^L", EditorCommand.SurroundAdd), EditorCommand.SurroundAdd),
+            new(loc["menu.surround.change"], 'N', Hint("Alt+L", EditorCommand.SurroundChange), EditorCommand.SurroundChange),
+            new(loc["menu.surround.delete"], 'L', Hint("Alt+J", EditorCommand.SurroundDelete), EditorCommand.SurroundDelete),
         }),
         new TopMenu(loc["menu.help"], 'H', new List<MenuItem>
         {
@@ -857,11 +866,23 @@ internal sealed partial class TuiEditor
     private string? PickSavePath(string initialName) =>
         RunPicker(PickerMode.Save, StartDir(), initialName);
 
-    private string? Prompt(string title, string initial, bool liveHighlight = false, bool showOptions = false)
+    private string? Prompt(
+        string title, string initial, string kind = "",
+        bool liveHighlight = false, bool showOptions = false)
     {
         var field = new LineField();
         field.Set(initial ?? string.Empty);
         field.End(select: false);
+        string draft = field.Text;
+        int histIdx = -1;
+        IReadOnlyList<string> Hist() =>
+            kind.Length == 0 ? [] : _history.Get(kind);
+        void Recall(int idx)
+        {
+            IReadOnlyList<string> h = Hist();
+            field.Set(idx < 0 ? draft : h[idx]);
+            field.End(select: false);
+        }
         // Live highlight: preview term plus rerender on every keystroke (leaves the cursor).
         void RefreshLive()
         {
@@ -929,13 +950,63 @@ internal sealed partial class TuiEditor
             switch (k.Key)
             {
                 case ConsoleKey.Escape: _liveSearch = null; if (liveHighlight) Render(); return null;
-                case ConsoleKey.Enter: _liveSearch = null; return field.Text;
+                case ConsoleKey.Enter:
+                    _liveSearch = null;
+                    if (kind.Length > 0 && field.Text.Length > 0)
+                        _history.Push(kind, field.Text);
+                    return field.Text;
                 case ConsoleKey.Backspace: field.Backspace(); RefreshLive(); break;
                 case ConsoleKey.Delete: field.DeleteChar(); RefreshLive(); break;
                 case ConsoleKey.LeftArrow: field.Move(-1, shift); break;
                 case ConsoleKey.RightArrow: field.Move(1, shift); break;
                 case ConsoleKey.Home: field.Home(shift); break;
                 case ConsoleKey.End: field.End(shift); break;
+                case ConsoleKey.UpArrow:
+                    if (Hist().Count > 0 && histIdx + 1 < Hist().Count)
+                    {
+                        histIdx++;
+                        Recall(histIdx);
+                        RefreshLive();
+                    }
+                    break;
+                case ConsoleKey.DownArrow:
+                    if (histIdx > 0)
+                    {
+                        histIdx--;
+                        Recall(histIdx);
+                        RefreshLive();
+                    }
+                    else if (histIdx == 0)
+                    {
+                        histIdx = -1;
+                        Recall(histIdx);
+                        RefreshLive();
+                    }
+                    break;
+                case ConsoleKey.Tab:
+                    if (kind == "cmdline")
+                    {
+                        (string t, int p) = PromptComplete.CompleteCmdline(field.Text, field.Pos);
+                        field.Set(t);
+                        field.MoveTo(p);
+                        RefreshLive();
+                    }
+                    else if (kind is "find" or "replace-find" or "grep-pattern")
+                    {
+                        int start = field.Pos;
+                        while (start > 0 && TextBuffer.IsWordChar(field.Text[start - 1]))
+                            start--;
+                        string prefix = field.Text[start..field.Pos];
+                        if (prefix.Length > 0)
+                        {
+                            (string t, int p) = PromptComplete.CompleteWord(
+                                field.Text, field.Pos, Completion.Collect(_buf, prefix));
+                            field.Set(t);
+                            field.MoveTo(p);
+                            RefreshLive();
+                        }
+                    }
+                    break;
                 default:
                     if (!char.IsControl(k.KeyChar))
                     {

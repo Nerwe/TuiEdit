@@ -25,8 +25,11 @@ internal sealed partial class TuiEditor
     private string _message = string.Empty;
     private DateTime _messageUntil = DateTime.MinValue;
     private readonly List<string> _clipboard = new();
+    private readonly Dictionary<char, List<string>> _registers = new();
+    private char? _pendingRegister;
     private string _lastSearch = string.Empty;
     private string _lastReplace = string.Empty;
+    private readonly PromptHistory _history = new();
     /// <summary>Stores the live highlight term while typing in the prompt (null disables).</summary>
     internal string? _liveSearch;
     private bool _quitRequested;
@@ -82,7 +85,7 @@ internal sealed partial class TuiEditor
     internal const int SpeedRunTailFrom = 4;
     private DateTime _speedLastAt = DateTime.MinValue;
     private int _speedCount;
-    /// <summary>Minimum time between frames: input always drains, paint caps at ~25fps (flood-proofing).</summary>
+    /// <summary>Minimum time between frames on flood wakeups (quiet ones paint 1:1, see FlushDue).</summary>
     internal const int RenderThrottleMs = 40;
     /// <summary>Frames slower than this are reported to the input log (diagnostics only).</summary>
     internal const int SlowFrameMs = 50;
@@ -130,6 +133,51 @@ internal sealed partial class TuiEditor
 
     /// <summary>Command dispatcher (every <see cref="EditorCommand"/> except None must resolve).</summary>
     internal ICommandDispatcher Dispatcher => _dispatcher;
+
+    /// <summary>Named yank registers (light: a-z, 0-9; '"' mirrors the unnamed clipboard).</summary>
+    internal IReadOnlyDictionary<char, List<string>> Registers => _registers;
+
+    /// <summary>One-shot register picked for the next yank/paste (null means unnamed).</summary>
+    internal char? PendingRegister => _pendingRegister;
+
+    /// <summary>Picks a one-shot register (a-z, 0-9, '"', '+', '*'); returns false for junk.</summary>
+    internal bool PickRegister(char r)
+    {
+        char c = char.ToLowerInvariant(r);
+        if (c is not (>= 'a' and <= 'z' or >= '0' and <= '9') && c is not ('"' or '+' or '*'))
+            return false;
+        _pendingRegister = c;
+        return true;
+    }
+
+    /// <summary>Stores a yank: unnamed clipboard plus named registers ('"' mirror, '0' last yank).</summary>
+    /// <param name="content">The yanked lines.</param>
+    /// <param name="isDelete">Deletes skip the '0' last-yank slot.</param>
+    private void StoreYank(List<string> content, bool isDelete)
+    {
+        _clipboard.Clear();
+        _clipboard.AddRange(content);
+        _registers['"'] = new List<string>(content);
+        if (!isDelete)
+            _registers['0'] = new List<string>(content);
+        if (_pendingRegister is char r)
+        {
+            _pendingRegister = null;
+            if (r is >= 'a' and <= 'z' or >= '0' and <= '9')
+                _registers[r] = new List<string>(content);
+        }
+    }
+
+    /// <summary>Takes the paste source: pending register (one-shot) or the unnamed clipboard.</summary>
+    private List<string>? TakePasteSource()
+    {
+        if (_pendingRegister is not char r)
+            return _clipboard;
+        _pendingRegister = null;
+        if (r is '"' or '+' or '*')
+            return _clipboard;
+        return _registers.TryGetValue(r, out List<string>? content) ? content : null;
+    }
 
     /// <summary>
     /// Skips the restore-drafts picker at startup: explicit files (or a start directory)
@@ -304,10 +352,10 @@ internal sealed partial class TuiEditor
                     HandleInput(ev);
                     // One frame per wakeup, not per event: drain everything pending
                     // (held keys, paste bursts) before the next render.
-                    InputReader.DrainPending(HandleInput);
+                    int drained = InputReader.DrainPending(HandleInput);
                     AutoDraft();
                     MaybeReloadKeyBindings();
-                    RenderThrottled();
+                    RenderDue(drained);
                 }
                 catch (Exception ex)
                 {

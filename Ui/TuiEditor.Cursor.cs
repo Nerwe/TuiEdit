@@ -430,7 +430,7 @@ internal sealed partial class TuiEditor
     /// <summary>Runs the line block through a shell command (:pipe).</summary>
     private void ShellFilterFlow()
     {
-        string? cmd = Prompt(_loc["prompt.shellfilter"], "");
+        string? cmd = Prompt(_loc["prompt.shellfilter"], "", "shell");
         if (string.IsNullOrWhiteSpace(cmd))
             return;
         ShellFilterWith(cmd);
@@ -488,11 +488,10 @@ internal sealed partial class TuiEditor
     private void CutLine()
     {
         ClampCursor();
-        _clipboard.Clear();
         if (_sel.HasSelection(_row, _col))
         {
             var (sr, sc, er, ec) = _sel.Normalize(_row, _col);
-            _clipboard.AddRange(_buf.GetRangeText(sr, sc, er, ec));
+            StoreYank(_buf.GetRangeText(sr, sc, er, ec).ToList(), isDelete: true);
             int n = SelectionLength(sr, sc, er, ec);
             DeleteSelection();
             _clipboardSvc.Export(_clipboard);
@@ -500,7 +499,7 @@ internal sealed partial class TuiEditor
             return;
         }
         int crow = _row, cbefore = _buf.Count;
-        _clipboard.Add(_buf.CutLine(_row));
+        StoreYank([_buf.CutLine(_row)], isDelete: true);
         if (_buf.Count < cbefore)
         {
             _docs[_active].DropMarks(crow, crow);
@@ -515,32 +514,33 @@ internal sealed partial class TuiEditor
     private void CopyLine()
     {
         ClampCursor();
-        _clipboard.Clear();
         if (_sel.HasSelection(_row, _col))
         {
             var (sr, sc, er, ec) = _sel.Normalize(_row, _col);
-            _clipboard.AddRange(_buf.GetRangeText(sr, sc, er, ec));
+            StoreYank(_buf.GetRangeText(sr, sc, er, ec).ToList(), isDelete: false);
             _clipboardSvc.Export(_clipboard);
             SetMessage(_loc.Format("msg.copy.sel", SelectionLength(sr, sc, er, ec)));
             return;
         }
-        _clipboard.Add(_buf.GetLine(_row));
+        StoreYank([_buf.GetLine(_row)], isDelete: false);
         _clipboardSvc.Export(_clipboard);
         SetMessage(_loc["msg.copy.line"]);
     }
 
     private void Paste()
     {
-        if (_clipboard.Count == 0) { SetMessage(_loc["msg.paste.empty"]); return; }
+        List<string>? src = TakePasteSource();
+        if (src is null) { SetMessage(_loc["msg.register.empty"]); return; }
+        if (src.Count == 0) { SetMessage(_loc["msg.paste.empty"]); return; }
         ClampCursor();
         DeleteSelection();
         int pr = _row;
-        _buf.PasteLines(_row, _col, _clipboard);
-        if (_clipboard.Count == 1) _col += _clipboard[0].Length;
+        _buf.PasteLines(_row, _col, src);
+        if (src.Count == 1) _col += src[0].Length;
         else
         {
-            _docs[_active].ShiftMarks(pr + 1, _clipboard.Count - 1);
-            _row += _clipboard.Count - 1; _col = _clipboard[^1].Length;
+            _docs[_active].ShiftMarks(pr + 1, src.Count - 1);
+            _row += src.Count - 1; _col = src[^1].Length;
         }
         TrackCol();
     }
@@ -548,8 +548,11 @@ internal sealed partial class TuiEditor
     /// <summary>Key-driven paste with held-key coalescing (see <see cref="DrainPasteRun"/>).</summary>
     private void CoalescedKeyPaste()
     {
-        if (_clipboard.Count == 0) { Paste(); return; } // empty path unchanged (message, no drain)
-        InsertPastedText(string.Join("\n", _clipboard) + DrainPasteRun());
+        List<string>? src = TakePasteSource();
+        if (src is null) { SetMessage(_loc["msg.register.empty"]); return; }
+        if (src.Count == 0) { Paste(); return; } // empty path unchanged (message, no drain)
+        string repeat = string.Join("\n", src);
+        InsertPastedText(repeat + DrainPasteRun(repeat));
     }
 
     /// <summary>
@@ -582,22 +585,125 @@ internal sealed partial class TuiEditor
     /// iteration (never swallowed). Editor text only: callers ensure no dialog, menu,
     /// or focused panel is open.
     /// </summary>
-    private string DrainPasteRun()
+    private string DrainPasteRun(string repeat)
     {
         var sb = new System.Text.StringBuilder();
-        string? clip = null; // joined once: per-event Join would be quadratic on big clipboards
         while (InputReader.TryReadPending() is InputEvent ev)
         {
             if (ev is PasteInput p && p.Text.Length > 0) { sb.Append(p.Text); continue; }
-            if (ev is KeyInput ki && _keys.Map(ki.Key) == EditorCommand.Paste && _clipboard.Count > 0)
+            if (ev is KeyInput ki && _keys.Map(ki.Key) == EditorCommand.Paste)
             {
-                clip ??= string.Join("\n", _clipboard);
-                sb.Append(clip);
+                sb.Append(repeat);
                 continue;
             }
             _heldEvent = ev;
             break;
         }
         return sb.ToString();
+    }
+
+    /// <summary>Picks a one-shot register for the next yank/paste (Ctrl+X).</summary>
+    private void RegisterPickFlow()
+    {
+        string? s = Prompt(_loc["prompt.register"], "", "register");
+        if (string.IsNullOrEmpty(s))
+            return;
+        if (!PickRegister(s[0]))
+        {
+            SetMessage(_loc["msg.register.bad"]);
+            return;
+        }
+        SetMessage(_loc.Format("msg.register.set", char.ToLowerInvariant(s[0])));
+    }
+
+    /// <summary>Takes the selection (or the word under a collapsed cursor) as a surround range.</summary>
+    private bool SurroundRange(out int sr, out int sc, out int er, out int ec)
+    {
+        if (!_sel.HasSelection(_row, _col))
+            SelectWordAt(_row, _col);
+        if (!_sel.HasSelection(_row, _col))
+        {
+            (sr, sc, er, ec) = (0, 0, 0, 0);
+            return false;
+        }
+        (sr, sc, er, ec) = _sel.Normalize(_row, _col);
+        return true;
+    }
+
+    /// <summary>Wraps the range in a prompted pair (single undo, word fallback when collapsed).</summary>
+    private void SurroundAddFlow()
+    {
+        if (!SurroundRange(out int sr, out int sc, out int er, out int ec))
+        {
+            SetMessage(_loc["msg.surround.empty"]);
+            return;
+        }
+        string? s = Prompt(_loc["prompt.surround"], "", "surround");
+        if (string.IsNullOrEmpty(s))
+            return;
+        char open = s[0];
+        char close = TextBuffer.CloserForSurround(open);
+        _buf.WrapRange(sr, sc, er, ec, open, close);
+        _sel.Clear();
+        _row = er;
+        _col = sr == er ? ec + 2 : ec + 1;
+        ClampCursor();
+        TrackCol();
+        SetMessage(_loc["msg.surround.done"]);
+    }
+
+    /// <summary>Swaps the detected pair around the range for a prompted one (single undo).</summary>
+    private void SurroundChangeFlow()
+    {
+        if (!SurroundRange(out int sr, out int sc, out int er, out int ec))
+        {
+            SetMessage(_loc["msg.surround.empty"]);
+            return;
+        }
+        if (_buf.PeekSurround(sr, sc, er, ec) is not (char oldOpen, char oldClose))
+        {
+            SetMessage(_loc["msg.surround.missing"]);
+            return;
+        }
+        string? s = Prompt(_loc["prompt.surround"], "", "surround");
+        if (string.IsNullOrEmpty(s))
+            return;
+        char open = s[0];
+        char close = TextBuffer.CloserForSurround(open);
+        if (!_buf.ChangeSurround(sr, sc, er, ec, oldOpen, oldClose, open, close))
+        {
+            SetMessage(_loc["msg.surround.missing"]);
+            return;
+        }
+        _sel.Clear();
+        ClampCursor();
+        TrackCol();
+        SetMessage(_loc["msg.surround.done"]);
+    }
+
+    /// <summary>Deletes the detected pair around the range (single undo).</summary>
+    private void SurroundDeleteFlow()
+    {
+        if (!SurroundRange(out int sr, out int sc, out int er, out int ec))
+        {
+            SetMessage(_loc["msg.surround.empty"]);
+            return;
+        }
+        if (_buf.PeekSurround(sr, sc, er, ec) is not (char open, char close))
+        {
+            SetMessage(_loc["msg.surround.missing"]);
+            return;
+        }
+        if (!_buf.UnwrapRange(sr, sc, er, ec, open, close))
+        {
+            SetMessage(_loc["msg.surround.missing"]);
+            return;
+        }
+        _sel.Clear();
+        _row = er;
+        _col = sr == er ? Math.Max(0, ec - 1) : ec;
+        ClampCursor();
+        TrackCol();
+        SetMessage(_loc["msg.surround.done"]);
     }
 }
