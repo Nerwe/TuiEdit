@@ -85,7 +85,7 @@ internal sealed partial class TuiEditor
     internal const int SpeedRunTailFrom = 4;
     private DateTime _speedLastAt = DateTime.MinValue;
     private int _speedCount;
-    /// <summary>Minimum time between frames: input always drains, paint caps at ~25fps (flood-proofing).</summary>
+    /// <summary>Minimum time between frames on flood wakeups (quiet ones paint 1:1, see FlushDue).</summary>
     internal const int RenderThrottleMs = 40;
     /// <summary>Frames slower than this are reported to the input log (diagnostics only).</summary>
     internal const int SlowFrameMs = 50;
@@ -352,10 +352,10 @@ internal sealed partial class TuiEditor
                     HandleInput(ev);
                     // One frame per wakeup, not per event: drain everything pending
                     // (held keys, paste bursts) before the next render.
-                    InputReader.DrainPending(HandleInput);
+                    int drained = InputReader.DrainPending(HandleInput);
                     AutoDraft();
                     MaybeReloadKeyBindings();
-                    RenderThrottled();
+                    RenderDue(drained);
                 }
                 catch (Exception ex)
                 {

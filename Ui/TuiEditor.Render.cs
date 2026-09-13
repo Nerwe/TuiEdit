@@ -211,14 +211,21 @@ internal sealed partial class TuiEditor
         (now - last).TotalMilliseconds >= RenderThrottleMs;
 
     /// <summary>
-    /// Paints unless a frame went out less than the throttle window ago: under a flood
-    /// input keeps draining at full speed while paint caps at ~25fps. Slow frames are
-    /// reported to the input log when diagnostics are on.
+    /// Whether this wakeup paints: a quiet one (nothing else was pending) renders
+    /// 1:1 with input; a flood stays throttled, so any flood costs mutations,
+    /// never a frame backlog. Pure, for tests.
     /// </summary>
-    private void RenderThrottled()
+    internal static bool FlushDue(int drained, DateTime last, DateTime now) =>
+        drained <= 0 || ShouldRender(last, now);
+
+    /// <summary>
+    /// Paints quiet wakeups immediately and throttles floods to ~25fps.
+    /// Slow frames are reported to the input log when diagnostics are on.
+    /// </summary>
+    private void RenderDue(int drained)
     {
         DateTime now = DateTime.UtcNow;
-        if (!ShouldRender(_lastRenderAt, now))
+        if (!FlushDue(drained, _lastRenderAt, now))
             return;
         _lastRenderAt = now;
         InputLog.Paint();

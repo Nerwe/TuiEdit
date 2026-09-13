@@ -41,6 +41,9 @@ when a `v*` tag is pushed.
 - Scroll repaints cost one console write: `FlushAnsi` batches the whole diff
   (inline CUP addressing) instead of ~600 `SetCursorPosition`/`Write` calls
   per full-viewport frame.
+- Quiet input paints 1:1: wakeups with nothing else pending skip the 40 ms
+  gate (single keypresses track key repeat like microsoft/edit); floods still
+  throttle to ~25fps, so input always drains first.
 - Clipboard export falls back past OSC 52: terminal detection covers common
   emulators, then platform tools (`clip`, `pbcopy`, `wl-copy`/`xclip`/`xsel`),
   then internal-only; oversized texts skip OSC 52 for the tools directly.
