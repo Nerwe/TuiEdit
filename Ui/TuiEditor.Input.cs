@@ -306,7 +306,7 @@ internal sealed partial class TuiEditor
             return null;
         int[] widths = new int[titles.Count];
         for (int i = 0; i < titles.Count; i++)
-            widths[i] = (i > 0 ? 1 : 0) + titles[i].Length + 2;
+            widths[i] = titles[i].Length + 4;
         int tl = Math.Clamp(TabWindowStart(widths, active, tabLeft, paneW), 0, titles.Count - 1);
         int xx = 0;
         for (int i = tl; i < titles.Count && xx < paneW; i++)

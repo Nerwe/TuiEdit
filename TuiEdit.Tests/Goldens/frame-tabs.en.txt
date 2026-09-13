@@ -1,5 +1,5 @@
  File  Edit  Help                                                     untitled*
- Untitled.txt* │ Untitled.txt*
+  Untitled.txt*    Untitled.txt*
     1 │ first tab
 ~
 ~
@@ -21,4 +21,4 @@
 ~
 ~
 ~
- Ln 1/1 Col 1 *                               UTF-8 | LF | 4sp | untitled | 1/2
+ Ln 1/1 Col 1 [*]                             UTF-8 | LF | 4sp | untitled | 1/2

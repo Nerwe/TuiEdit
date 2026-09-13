@@ -326,7 +326,10 @@ internal sealed partial class TuiEditor
 
         string left = StatusBar.Expand(_settings.StatusFormatLeft, StatusVerb);
         string right = StatusBar.Expand(_settings.StatusFormatRight, StatusVerb);
-        _screen.Text(0, h - 1, StatusBar.Build(left, right, w), _theme.StatusFg, _theme.StatusBg);
+        string statusRow = StatusBar.Build(left, right, w);
+        _screen.Text(0, h - 1, statusRow, _theme.StatusFg, _theme.StatusBg);
+        foreach ((int x, int len) in StatusBar.PillSpans(statusRow, _loc["status.readonly"]))
+            _screen.Text(x, h - 1, statusRow.Substring(x, len), _theme.ButtonSelFg, _theme.ButtonSelBg);
 
         // Over text: open menu and active dialog.
         DrawDropdown(w, h);
@@ -350,14 +353,14 @@ internal sealed partial class TuiEditor
         if (verb == "msg")
             return msg;
         if (verb == "modified")
-            return _buf.IsModified ? "*" : "";
+            return _buf.IsModified ? "[*]" : "";
         if (hasMsg && (verb == "pos" || verb == "sel"))
             return "";
         switch (verb)
         {
             case "pos":
                 return _loc.Format("status.pos", _row + 1, _buf.Count, _col + 1)
-                    + (_buf.IsModified ? " *" : "");
+                    + (_buf.IsModified ? " [*]" : "");
             case "sel":
                 if (!_sel.HasSelection(_row, _col))
                     return "";
@@ -376,7 +379,8 @@ internal sealed partial class TuiEditor
                 return _buf.IndentLabel;
             case "git":
                 string? seg = _git.StatusSegment(_buf.FilePath);
-                return seg is null ? "" : "| " + seg + " ";
+                // Branch names never contain '*', so only the dirty marker turns into a pill.
+                return seg is null ? "" : "| " + seg.Replace("*", "[*]", StringComparison.Ordinal) + " ";
             case "tab":
                 return _docs.Count > 1 ? $"| {_active + 1}/{_docs.Count} " : "";
             case "pane":
@@ -673,8 +677,9 @@ internal sealed partial class TuiEditor
     }
 
     /// <summary>
-    /// Draws the tab row in a pane region: highlights the active tab, marks dirty tabs with "*",
-    /// windows long rows (the active tab stays visible). Dims foreign panes.
+    /// Draws the tab row in a pane region: the active tab is an inverted block,
+    /// inactive tabs stay dim, dirty tabs carry "*". Windows long rows
+    /// (the active tab stays visible). Dims foreign panes.
     /// </summary>
     private void DrawTabs(int px, int pw, bool focused)
     {
@@ -684,7 +689,7 @@ internal sealed partial class TuiEditor
         var widths = new List<int>();
         for (int i = 0; i < _docs.Count; i++)
         {
-            string seg = (i > 0 ? "│" : string.Empty) + $" {_docs[i].TabTitle(_loc)} ";
+            string seg = $"  {_docs[i].TabTitle(_loc)}  ";
             cells.Add(seg);
             widths.Add(seg.Length);
         }
@@ -710,18 +715,28 @@ internal sealed partial class TuiEditor
         _screen.Text(px, 1, text.PadRight(pw)[..pw], rowFg, _theme.EditorBg);
         foreach (var (x, len, active) in spans)
         {
-            if (!active || x >= pw)
+            if (x >= pw)
                 continue;
             int show = Math.Min(len, pw - x);
-            _screen.Text(px + x, 1, text.Substring(x, show), _theme.ButtonSelFg, _theme.ButtonSelBg);
+            if (active)
+                _screen.Text(px + x, 1, text.Substring(x, show), _theme.ButtonSelFg, _theme.ButtonSelBg);
+            else if (focused)
+                _screen.Text(px + x, 1, text.Substring(x, show), _theme.FillerFg, _theme.EditorBg);
         }
     }
 
+    /// <summary>
+    /// Draws pane dividers: dividers touching the focused pane use the accent
+    /// color, the rest stay dim (focus affordance without layout changes).
+    /// </summary>
     private void DrawPaneDividers(int[] paneXs, int y0, int textHeight)
     {
         for (int i = 1; i < paneXs.Length; i++)
+        {
+            Rgb fg = i == _pane || i == _pane + 1 ? _theme.AccentFg : _theme.GutterFg;
             for (int y = 1; y < y0 + textHeight; y++)
-                _screen.Set(paneXs[i], y, '│', _theme.GutterFg, _theme.EditorBg);
+                _screen.Set(paneXs[i], y, '│', fg, _theme.EditorBg);
+        }
     }
 
     /// <summary>Computes the visible tab window start: shifts until the active tab fits.</summary>

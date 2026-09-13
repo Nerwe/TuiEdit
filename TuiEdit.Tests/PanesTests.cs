@@ -161,7 +161,7 @@ public sealed class PanesTests
     public void TabHitMirrorsDrawTabs()
     {
         Assert.Equal(0, TuiEditor.TabHit(["aaa", "bb"], 1, 0, 80, 2));
-        Assert.Equal(1, TuiEditor.TabHit(["aaa", "bb"], 1, 0, 80, 6));
+        Assert.Equal(1, TuiEditor.TabHit(["aaa", "bb"], 1, 0, 80, 7));
         Assert.Null(TuiEditor.TabHit(["aaa", "bb"], 1, 0, 80, 79));
         Assert.Null(TuiEditor.TabHit(["only"], 0, 0, 80, 2));
         Assert.Null(TuiEditor.TabHit(["aaa", "bb"], 1, 0, 80, -1));
