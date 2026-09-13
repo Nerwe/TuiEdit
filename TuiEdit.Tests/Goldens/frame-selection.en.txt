@@ -21,4 +21,4 @@
 ~
 ~
 ~
- Ln 2/3 Col 2 * | Selected 6                        UTF-8 | LF | 4sp | untitled
+ Ln 2/3 Col 2 [*] | Selected 6                      UTF-8 | LF | 4sp | untitled

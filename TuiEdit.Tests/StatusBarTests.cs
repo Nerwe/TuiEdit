@@ -64,6 +64,27 @@ public sealed class StatusBarTests
     }
 
     [Fact]
+    public void PillSpansFindBadges()
+    {
+        var spans = StatusBar.PillSpans("Ln 1/3 Col 1 [*]   UTF-8 | ⎇ main[*] ", "[read-only]");
+        Assert.Equal([(13, 3), (33, 3)], spans);
+    }
+
+    [Fact]
+    public void PillSpansFindReadonlyLabel()
+    {
+        var spans = StatusBar.PillSpans("a.txt [read-only] ", "[read-only]");
+        Assert.Equal([(6, 11)], spans);
+    }
+
+    [Fact]
+    public void PillSpansSkipCleanRows()
+    {
+        Assert.Empty(StatusBar.PillSpans("Ln 1/3 Col 1   UTF-8 | LF ", "[read-only]"));
+        Assert.Empty(StatusBar.PillSpans("a [b", "[read-only]")); // truncated pill never matches
+    }
+
+    [Fact]
     public void BindVerbFindsDefaultBinding()
     {
         var table = new KeyBindingTable(KeyBindingTable.DefaultRows());

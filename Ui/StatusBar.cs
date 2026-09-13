@@ -48,6 +48,31 @@ internal static class StatusBar
         return string.Empty;
     }
 
+    /// <summary>
+    /// Finds pill spans (state badges like [*] and the read-only label) for inverted paint.
+    /// Pure: scans the assembled row, so truncated pills never match partially.
+    /// </summary>
+    public static List<(int X, int Len)> PillSpans(string row, string readonlyLabel)
+    {
+        var spans = new List<(int X, int Len)>();
+        AddSpans(spans, row, "[*]");
+        if (!string.IsNullOrEmpty(readonlyLabel) && readonlyLabel != "[*]")
+            AddSpans(spans, row, readonlyLabel);
+        spans.Sort(static (a, b) => a.X.CompareTo(b.X));
+        return spans;
+    }
+
+    private static void AddSpans(List<(int X, int Len)> spans, string row, string marker)
+    {
+        int from = 0;
+        while (from <= row.Length - marker.Length
+            && (from = row.IndexOf(marker, from, StringComparison.Ordinal)) >= 0)
+        {
+            spans.Add((from, marker.Length));
+            from += marker.Length;
+        }
+    }
+
     /// <summary>Builds a row exactly width wide; the right block stays visible, showing its tail on overflow.</summary>
     public static string Build(string left, string right, int width) => (left, right, width) switch
     {
