@@ -14,7 +14,7 @@ internal sealed partial class TuiEditor
 
     private void Find()
     {
-        string? term = Prompt(_loc["prompt.find"], _lastSearch, liveHighlight: true, showOptions: true);
+        string? term = Prompt(_loc["prompt.find"], _lastSearch, "find", liveHighlight: true, showOptions: true);
         if (term is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
         if (term.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
         if (BadPattern(term)) return;
@@ -40,10 +40,10 @@ internal sealed partial class TuiEditor
     /// <summary>Searches files: pattern plus folder, jumps on pick.</summary>
     private void GrepFlow()
     {
-        string? pattern = Prompt(_loc["prompt.grep.pattern"], _lastSearch, liveHighlight: false, showOptions: true);
+        string? pattern = Prompt(_loc["prompt.grep.pattern"], _lastSearch, "grep-pattern", liveHighlight: false, showOptions: true);
         if (pattern is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
         if (pattern.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
-        string? dir = Prompt(_loc["prompt.grep.dir"], StartDir());
+        string? dir = Prompt(_loc["prompt.grep.dir"], StartDir(), "grep-dir");
         if (dir is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
         if (BadPattern(pattern)) return;
         _lastSearch = pattern;
@@ -94,7 +94,7 @@ internal sealed partial class TuiEditor
     /// <summary>Runs the command line (F12): set/goto/find/save/quit.</summary>
     private void CommandLineFlow()
     {
-        string? s = Prompt(_loc["cmdline.title"], string.Empty);
+        string? s = Prompt(_loc["cmdline.title"], string.Empty, "cmdline");
         if (s is null)
             return; // Esc stays quiet
         switch (CommandLine.Parse(s))
@@ -136,6 +136,18 @@ internal sealed partial class TuiEditor
                 return;
             case CommandLineOp.Save:
                 Save();
+                return;
+            case CommandLineOp.Earlier e:
+                int back = e.Age is TimeSpan age ? _buf.UndoToAge(age) : _buf.UndoSteps(e.Steps);
+                _sel.Clear();
+                ClampCursor();
+                SetMessage(_loc.Format("cmdline.earlier", back));
+                return;
+            case CommandLineOp.Later l:
+                int fwd = l.Age is TimeSpan fage ? _buf.RedoToAge(fage) : _buf.RedoSteps(l.Steps);
+                _sel.Clear();
+                ClampCursor();
+                SetMessage(_loc.Format("cmdline.later", fwd));
                 return;
             case CommandLineOp.Quit:
                 TryQuit();
@@ -182,10 +194,10 @@ internal sealed partial class TuiEditor
     /// <summary>Replaces across the whole document instantly in one undo step.</summary>
     private void Replace()
     {
-        string? term = Prompt(_loc["prompt.replace.find"], _lastSearch, liveHighlight: true, showOptions: true);
+        string? term = Prompt(_loc["prompt.replace.find"], _lastSearch, "replace-find", liveHighlight: true, showOptions: true);
         if (term is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
         if (term.Length == 0) { SetMessage(_loc["msg.search.empty"]); return; }
-        string? rep = Prompt(_loc["prompt.replace.with"], _lastReplace);
+        string? rep = Prompt(_loc["prompt.replace.with"], _lastReplace, "replace-with");
         if (rep is null) { SetMessage(_loc["msg.search.cancelled"]); return; }
         if (BadPattern(term)) return;
         _lastSearch = term;
@@ -231,7 +243,7 @@ internal sealed partial class TuiEditor
 
     private void GoToLine()
     {
-        string? s = Prompt(_loc.Format("prompt.goto", _buf.Count), string.Empty);
+        string? s = Prompt(_loc.Format("prompt.goto", _buf.Count), string.Empty, "goto");
         if (s is null) return;
         if (ParseGoTo(s) is (int line, int col))
         {

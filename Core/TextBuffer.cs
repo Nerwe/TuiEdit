@@ -52,8 +52,13 @@ internal sealed class TextBuffer
     private static LineEnding DefaultEnding() =>
         OperatingSystem.IsWindows() ? LineEnding.CrLf : LineEnding.Lf;
 
-    private readonly Stack<List<string>> _undo = new();
-    private readonly Stack<List<string>> _redo = new();
+    private readonly record struct UndoEntry(DateTime At, List<string> Lines);
+
+    /// <summary>Clock for undo timestamps (overridable in tests).</summary>
+    internal static Func<DateTime> UtcNow { get; set; } = static () => DateTime.UtcNow;
+
+    private readonly Stack<UndoEntry> _undo = new();
+    private readonly Stack<UndoEntry> _redo = new();
     private const int MaxHistory = 200;
 
     public int Count => Lines.Count;
@@ -98,13 +103,31 @@ internal sealed class TextBuffer
 
     private void DetectEncoding(byte[] bytes)
     {
-        (_encoding, EncodingLabel) = bytes switch
+        if (bytes is [0xEF, 0xBB, 0xBF, ..])
         {
-            [0xEF, 0xBB, 0xBF, ..] => (new UTF8Encoding(true), "UTF-8 BOM"),
-            [0xFF, 0xFE, ..] => (Encoding.Unicode, "UTF-16 LE"),
-            [0xFE, 0xFF, ..] => (Encoding.BigEndianUnicode, "UTF-16 BE"),
-            _ => (new UTF8Encoding(false), "UTF-8"),
-        };
+            (_encoding, EncodingLabel) = (new UTF8Encoding(true), "UTF-8 BOM");
+            return;
+        }
+        if (bytes is [0xFF, 0xFE, ..])
+        {
+            (_encoding, EncodingLabel) = (Encoding.Unicode, "UTF-16 LE");
+            return;
+        }
+        if (bytes is [0xFE, 0xFF, ..])
+        {
+            (_encoding, EncodingLabel) = (Encoding.BigEndianUnicode, "UTF-16 BE");
+            return;
+        }
+        // Fallback chain: strict UTF-8 first, then Latin1 (byte-preserving, never mojibake-loss).
+        try
+        {
+            _ = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true).GetString(bytes);
+            (_encoding, EncodingLabel) = (new UTF8Encoding(false), "UTF-8");
+        }
+        catch (DecoderFallbackException)
+        {
+            (_encoding, EncodingLabel) = (Encoding.Latin1, "Latin1");
+        }
     }
 
     private static bool IsReadOnlyPath(string path)
@@ -258,11 +281,11 @@ internal sealed class TextBuffer
 
     private void PushUndo()
     {
-        _undo.Push(new List<string>(Lines));
+        _undo.Push(new UndoEntry(UtcNow(), new List<string>(Lines)));
         if (_undo.Count > MaxHistory)
         {
             // Stack cannot drop the bottom cheaply; recreates it on overflow (rare path).
-            var arr = _undo.ToArray(); // top-first
+            UndoEntry[] arr = _undo.ToArray(); // top-first
             _undo.Clear();
             for (int i = MaxHistory - 1; i >= 0; i--)
                 _undo.Push(arr[i]);
@@ -278,8 +301,9 @@ internal sealed class TextBuffer
     public void Undo()
     {
         if (_undo.Count == 0) return;
-        _redo.Push(new List<string>(Lines));
-        Lines = _undo.Pop();
+        UndoEntry u = _undo.Pop();
+        _redo.Push(new UndoEntry(u.At, new List<string>(Lines)));
+        Lines = u.Lines;
         IsModified = true;
         Version++;
     }
@@ -287,10 +311,71 @@ internal sealed class TextBuffer
     public void Redo()
     {
         if (_redo.Count == 0) return;
-        _undo.Push(new List<string>(Lines));
-        Lines = _redo.Pop();
+        UndoEntry r = _redo.Pop();
+        _undo.Push(new UndoEntry(r.At, new List<string>(Lines)));
+        Lines = r.Lines;
         IsModified = true;
         Version++;
+    }
+
+    /// <summary>Undoes up to <paramref name="count"/> steps (clamped); returns steps taken.</summary>
+    public int UndoSteps(int count)
+    {
+        int n = 0;
+        while (n < count && _undo.Count > 0)
+        {
+            Undo();
+            n++;
+        }
+        return n;
+    }
+
+    /// <summary>Redoes up to <paramref name="count"/> steps (clamped); returns steps taken.</summary>
+    public int RedoSteps(int count)
+    {
+        int n = 0;
+        while (n < count && _redo.Count > 0)
+        {
+            Redo();
+            n++;
+        }
+        return n;
+    }
+
+    /// <summary>
+    /// Undoes edits newer than <paramref name="age"/> ago (time travel back).
+    /// Returns steps taken.
+    /// </summary>
+    public int UndoToAge(TimeSpan age)
+    {
+        if (age < TimeSpan.Zero)
+            return 0;
+        DateTime cutoff = UtcNow() - age;
+        int n = 0;
+        while (_undo.Count > 0 && _undo.Peek().At >= cutoff)
+        {
+            Undo();
+            n++;
+        }
+        return n;
+    }
+
+    /// <summary>
+    /// Redoes undone edits older than <paramref name="age"/> ago (time travel forward).
+    /// Returns steps taken.
+    /// </summary>
+    public int RedoToAge(TimeSpan age)
+    {
+        if (age < TimeSpan.Zero)
+            return 0;
+        DateTime cutoff = UtcNow() - age;
+        int n = 0;
+        while (_redo.Count > 0 && _redo.Peek().At <= cutoff)
+        {
+            Redo();
+            n++;
+        }
+        return n;
     }
 
     /// <summary>
@@ -414,6 +499,99 @@ internal sealed class TextBuffer
         return (row, nc);
     }
 
+    /// <summary>
+    /// Resolves the closing char for an opener (brackets via auto-pairs, quotes pair with themselves).
+    /// </summary>
+    public static char CloserForSurround(char open)
+    {
+        char closer = AutoPair.CloserFor(open);
+        return closer == '\0' ? open : closer;
+    }
+
+    /// <summary>
+    /// Wraps [start, end) in open/close in a single undo entry (close first, offsets stay valid).
+    /// </summary>
+    public void WrapRange(int sr, int sc, int er, int ec, char open, char close)
+    {
+        PushUndo();
+        if (sr == er)
+        {
+            string line = Lines[sr];
+            Lines[sr] = line[..sc] + open + line[sc..ec] + close + line[ec..];
+            return;
+        }
+        Lines[er] = Lines[er].Insert(ec, close.ToString());
+        Lines[sr] = Lines[sr].Insert(sc, open.ToString());
+    }
+
+    /// <summary>
+    /// Removes open/close around [start, end) in a single undo entry; false when the pair mismatches.
+    /// </summary>
+    public bool UnwrapRange(int sr, int sc, int er, int ec, char open, char close)
+    {
+        if (!SurroundAt(sr, sc, er, ec, open, close))
+            return false;
+        PushUndo();
+        if (sr == er)
+        {
+            string line = Lines[sr];
+            Lines[sr] = line[..(sc - 1)] + line[sc..ec] + line[(ec + 1)..];
+            return true;
+        }
+        Lines[er] = Lines[er].Remove(ec, 1);
+        Lines[sr] = Lines[sr].Remove(sc - 1, 1);
+        return true;
+    }
+
+    /// <summary>
+    /// Swaps the pair around [start, end) in a single undo entry; false when the old pair mismatches.
+    /// </summary>
+    public bool ChangeSurround(
+        int sr, int sc, int er, int ec, char oldOpen, char oldClose, char newOpen, char newClose)
+    {
+        if (!SurroundAt(sr, sc, er, ec, oldOpen, oldClose))
+            return false;
+        PushUndo();
+        if (sr == er)
+        {
+            string line = Lines[sr];
+            Lines[sr] = line[..(sc - 1)] + newOpen + line[sc..ec] + newClose + line[(ec + 1)..];
+            return true;
+        }
+        Lines[er] = Lines[er].Remove(ec, 1).Insert(ec, newClose.ToString());
+        Lines[sr] = Lines[sr].Remove(sc - 1, 1).Insert(sc - 1, newOpen.ToString());
+        return true;
+    }
+
+    /// <summary>Checks the pair around [start, end) without mutating (single-line or first/last edge).</summary>
+    public bool SurroundAt(int sr, int sc, int er, int ec, char open, char close)
+    {
+        if (sr < 0 || er >= Lines.Count || sc <= 0)
+            return false;
+        if (sr == er)
+        {
+            string line = Lines[sr];
+            return sc - 1 >= 0 && ec < line.Length && line[sc - 1] == open && line[ec] == close;
+        }
+        return sc - 1 < Lines[sr].Length && Lines[sr][sc - 1] == open
+            && ec < Lines[er].Length && Lines[er][ec] == close;
+    }
+
+    /// <summary>Reads the pair around [start, end) without mutating (null when out of range).</summary>
+    public (char Open, char Close)? PeekSurround(int sr, int sc, int er, int ec)
+    {
+        if (sr < 0 || er >= Lines.Count || sc <= 0)
+            return null;
+        if (sr == er)
+        {
+            string line = Lines[sr];
+            return sc - 1 >= 0 && ec < line.Length ? (line[sc - 1], line[ec]) : null;
+        }
+        if (sc - 1 >= Lines[sr].Length || ec >= Lines[er].Length)
+            return null;
+        return (Lines[sr][sc - 1], Lines[er][ec]);
+    }
+
     public (int row, int col) Delete(int row, int col)
     {
         string line = Lines[row];
@@ -496,7 +674,7 @@ internal sealed class TextBuffer
     }
 
     /// <summary>
-    /// Sets the save encoding by name (utf8, utf8bom, utf16/utf16le); returns
+    /// Sets the save encoding by name (utf8, utf8bom, utf16/utf16le, latin1); returns
     /// <see langword="false"/> on unknown names. Marks the buffer modified.
     /// </summary>
     /// <param name="name">The encoding name (case-insensitive, dashes/spaces ignored).</param>
@@ -508,6 +686,7 @@ internal sealed class TextBuffer
             "utf8" => (new UTF8Encoding(false), "UTF-8"),
             "utf8bom" => (new UTF8Encoding(true), "UTF-8 BOM"),
             "utf16" or "utf16le" or "unicode" => (Encoding.Unicode, "UTF-16 LE"),
+            "latin1" or "latin" or "iso88591" => (Encoding.Latin1, "Latin1"),
             _ => null,
         };
         if (pick is null)
