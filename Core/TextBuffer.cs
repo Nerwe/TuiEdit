@@ -298,6 +298,9 @@ internal sealed class TextBuffer
     public bool CanUndo => _undo.Count > 0;
     public bool CanRedo => _redo.Count > 0;
 
+    /// <summary>Undo stack depth (lets multi-caret fan-out coalesce exactly what it pushed).</summary>
+    internal int UndoDepth => _undo.Count;
+
     public void Undo()
     {
         if (_undo.Count == 0) return;

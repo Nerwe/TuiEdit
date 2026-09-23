@@ -439,10 +439,11 @@ internal sealed partial class TuiEditor
             return;
         }
 
-        // Esc clears the active selection.
-        if (k.Key == ConsoleKey.Escape && _sel.HasSelection(_row, _col))
+        // Esc clears the active selection and any extra carets.
+        if (k.Key == ConsoleKey.Escape && (_sel.HasSelection(_row, _col) || HasExtraCarets))
         {
             _sel.Clear();
+            ClearExtraCarets();
             return;
         }
 
@@ -461,6 +462,23 @@ internal sealed partial class TuiEditor
             bool extend = (k.Modifiers & ConsoleModifiers.Shift) != 0;
             if (extend && !_sel.HasSelection(_row, _col))
                 _sel.Start(_row, _col);
+            if (extend && HasExtraCarets)
+                ClearExtraCarets(); // shift-selection collapses to the primary caret
+            if (!extend && HasExtraCarets && cmd is EditorCommand.MoveLeft
+                or EditorCommand.MoveRight or EditorCommand.MoveUp or EditorCommand.MoveDown
+                or EditorCommand.GoHome or EditorCommand.GoEnd)
+            {
+                MoveAllCarets(cmd switch
+                {
+                    EditorCommand.MoveLeft => StepLeft,
+                    EditorCommand.MoveRight => StepRight,
+                    EditorCommand.MoveUp => StepUp,
+                    EditorCommand.MoveDown => StepDown,
+                    EditorCommand.GoHome => ((int r, int c) => (r, 0)),
+                    _ => ((int r, int c) => (r, _buf.GetLine(Math.Clamp(r, 0, _buf.Count - 1)).Length)),
+                });
+                return;
+            }
             Execute(cmd, k);
             if (!extend)
                 _sel.Clear();
@@ -615,6 +633,10 @@ internal sealed partial class TuiEditor
         [EditorCommand.GoBracketMatch] = _ => JumpToBracket(),
         [EditorCommand.MoveLineUp] = _ => MoveLineBlock(-1),
         [EditorCommand.MoveLineDown] = _ => MoveLineBlock(1),
+        [EditorCommand.CaretAddAbove] = _ => CaretAddAbove(),
+        [EditorCommand.CaretAddBelow] = _ => CaretAddBelow(),
+        [EditorCommand.CaretAddNext] = _ => CaretAddNext(),
+        [EditorCommand.CaretClear] = _ => ClearExtraCarets(),
         [EditorCommand.SaveAs] = _ => SaveAs(),
         [EditorCommand.SaveAll] = _ => SaveAll(),
         [EditorCommand.FileFormat] = _ => RunDialog(new FormatDialog(_buf)),
@@ -628,6 +650,7 @@ internal sealed partial class TuiEditor
         [EditorCommand.Redo] = _ => { _buf.Redo(); _sel.Clear(); ClampCursor(); SetMessage(_loc["msg.redo"]); },
         [EditorCommand.InsertEnter] = _ =>
         {
+            if (HasExtraCarets) { MultiEnter(); return; }
             DeleteSelection(); // Replaces the selection
             (_row, _col) = _buf.SplitLine(_row, _col);
             _docs[_active].ShiftMarks(_row, 1);
@@ -635,6 +658,7 @@ internal sealed partial class TuiEditor
         },
         [EditorCommand.InsertBackspace] = _ =>
         {
+            if (HasExtraCarets) { MultiBackspace(); return; }
             if (DeleteSelection()) return; // Erases the selection instead of a character
             if (_settings.AutoPairs && _buf.DeletePair(_row, _col) is (int ar, int ac))
             {
@@ -650,6 +674,7 @@ internal sealed partial class TuiEditor
         },
         [EditorCommand.InsertDelete] = _ =>
         {
+            if (HasExtraCarets) { MultiDelete(); return; }
             if (DeleteSelection()) return; // Erases the selection instead of a character
             int dr = _row, dc = _col, dl = _buf.GetLine(dr).Length, dn = _buf.Count;
             (_row, _col) = _buf.Delete(_row, _col);
@@ -659,6 +684,7 @@ internal sealed partial class TuiEditor
         },
         [EditorCommand.InsertTab] = _ =>
         {
+            if (HasExtraCarets) { MultiTab(); return; }
             if (_sel.HasSelection(_row, _col)) { IndentSelection(); return; }
             _buf.InsertString(_row, _col, _buf.IndentString);
             _col += _buf.IndentString.Length;
@@ -668,6 +694,7 @@ internal sealed partial class TuiEditor
         [EditorCommand.SelectAll] = _ => SelectAll(),
         [EditorCommand.InsertChar] = k =>
         {
+            if (HasExtraCarets) { MultiInsertChar(k.KeyChar); _speedCount = 0; return; }
             if (DeleteSelection()) // Replaces the selection with input
                 _speedCount = 0;
             bool speedTail = TrackSpeedRun(k);

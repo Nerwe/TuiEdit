@@ -73,4 +73,8 @@ internal enum EditorCommand
     SplitPane,
     NextPane, PrevPane,
     GoPaneNumber,
+    CaretAddAbove,
+    CaretAddBelow,
+    CaretAddNext,
+    CaretClear,
 }

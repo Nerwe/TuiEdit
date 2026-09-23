@@ -20,6 +20,9 @@ internal sealed class DocTab
     public int AnchorCol;
     public bool SelActive;
 
+    /// <summary>Extra carets for multi-cursor editing (primary stays <c>Row</c>/<c>Col</c>).</summary>
+    public MultiCaret Carets { get; } = new();
+
     public DocTab(TextBuffer buf)
     {
         Buf = buf;
