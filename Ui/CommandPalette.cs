@@ -167,6 +167,7 @@ internal sealed class CommandPaletteDialog : Dialog
         all.Add(new CommandEntry(EditorCommand.MoveLineDown, loc["palette.cmd.movelinedown"], "Alt+↓"));
         all.Add(new CommandEntry(EditorCommand.FindNext, loc["palette.cmd.findnext"], "F3"));
         all.Add(new CommandEntry(EditorCommand.FindPrev, loc["palette.cmd.findprev"], "Shift+F3"));
+        all.Add(new CommandEntry(EditorCommand.GoToDefinition, loc["palette.cmd.gotodefinition"], "Alt+G"));
         all.Add(new CommandEntry(EditorCommand.DelWordBefore, loc["palette.cmd.delwordbefore"], "Ctrl+BS"));
         all.Add(new CommandEntry(EditorCommand.DelWordAfter, loc["palette.cmd.delwordafter"], "Ctrl+Del"));
         all.Add(new CommandEntry(EditorCommand.ListTabs, loc["palette.cmd.listtabs"], "Ctrl+P"));

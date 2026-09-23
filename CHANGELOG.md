@@ -8,6 +8,9 @@ when a `v*` tag is pushed.
 ## [Unreleased]
 
 ### Added
+- Go to definition (`Alt+G`, textual, no language server): jumps to
+  `class|def|function NAME`, `NAME(` or `NAME =` in the current file first,
+  then the project; `Alt+Left` jumps back. Listed in the palette (`F5`).
 - Multicursor (`Alt+Shift+Up`/`Alt+Shift+Down` add above/below, `Alt+D`
   adds the next occurrence of the word under the caret, `Esc` clears):
   typing, Backspace/Delete, Enter and Tab apply at every caret in a single

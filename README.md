@@ -16,6 +16,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 - Five built-in themes (`dark`, `light`, `3024 Night`, `Paper`, `Posting`) plus your own schemes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), indent guides, whitespace marks (`Alt+.`), ruler column, git diff gutter, help screen (`F1`). The status bar layout is customizable (`StatusFormatLeft/Right` with `$(...)` verbs) and states render as pills (`[*]`, `[read-only]`).
 - Bookmarks (`F2` toggle, `Shift+F2` next, gutter `●`), indent folding (`Alt+-`), buffer-word completion (`Ctrl+Space`), document stats (`F4`).
 - Multicursor: `Alt+Shift+↑/↓` adds a caret above/below, `Alt+D` adds the next occurrence of the word under the caret, `Esc` clears. Typing, Backspace/Delete, Enter and Tab apply at every caret in a single undo step; arrows/Home/End move all carets.
+- Go to definition (`Alt+G`, textual, no language server): jumps to `class|def|function NAME`, `NAME(` or `NAME =` in the current file first, then the project; `Alt+Left` jumps back.
 - Optional session restore: reopen the previous tabs with cursor positions when started without arguments (off by default, toggle in Settings); dirty untitled tabs round-trip with their content.
 - File tree (`Ctrl+B`): fixed-width sidebar with an expandable folder tree (`Enter`/`←`/`→`), git change marks (folders aggregate), `Enter` opens files, `Esc` back to text. Walking the tree previews files in a single tab (same tab is reused; `Enter` pins it, edits pin it automatically). `F7` new file/folder, `F2` rename, `Del` delete with two-step confirm. Entries are color-coded: dirs, hidden and executables.
 - Tabs: open tab bar (`Ctrl+T` new, `Ctrl+W` close, `Ctrl+PgDn/PgUp` switch, `Alt+1..9,0` jump, `Ctrl+P` list); long rows scroll with the active tab always visible; dirty tabs ask on close, quitting walks through them one by one. Quick-open files by name across the project (`Alt+O`, `ft:cs` filters by extension), command line (`F12`: `set` incl. `encoding`/`ending`/`indent`, `goto`, `find`, `earlier`, `later`, `save`, `quit`) with history (`Up`/`Down`) and completion (`Tab`).
@@ -43,6 +44,7 @@ F1 — help   Alt+N — line numbers   Alt+Z — word wrap   Ctrl+B — file tre
 F9 — file format (encoding / line endings)   F4 — document stats   F5 — command palette (commands, menus, settings search)   F12 — command line
 F2 — bookmark   Shift+F2 — next bookmark   Alt+- — fold   Ctrl+Space — complete
 Alt+Shift+Up/Down — add caret   Alt+D — caret at next occurrence   Esc — clear carets/selection
+Alt+G — go to definition (Alt+Left — back)
 Ctrl+PgDn — next tab   Ctrl+PgUp — prev (Ctrl+Tab / Ctrl+Shift+Tab where the terminal passes them)
 Ctrl+T — new tab   Ctrl+W — close tab
 Alt+1..9,0 — jump to tab   Ctrl+P — tab list   Alt+O — quick open

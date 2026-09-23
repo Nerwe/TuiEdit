@@ -616,6 +616,7 @@ internal sealed partial class TuiEditor
         [EditorCommand.Grep] = _ => GrepFlow(),
         [EditorCommand.FindNext] = _ => FindNext(),
         [EditorCommand.FindPrev] = _ => FindPrev(),
+        [EditorCommand.GoToDefinition] = _ => GoToDefinitionFlow(),
         [EditorCommand.Replace] = _ => Replace(),
         [EditorCommand.GoToLine] = _ => GoToLine(),
         [EditorCommand.DocStats] = _ =>
