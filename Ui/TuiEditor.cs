@@ -46,6 +46,7 @@ internal sealed partial class TuiEditor
     private string _pendingReplaceRep = string.Empty;
     private string _pendingCompletePrefix = string.Empty; // Prefix from the completion popup
     private readonly List<GrepHit> _grepHits = new();
+    private readonly List<ReviewHunk> _reviewHits = new();
     private int _pendingGrepRow;
     private readonly List<string> _recentPaths = new(); // Paths from the recent modal
     private DraftStore _drafts = new(DraftStore.DefaultDir());

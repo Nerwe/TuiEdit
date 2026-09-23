@@ -40,6 +40,7 @@ internal enum EditorCommand
     GoToLine,
     DocStats,
     Grep,
+    ReviewChanges,
     CutLine, CopyLine, Paste,
     RegisterPick,
     DuplicateLine,

@@ -25,7 +25,7 @@ internal sealed class ModalDialog : Dialog
 
     protected override DialogBox? Measure(int screenW, int screenH, Loc loc)
     {
-        bool vertical = _state.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs or ModalKind.Complete or ModalKind.Grep;
+        bool vertical = _state.Kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs or ModalKind.Complete or ModalKind.Grep or ModalKind.Review;
         int btnWidth = _state.Buttons.Count == 0 ? 0 : vertical
             ? _state.Buttons.Max(b => b.Label.Length)
             : _state.Buttons.Sum(b => b.Label.Length + 4) + (_state.Buttons.Count - 1) * 2;
@@ -216,5 +216,5 @@ internal sealed class ModalDialog : Dialog
     }
 
     private static bool IsListKind(ModalKind kind) =>
-        kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs or ModalKind.Complete or ModalKind.Grep;
+        kind is ModalKind.Recent or ModalKind.Restore or ModalKind.Tabs or ModalKind.Complete or ModalKind.Grep or ModalKind.Review;
 }
