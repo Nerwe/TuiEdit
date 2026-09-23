@@ -5,7 +5,7 @@ renames the section to the version number. `release.yml` builds the GitHub
 release notes from that version's section (falling back to `Unreleased`)
 when a `v*` tag is pushed.
 
-## [Unreleased]
+## [1.1.0] - 2026-09-23
 
 ### Added
 - Change review (`Alt+R`): lists every changed hunk in the repo (handy after
@@ -15,9 +15,9 @@ when a `v*` tag is pushed.
   then the project; `Alt+Left` jumps back. Listed in the palette (`F5`).
 - Multicursor (`Alt+Shift+Up`/`Alt+Shift+Down` add above/below, `Alt+D`
   adds the next occurrence of the word under the caret, `Esc` clears):
-  typing, Backspace/Delete, Enter and Tab apply at every caret in a single
-  undo step; arrows/Home/End move all carets; extra carets render as
-  highlighted cells. Commands are rebindable via `keybindings.json` and
+  typing, Backspace/Delete, Enter, Tab, autopairs and paste apply at every
+  caret in a single undo step; motion moves all carets; extra carets render
+  as highlighted cells. Commands are rebindable via `keybindings.json` and
   listed in the palette (`F5`) and help (`F1`).
 
 ## [1.0.0] - 2026-09-13

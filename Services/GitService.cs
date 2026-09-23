@@ -492,3 +492,4 @@ internal sealed class GitService : IGitService
             "diff", "--no-color", "--no-ext-diff", "--unified=0", "--", full).ConfigureAwait(false));
     }
 }
+
