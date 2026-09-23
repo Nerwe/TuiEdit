@@ -63,6 +63,45 @@ public sealed class MultiCaretTests
     }
 
     [Fact]
+    public void RepeatedAddBelowGrowsEveryPress()
+    {
+        var ed = NewEditor("a1", "b2", "c3", "d4", "e5");
+        Set(ed, "_row", 0);
+        Set(ed, "_col", 1);
+        var down = new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, true, true, false);
+        HandleKey(ed, down);
+        HandleKey(ed, down);
+        HandleKey(ed, down);
+        var ordered = Carets(ed).Ordered.ToList();
+        Assert.Equal([(1, 1), (2, 1), (3, 1)], ordered);
+        HandleKey(ed, K('X', ConsoleKey.X));
+        var buf = ActiveBuf(ed);
+        Assert.Equal("aX1", buf.GetLine(0));
+        Assert.Equal("bX2", buf.GetLine(1));
+        Assert.Equal("cX3", buf.GetLine(2));
+        Assert.Equal("dX4", buf.GetLine(3));
+        Assert.Equal("e5", buf.GetLine(4));
+        buf.Undo();
+        Assert.Equal("a1", buf.GetLine(0));
+        Assert.Equal("b2", buf.GetLine(1));
+        Assert.Equal("d4", buf.GetLine(3));
+    }
+
+    [Fact]
+    public void AddUpAndDownGrowBothWays()
+    {
+        var ed = NewEditor("a1", "b2", "c3", "d4", "e5");
+        Set(ed, "_row", 2);
+        Set(ed, "_col", 0);
+        HandleKey(ed, new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, true, true, false));
+        HandleKey(ed, new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, true, true, false));
+        HandleKey(ed, new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, true, true, false));
+        HandleKey(ed, new ConsoleKeyInfo('\0', ConsoleKey.UpArrow, true, true, false));
+        var ordered = Carets(ed).Ordered.ToList();
+        Assert.Equal([(0, 0), (1, 0), (3, 0), (4, 0)], ordered);
+    }
+
+    [Fact]
     public void AddBelowAndTypeFansOutWithSingleUndo()
     {
         var ed = NewEditor("aaa", "bbb", "ccc");

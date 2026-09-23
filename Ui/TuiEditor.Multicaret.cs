@@ -26,16 +26,27 @@ internal sealed partial class TuiEditor
 
     private void CaretAddBelow() => CaretAddVertical(1);
 
-    /// <summary>Adds a caret one visible row above/below the primary, same column when possible.</summary>
+    /// <summary>Adds a caret one visible row above/below the outermost caret, same column when possible.</summary>
     private void CaretAddVertical(int dir)
     {
         ClampCursor();
+        // Grow from the edge in this direction (not from the primary),
+        // otherwise repeated presses land on the same row and dedup.
         int r = _row;
+        int c = _col;
+        foreach ((int er, int ec) in XC.Ordered)
+        {
+            if ((dir < 0 && er < r) || (dir > 0 && er > r))
+            {
+                r = er;
+                c = ec;
+            }
+        }
         if ((dir < 0 && r > 0) || (dir > 0 && r < _buf.Count - 1))
         {
             do { r += dir; } while (r > 0 && r < _buf.Count - 1 && FoldHidden(r));
         }
-        int c = Math.Min(_col, _buf.GetLine(r).Length);
+        c = Math.Min(c, _buf.GetLine(r).Length);
         if (XC.Add(r, c, _row, _col))
             SetMessage(_loc.Format("msg.carets", XC.Count + 1));
     }
