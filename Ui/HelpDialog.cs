@@ -19,7 +19,7 @@ internal sealed class HelpDialog : Dialog
             (loc["help.sec.file"], new List<string> { loc["help.k1"] }),
             (loc["help.sec.find"], new List<string> { loc["help.k2"] }),
             (loc["help.sec.edit"], new List<string> { loc["help.k3"], loc["help.k4"], loc["help.k5"], loc["help.k8"], loc["help.k19"] }),
-            (loc["help.sec.nav"], new List<string> { loc["help.k6"], loc["help.k7"], loc["help.k20"] }),
+            (loc["help.sec.nav"], new List<string> { loc["help.k6"], loc["help.k7"], loc["help.k20"], loc["help.k21"] }),
             (loc["help.sec.menu"], new List<string> { loc["help.k9"] }),
             (loc["help.sec.view"], new List<string> { loc["help.k11"], loc["help.k13"], loc["help.k14"], loc["help.k15"], loc["help.k16"], loc["help.k18"] }),
             (loc["help.sec.manager"], new List<string> { loc["help.k10"], loc["help.k17"], loc["help.k12"] }),

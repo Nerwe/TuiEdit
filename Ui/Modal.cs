@@ -23,6 +23,8 @@ internal enum ModalKind
     Complete,
     /// <summary>Represents file search results (blue, buttons as a list).</summary>
     Grep,
+    /// <summary>Represents change review hunks (blue, buttons as a list).</summary>
+    Review,
     /// <summary>Represents a large file open confirmation (red).</summary>
     LargeFile,
 }
@@ -205,6 +207,22 @@ internal sealed class ModalState
     }
 
     private static string ShortGrepPath(string path) => Shorten(path, 40);
+
+    /// <summary>Creates the change-review popup: file:line rows with +/- counts; empty lists are rejected.</summary>
+    public static ModalState Review(Loc loc, List<ReviewHunk> hunks)
+    {
+        if (hunks.Count == 0)
+            throw new ArgumentException("Нет изменений.", nameof(hunks));
+        return new(
+            ModalKind.Review,
+            loc["modal.review.title"],
+            new List<string>(),
+            hunks.Select((h, i) => new ModalButton(
+                $"{ShortGrepPath(h.File)}:{h.StartRow + 1}+{h.Added}~{h.Modified}", NumberHotkey(i))).ToList(),
+            selected: 0,
+            hint: string.Empty,
+            maxVisibleButtons: 10);
+    }
 
     /// <summary>Creates the recent-files popup: each file is a row button with a 1..9,0 hotkey; shows 5 at once, scrolls the rest; empty lists are rejected.</summary>
     public static ModalState Recent(Loc loc, List<string> files)

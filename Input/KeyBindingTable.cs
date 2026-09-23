@@ -135,6 +135,7 @@ internal sealed class KeyBindingTable
         R(ConsoleKey.O, EditorCommand.QuickOpen, alt: true), // quick file jump
         R(ConsoleKey.D, EditorCommand.CaretAddNext, alt: true), // multicursor: next occurrence
         R(ConsoleKey.G, EditorCommand.GoToDefinition, alt: true), // textual go-to-definition
+        R(ConsoleKey.R, EditorCommand.ReviewChanges, alt: true), // change review hunks
         R(ConsoleKey.Oem6, EditorCommand.GoBracketMatch, alt: true), // Alt+] — matching bracket
         // Shift+F keys (exact shift).
         // Shift+F3 — find backward, Shift+F6 — previous pane, Shift+F2 — bookmark.

@@ -235,6 +235,9 @@ internal sealed partial class TuiEditor
             case (ModalKind.Grep, var b):
                 OpenGrepHit(b);
                 return;
+            case (ModalKind.Review, var b):
+                OpenReviewHit(b);
+                return;
             case (ModalKind.Recent, var b):
                 OpenRecentPick(b);
                 return;

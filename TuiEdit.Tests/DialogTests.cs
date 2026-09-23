@@ -290,7 +290,7 @@ public sealed class DialogTests : IClassFixture<TempDir>
     public void HelpDialogStructureAndScroll()
     {
         var hd = new HelpDialog(_loc);
-        Assert.Equal(27, hd.TotalRows); // 7 headers + 20 rows, no footer
+        Assert.Equal(28, hd.TotalRows); // 7 headers + 21 rows, no footer
         Assert.Equal(0, hd.Scroll);
         hd.HandleKey(K('\0', ConsoleKey.DownArrow));
         Assert.Equal(1, hd.Scroll);
@@ -300,7 +300,7 @@ public sealed class DialogTests : IClassFixture<TempDir>
         small.Resize(96, 12);
         hd.HandleKey(K('\0', ConsoleKey.End));
         hd.Draw(small, _theme, _loc);
-        Assert.Equal(27 - HelpDialog.VisibleRows(12), hd.Scroll); // clamp to the bottom
+        Assert.Equal(28 - HelpDialog.VisibleRows(12), hd.Scroll); // clamp to the bottom
         hd.HandleKey(K('\0', ConsoleKey.Home));
         hd.Draw(small, _theme, _loc);
         Assert.Equal(0, hd.Scroll);

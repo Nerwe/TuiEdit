@@ -203,6 +203,44 @@ internal sealed partial class TuiEditor
         }
     }
 
+    /// <summary>Lists changed hunks for review (agent edits included): pick one to jump to it.</summary>
+    private void ReviewFlow()
+    {
+        (IReadOnlySet<string> added, IReadOnlySet<string> modified) =
+            GitService.Shared.ChangedFilesSync(StartDir());
+        if (added.Count == 0 && modified.Count == 0)
+        {
+            SetMessage(_loc["msg.review.clean"]);
+            return;
+        }
+        var files = new HashSet<string>(added, StringComparer.OrdinalIgnoreCase);
+        files.UnionWith(modified);
+        _reviewHits.Clear();
+        _reviewHits.AddRange(ReviewHunks.Collect(
+            f => GitDiff.MarksForSync(f), _buf.FilePath, files));
+        if (_reviewHits.Count == 0)
+        {
+            SetMessage(_loc["msg.review.clean"]);
+            return;
+        }
+        _dialog = new ModalDialog(ModalState.Review(_loc, _reviewHits), ApplyModalOutcome);
+    }
+
+    private void OpenReviewHit(int index)
+    {
+        if (index < 0 || index >= _reviewHits.Count)
+            return;
+        ReviewHunk h = _reviewHits[index];
+        PushJump();
+        _pendingGrepRow = h.StartRow + 1;
+        OpenPicked(h.File);
+        if (_pending == PendingOp.None)
+        {
+            GoToLineNumber(_pendingGrepRow);
+            _pendingGrepRow = 0;
+        }
+    }
+
     /// <summary>Jumps to a match with a "k/N" counter.</summary>
     private void JumpSearch(bool wrap, bool backward)
     {

@@ -8,6 +8,8 @@ when a `v*` tag is pushed.
 ## [Unreleased]
 
 ### Added
+- Change review (`Alt+R`): lists every changed hunk in the repo (handy after
+  an AI agent edits); pick one to jump to it, `Alt+Left` jumps back.
 - Go to definition (`Alt+G`, textual, no language server): jumps to
   `class|def|function NAME`, `NAME(` or `NAME =` in the current file first,
   then the project; `Alt+Left` jumps back. Listed in the palette (`F5`).
