@@ -29,6 +29,9 @@ jobs:
           - os: ubuntu-latest
             rid: linux-x64
             bin: tui-edit
+          - os: macos-latest
+            rid: osx-arm64
+            bin: tui-edit
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -64,6 +67,7 @@ jobs:
           VER="${GITHUB_REF_NAME#v}"
           (cd dist/binary-win-x64 && zip -j "../../tui-edit-$VER-win-x64.zip" tui-edit.exe)
           (cd dist/binary-linux-x64 && zip -j "../../tui-edit-$VER-linux-x64.zip" tui-edit)
+          (cd dist/binary-osx-arm64 && zip -j "../../tui-edit-$VER-osx-arm64.zip" tui-edit)
           ls -la tui-edit-*.zip
       - name: Create release
         env:
@@ -71,5 +75,5 @@ jobs:
         run: |
           VER="${GITHUB_REF_NAME#v}"
           gh release create "${{ github.ref_name }}" \
-            "tui-edit-$VER-win-x64.zip" "tui-edit-$VER-linux-x64.zip" \
+            "tui-edit-$VER-win-x64.zip" "tui-edit-$VER-linux-x64.zip" "tui-edit-$VER-osx-arm64.zip" \
             --title "TuiEdit ${{ github.ref_name }}" --notes-file NOTES.md
