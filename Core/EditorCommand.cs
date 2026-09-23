@@ -35,6 +35,7 @@ internal enum EditorCommand
     Find,
     FindNext,
     FindPrev,
+    GoToDefinition,
     Replace,
     GoToLine,
     DocStats,

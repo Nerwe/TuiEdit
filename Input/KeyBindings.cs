@@ -37,6 +37,7 @@ internal static class KeyBindings
                   // "Save": "Ctrl+S",
                   // "ToggleComment": "Alt+/",
                   // "CaretAddNext": "Alt+D",
+                  // "GoToDefinition": "Alt+G",
                   // "GoToLine": null
                 }
                 """);

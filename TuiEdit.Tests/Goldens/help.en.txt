@@ -12,6 +12,7 @@
 │── Navigation ─────────────────────────────────────────────────────────────── │
 │   arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Ctrl+BS/Del — delete word│
 │   Enter — new line, Tab — indent, Shift+Tab — unindent                       │
+│   Go to definition (textual): Alt+G, back with Alt+Left                      │
 │── Menu ───────────────────────────────────────────────────────────────────── │
 │   F10 or Alt+F/E/H — menu (arrows/Enter/Esc, letter hotkey)                  │
 │── View ───────────────────────────────────────────────────────────────────── │
@@ -19,6 +20,5 @@
 │   Ctrl+B — file tree (arrows — walk • Enter — expand/open • F7 — new • F2 — r│
 │   Tabs: Ctrl+PgDn/PgUp/Ctrl+Tab — next/prev • Ctrl+T — new • Ctrl+W — close  │
 │   Alt+1..9,0 — jump • Ctrl+P — tab list • Alt+O — quick open                 │
-│   Split: Alt+S — split • F6/Shift+F6 — next/prev pane • Ctrl+1..9 — pane N   │
 │                          ↑/↓ — scroll • Esc — close                          │
 └──────────────────────────────────────────────────────────────────────────────┘

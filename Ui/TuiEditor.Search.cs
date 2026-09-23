@@ -12,6 +12,39 @@ internal sealed partial class TuiEditor
         TrackCol();
     }
 
+    /// <summary>Jumps to the definition of the word under the caret (textual, no LSP).</summary>
+    private void GoToDefinitionFlow()
+    {
+        ClampCursor();
+        string line = CurLine;
+        int start = _col;
+        while (start > 0 && TextBuffer.IsWordChar(line[start - 1]))
+            start--;
+        int end = _col;
+        while (end < line.Length && TextBuffer.IsWordChar(line[end]))
+            end++;
+        if (end <= start)
+        {
+            SetMessage(_loc["msg.goto.noword"]);
+            return;
+        }
+        string name = line[start..end];
+        List<DefHit> hits = DefinitionFinder.Find(StartDir(), _buf.FilePath, _buf.Lines, name, _row, _col);
+        if (hits.Count == 0)
+        {
+            SetMessage(_loc.Format("msg.goto.none", name));
+            return;
+        }
+        DefHit h = hits[0];
+        PushJump();
+        if (!string.Equals(h.File, _buf.FilePath, StringComparison.OrdinalIgnoreCase))
+            OpenPicked(h.File);
+        GoToPosition(h.Row + 1, h.Col + 1);
+        _sel.Clear();
+        if (hits.Count > 1)
+            SetMessage(_loc.Format("msg.goto.found", hits.Count, name));
+    }
+
     private void Find()
     {
         string? term = Prompt(_loc["prompt.find"], _lastSearch, "find", liveHighlight: true, showOptions: true);
