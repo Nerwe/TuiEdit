@@ -178,6 +178,10 @@ internal sealed class CommandPaletteDialog : Dialog
         all.Add(new CommandEntry(EditorCommand.SplitPane, loc["palette.cmd.splitpane"], "Alt+S"));
         all.Add(new CommandEntry(EditorCommand.NextPane, loc["palette.cmd.nextpane"], "F6"));
         all.Add(new CommandEntry(EditorCommand.PrevPane, loc["palette.cmd.prevpane"], "Shift+F6"));
+        all.Add(new CommandEntry(EditorCommand.CaretAddAbove, loc["palette.cmd.caretaddabove"], "Alt+Shift+↑"));
+        all.Add(new CommandEntry(EditorCommand.CaretAddBelow, loc["palette.cmd.caretaddbelow"], "Alt+Shift+↓"));
+        all.Add(new CommandEntry(EditorCommand.CaretAddNext, loc["palette.cmd.caretaddnext"], "Alt+D"));
+        all.Add(new CommandEntry(EditorCommand.CaretClear, loc["palette.cmd.caretclear"], "Esc"));
         for (int i = 0; i < SettingsModel.Count; i++)
             all.Add(new SettingEntry(i));
         return all;

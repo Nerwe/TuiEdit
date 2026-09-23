@@ -8,6 +8,7 @@
 │   ^C also puts the copy into the system clipboard (Windows Terminal) — paste │
 │   ^Z undo  ^Y redo  ^A select all   Shift+arrows — selection                 │
 │   Terminal clipboard paste — as full text in a single undo step              │
+│   Multicursor: Alt+Shift+Up/Down add, Alt+D next occurrence, Esc clears      │
 │── Navigation ─────────────────────────────────────────────────────────────── │
 │   arrows/Home/End/PgUp/PgDn, Ctrl+arrows — by word, Ctrl+BS/Del — delete word│
 │   Enter — new line, Tab — indent, Shift+Tab — unindent                       │
@@ -19,6 +20,5 @@
 │   Tabs: Ctrl+PgDn/PgUp/Ctrl+Tab — next/prev • Ctrl+T — new • Ctrl+W — close  │
 │   Alt+1..9,0 — jump • Ctrl+P — tab list • Alt+O — quick open                 │
 │   Split: Alt+S — split • F6/Shift+F6 — next/prev pane • Ctrl+1..9 — pane N   │
-│   F12 command line: set theme/lang/ruler/mouse/numbers/wrap/whitespace/backup│
 │                          ↑/↓ — scroll • Esc — close                          │
 └──────────────────────────────────────────────────────────────────────────────┘

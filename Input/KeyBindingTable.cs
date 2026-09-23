@@ -59,6 +59,9 @@ internal sealed class KeyBindingTable
         R(ConsoleKey.Divide, EditorCommand.ToggleComment, ctrl: true),
         R(ConsoleKey.Oem2, EditorCommand.ToggleComment, ctrl: true),
         new KeyRow(null, false, true, false, true, '\x1F', EditorCommand.ToggleComment),
+        // Multicursor (before other Alt rows: Alt+Shift+Up/Down would match MoveLine otherwise).
+        new KeyRow(ConsoleKey.UpArrow, true, false, true, false, null, EditorCommand.CaretAddAbove),
+        new KeyRow(ConsoleKey.DownArrow, true, false, true, false, null, EditorCommand.CaretAddBelow),
         // Ctrl+Tab is intercepted by Windows Terminal — Ctrl+PgDn/PgUp is the main path.
         new KeyRow(ConsoleKey.Tab, false, true, true, false, null, EditorCommand.PrevTab),
         new KeyRow(ConsoleKey.Tab, false, true, false, false, null, EditorCommand.NextTab),
@@ -130,6 +133,7 @@ internal sealed class KeyBindingTable
         R(ConsoleKey.D0, EditorCommand.GoTabNumber, alt: true), // tenth tab
         R(ConsoleKey.S, EditorCommand.SplitPane, alt: true), // split view
         R(ConsoleKey.O, EditorCommand.QuickOpen, alt: true), // quick file jump
+        R(ConsoleKey.D, EditorCommand.CaretAddNext, alt: true), // multicursor: next occurrence
         R(ConsoleKey.Oem6, EditorCommand.GoBracketMatch, alt: true), // Alt+] — matching bracket
         // Shift+F keys (exact shift).
         // Shift+F3 — find backward, Shift+F6 — previous pane, Shift+F2 — bookmark.

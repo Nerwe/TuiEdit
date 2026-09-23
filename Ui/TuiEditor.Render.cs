@@ -481,6 +481,11 @@ internal sealed partial class TuiEditor
         CompiledGrammar? grammar = CurrentGrammar();
         _docs[_active].Highlight.EnsurePrefetched(_buf, grammar);
         var bracket = BracketPair();
+        // Extra carets (multi-cursor) highlight their cells like bracket matches.
+        // Built once per frame — the per-cell loop stays allocation-free.
+        HashSet<(int Row, int Col)>? xcarets = _docs[_active].Carets.HasMultiple
+            ? new HashSet<(int Row, int Col)>(_docs[_active].Carets.Ordered)
+            : null;
         var matchBudget = new MatchBudget(FrameMatchBudgetMs);
         while (y < y0 + textHeight && fileLine < _buf.Count)
         {
@@ -541,6 +546,10 @@ internal sealed partial class TuiEditor
                         bool bmatch = bracket is not null
                             && ((fileLine == bracket.Value.Row && ci == bracket.Value.Col)
                                 || (fileLine == bracket.Value.PairRow && ci == bracket.Value.PairCol));
+                        // Extra caret cell (never on the primary — the hardware cursor owns it).
+                        if (xcarets is not null && k == 0 && !(fileLine == _row && ci == _col)
+                            && xcarets.Contains((fileLine, ci)))
+                            bmatch = true;
                         while (synIdx + 1 < synToks.Count && synToks[synIdx + 1].Start <= ci)
                             synIdx++;
                         SyntaxToken tok = synIdx < synToks.Count ? synToks[synIdx] : default;
@@ -588,9 +597,15 @@ internal sealed partial class TuiEditor
                 }
                 // Pads the row tail with spaces in the normal color.
                 int filled = Math.Clamp(vpos - @base, 0, contentWidth);
+                // Extra caret past end-of-line (no char cell of its own) tints the tail.
+                bool xcaretEol = xcarets is not null && _docs[_active].Carets.Ordered
+                    .Any(c => c.Row == fileLine && c.Col >= line.Length
+                        && !(fileLine == _row && c.Col == _col));
                 (Rgb tailFg, Rgb tailBg) = isCur
                     ? (_theme.CurLineFg, _theme.CurLineBg)
-                    : (_theme.EditorFg, _theme.EditorBg);
+                    : xcaretEol
+                        ? (_theme.MatchFg, _theme.MatchBg)
+                        : (_theme.EditorFg, _theme.EditorBg);
                 _screen.Fill(x0 + gutterWidth + filled, y, contentWidth - filled, ' ', tailFg, tailBg);
                 y++;
             }
