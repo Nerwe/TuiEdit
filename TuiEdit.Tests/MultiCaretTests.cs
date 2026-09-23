@@ -153,15 +153,47 @@ public sealed class MultiCaretTests
     }
 
     [Fact]
-    public void ArrowsMoveAllCarets()
+    public void WordMotionMovesAllCarets()
     {
-        var ed = NewEditor("aaa", "bbb", "ccc");
+        var ed = NewEditor("foo bar", "baz qux");
+        Set(ed, "_row", 0);
+        Set(ed, "_col", 0);
+        HandleKey(ed, new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, true, true, false));
+        HandleKey(ed, new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, true)); // Ctrl+Right
+        Assert.Equal(3, Get(ed, "_col")); // primary: start of "bar"
+        Assert.Contains((1, 3), Carets(ed).Ordered.ToList()); // extra: start of "qux"
+    }
+
+    [Fact]
+    public void DocEndCollapsesCoincidingCarets()
+    {
+        var ed = NewEditor("aa", "bb", "cc");
+        Set(ed, "_row", 0);
+        Set(ed, "_col", 0);
+        HandleKey(ed, new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, true, true, false));
+        Assert.True(Carets(ed).HasMultiple);
+        HandleKey(ed, new ConsoleKeyInfo('\0', ConsoleKey.End, false, false, true)); // Ctrl+End
+        Assert.Equal(2, Get(ed, "_row"));
+        // All carets land on the same EOF cell -> dedup back to single caret.
+        Assert.False(Carets(ed).HasMultiple);
+    }
+
+    [Fact]
+    public void AutopairFansOut()
+    {
+        // AutoPairs default on? force via settings in new editor (default false?) — set explicitly.
+        var ed = NewEditor("()", "[]");
         Set(ed, "_row", 0);
         Set(ed, "_col", 1);
         HandleKey(ed, new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, true, true, false));
-        HandleKey(ed, new ConsoleKeyInfo('\0', ConsoleKey.RightArrow, false, false, false));
-        Assert.Equal(2, Get(ed, "_col"));
-        Assert.Contains((1, 2), Carets(ed).Ordered.ToList());
+        // type '(' between existing parens at both carets
+        HandleKey(ed, K('(', ConsoleKey.Oem7));
+        var buf = ActiveBuf(ed);
+        Assert.Equal("(())", buf.GetLine(0));
+        Assert.Equal("[()]", buf.GetLine(1)); // pair inserted at both carets
+        buf.Undo();
+        Assert.Equal("()", buf.GetLine(0));
+        Assert.Equal("[]", buf.GetLine(1));
     }
 
     [Fact]

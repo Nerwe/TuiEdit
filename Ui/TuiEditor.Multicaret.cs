@@ -155,6 +155,46 @@ internal sealed partial class TuiEditor
         return (r, c);
     }
 
+    private (int Row, int Col) StepWordLeft(int r, int c)
+    {
+        r = Math.Clamp(r, 0, _buf.Count - 1);
+        string line = _buf.GetLine(r);
+        c = Math.Clamp(c, 0, line.Length);
+        if (c == 0)
+        {
+            if (r == 0)
+                return (r, c);
+            r--;
+            c = _buf.GetLine(r).Length;
+            line = _buf.GetLine(r);
+        }
+        return (r, WordMotion.Backward(line, c));
+    }
+
+    private (int Row, int Col) StepWordRight(int r, int c)
+    {
+        r = Math.Clamp(r, 0, _buf.Count - 1);
+        string line = _buf.GetLine(r);
+        c = Math.Clamp(c, 0, line.Length);
+        if (c >= line.Length)
+        {
+            if (r >= _buf.Count - 1)
+                return (r, c);
+            r++;
+            c = 0;
+        }
+        return (r, WordMotion.Forward(_buf.GetLine(r), c));
+    }
+
+    private (int Row, int Col) StepPage(int page, int dir, int r, int c)
+    {
+        r = Math.Clamp(r + dir * page, 0, _buf.Count - 1);
+        while (FoldHidden(r) && r > 0 && r < _buf.Count - 1)
+            r += dir;
+        c = TabStops.CharIndexAtVisual(_buf.GetLine(r), TabStops.VisualWidth(_buf.GetLine(r), c));
+        return (r, c);
+    }
+
     /// <summary>
     /// Applies an edit at the primary and every extra caret, bottom-up so earlier
     /// edits never shift later positions. Merges everything into one undo step.
@@ -185,10 +225,41 @@ internal sealed partial class TuiEditor
 
     private void MultiInsertChar(char c)
     {
+        if (_settings.AutoPairs)
+        {
+            FanOutEdits((r, col) => AutoPairAt(r, col, c));
+            return;
+        }
         FanOutEdits((r, col) =>
         {
             _buf.InsertChar(r, col, c);
             return (r, col + 1);
+        });
+    }
+
+    /// <summary>Per-caret auto-pair step (mirrors <see cref="TryAutoPair"/> without editor fields).</summary>
+    private (int Row, int Col) AutoPairAt(int r, int c, char ch)
+    {
+        string line = _buf.GetLine(r);
+        if (AutoPair.ShouldSkip(line, c, ch))
+            return (r, c + 1);
+        char closer = AutoPair.CloserFor(ch);
+        if (closer != '\0' && AutoPair.ShouldPair(line, c, ch))
+            return _buf.InsertPair(r, c, ch, closer);
+        _buf.InsertChar(r, c, ch);
+        return (r, c + 1);
+    }
+
+    /// <summary>Pastes text at every caret, bottom-up, merged into one undo step.</summary>
+    private void MultiPasteText(string text)
+    {
+        FanOutEdits((r, col) =>
+        {
+            int pbefore = _buf.Count;
+            (int nr, int nc) = _buf.InsertText(r, col, text);
+            if (_buf.Count > pbefore)
+                _docs[_active].ShiftMarks(r + 1, _buf.Count - pbefore);
+            return (nr, nc);
         });
     }
 

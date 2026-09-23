@@ -466,8 +466,12 @@ internal sealed partial class TuiEditor
                 ClearExtraCarets(); // shift-selection collapses to the primary caret
             if (!extend && HasExtraCarets && cmd is EditorCommand.MoveLeft
                 or EditorCommand.MoveRight or EditorCommand.MoveUp or EditorCommand.MoveDown
-                or EditorCommand.GoHome or EditorCommand.GoEnd)
+                or EditorCommand.GoHome or EditorCommand.GoEnd
+                or EditorCommand.WordLeft or EditorCommand.WordRight
+                or EditorCommand.PageUp or EditorCommand.PageDown
+                or EditorCommand.GoDocStart or EditorCommand.GoDocEnd)
             {
+                int page = Math.Max(1, TextHeight() - 1);
                 MoveAllCarets(cmd switch
                 {
                     EditorCommand.MoveLeft => StepLeft,
@@ -475,6 +479,12 @@ internal sealed partial class TuiEditor
                     EditorCommand.MoveUp => StepUp,
                     EditorCommand.MoveDown => StepDown,
                     EditorCommand.GoHome => ((int r, int c) => (r, 0)),
+                    EditorCommand.WordLeft => StepWordLeft,
+                    EditorCommand.WordRight => StepWordRight,
+                    EditorCommand.PageUp => ((int r, int c) => StepPage(page, -1, r, c)),
+                    EditorCommand.PageDown => ((int r, int c) => StepPage(page, 1, r, c)),
+                    EditorCommand.GoDocStart => ((int r, int c) => (0, 0)),
+                    EditorCommand.GoDocEnd => ((int r, int c) => (_buf.Count - 1, _buf.GetLine(_buf.Count - 1).Length)),
                     _ => ((int r, int c) => (r, _buf.GetLine(Math.Clamp(r, 0, _buf.Count - 1)).Length)),
                 });
                 return;
