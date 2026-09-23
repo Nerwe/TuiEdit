@@ -1,5 +1,9 @@
 # TuiEdit
 
+[![CI](https://github.com/Nerwe/TuiEdit/actions/workflows/ci.yml/badge.svg)](https://github.com/Nerwe/TuiEdit/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Nerwe/TuiEdit)](https://github.com/Nerwe/TuiEdit/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **The terminal editor that actually works on Windows.** Fast, keyboard-first, zero dependencies, one exe.
 No plugin zoo, no 46-second LSP startup — open and edit.
 
@@ -10,8 +14,15 @@ No plugin zoo, no 46-second LSP startup — open and edit.
 
 ## Install (30 seconds)
 
-Download `tui-edit-*-win-x64.zip` (Windows), `-linux-x64` or `-osx-arm64` from
-[Releases](https://github.com/Nerwe/TuiEdit/releases), unzip, run `tui-edit`:
+Download the zip for your OS from
+[Releases](https://github.com/Nerwe/TuiEdit/releases), unzip, run `tui-edit`
+(requires the free [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)):
+
+| OS | File |
+|---|---|
+| Windows x64 | `tui-edit-{version}-win-x64.zip` → `tui-edit.exe` |
+| Linux x64 | `tui-edit-{version}-linux-x64.zip` → `tui-edit` |
+| macOS arm64 | `tui-edit-{version}-osx-arm64.zip` → `tui-edit` |
 
 ```powershell
 tui-edit notes.txt       # open a file
@@ -35,7 +46,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 - Format preservation: encoding (UTF-8/BOM/UTF-16), line endings (CRLF/LF/CR) and indent are detected on open and kept on save; all three are switched in the File format dialog (`F9`, shown in the status bar). Read-only files are flagged `[read-only]` and refuse to save.
 - Five built-in themes (`dark`, `light`, `3024 Night`, `Paper`, `Posting`) plus your own schemes, `en`/`ru` languages, line numbers (`Alt+N`), word wrap (`Alt+Z`), indent guides, whitespace marks (`Alt+.`), ruler column, git diff gutter, help screen (`F1`). The status bar layout is customizable (`StatusFormatLeft/Right` with `$(...)` verbs) and states render as pills (`[*]`, `[read-only]`).
 - Bookmarks (`F2` toggle, `Shift+F2` next, gutter `●`), indent folding (`Alt+-`), buffer-word completion (`Ctrl+Space`), document stats (`F4`).
-- Multicursor: `Alt+Shift+↑/↓` adds a caret above/below, `Alt+D` adds the next occurrence of the word under the caret, `Esc` clears. Typing, Backspace/Delete, Enter and Tab apply at every caret in a single undo step; arrows/Home/End move all carets.
+- Multicursor: `Alt+Shift+↑/↓` adds a caret above/below, `Alt+D` adds the next occurrence of the word under the caret, `Esc` clears. Typing, Backspace/Delete, Enter, Tab, autopairs and paste apply at every caret in a single undo step; motion moves all carets.
 - Go to definition (`Alt+G`, textual, no language server): jumps to `class|def|function NAME`, `NAME(` or `NAME =` in the current file first, then the project; `Alt+Left` jumps back.
 - Change review (`Alt+R`): lists every changed hunk in the repo (handy after an AI agent edits); pick one to jump to it, `Alt+Left` jumps back.
 - Optional session restore: reopen the previous tabs with cursor positions when started without arguments (off by default, toggle in Settings); dirty untitled tabs round-trip with their content.
@@ -276,6 +287,7 @@ times out safely.
 ```text
 Program.cs            entry, composition root (services wired explicitly)
 Core/TextBuffer.cs    buffer: lines, undo/redo, find/replace, encodings
+Core/MultiCaret.cs    extra carets model (primary stays on the tab)
 Core/Startup.cs       CLI plan, --help/--version printers, terminal restore
 Core/LineField.cs     single-line field: text, cursor, selection (prompts, picker)
 Core/CliArgs.cs       CLI file:line parsing
@@ -286,6 +298,8 @@ Core/FileOps.cs       create/rename/recursive delete (no-throw results)
 Core/FileIndex.cs     quick-open index: cycle-safe BFS, natural sort
 Core/FileKind.cs      entry classification shared by sidebar/manager/grep
 Core/Grep.cs          file search: recursive, hidden/binary skipped
+Core/DefinitionFinder.cs textual go-to-definition (ranked, no LSP)
+Core/ReviewHunks.cs   change-review hunk ranges
 Core/Folding.cs       indent folding ranges
 Core/DocTab.cs        tab: buffer + view state (cursor, scroll, selection)
 Core/Pane.cs          split pane: own tabs, active tab, tab scroll
@@ -315,6 +329,7 @@ Ui/TuiEditor.cs       engine root: run loop, settings, services
 Ui/TuiEditor.Render.cs frame render (RenderFrame is headless-testable)
 Ui/TuiEditor.Input.cs key/mouse dispatch (table-driven CommandDispatcher)
 Ui/TuiEditor.Files.cs tabs/panes/session/sidebar files
+Ui/TuiEditor.Multicaret.cs multi-cursor fan-out, caret motion, autopair/paste
 Ui/TuiEditor.Cursor.cs motion/edit/fold/bookmark
 Ui/TuiEditor.Search.cs find/replace/grep/command-line flows
 Ui/TuiEditor.Modal.cs modal outcomes, drafts, restore
