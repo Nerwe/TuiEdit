@@ -1,11 +1,31 @@
 # TuiEdit
 
+**The terminal editor that actually works on Windows.** Fast, keyboard-first, zero dependencies, one exe.
+No plugin zoo, no 46-second LSP startup — open and edit.
+
+- ✅ **Paste works in Windows Terminal** — bracketed paste lands as one block in a single undo step (micro/helix still paste char-by-char there — see their issues [#4037](https://github.com/micro-editor/micro/issues/4037), [#15647](https://github.com/helix-editor/helix/issues/15647))
+- ✅ **Single 0.5 MB exe** (Windows / Linux / macOS arm64 in every release — download, unzip, run; requires the free [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0))
+- ✅ **Multicursor, splits, tabs, file tree, grep, git gutter** — out of the box, no config needed
+- ✅ **Portable settings** — `settings.json` next to the exe; keybindings, themes, grammars are plain JSON you can edit
+
+## Install (30 seconds)
+
+Download `tui-edit-*-win-x64.zip` (Windows), `-linux-x64` or `-osx-arm64` from
+[Releases](https://github.com/Nerwe/TuiEdit/releases), unzip, run `tui-edit`:
+
+```powershell
+tui-edit notes.txt       # open a file
+tui-edit main.cs:120     # open at line 120
+```
+
+Or build from source (requires .NET 10 SDK): `dotnet run`.
+
+## Features
+
 A fast keyboard-first TUI text editor.
 Pure `System.Console`, no third-party libraries. .NET 10.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
-
-## Features
 
 - Editing: undo/redo (per keystroke and per block) plus time travel (`F12`: `earlier`/`later` by steps or `5m`/`30s`), `Shift+arrows` selection, cut/copy/paste line (`^K`, `^C`, `^U`/`^V`), duplicate (`^D`), toggle line comment (`Ctrl+/`), matching-bracket highlight and jump (`Alt+]`), move lines (`Alt+↑/↓`), word-wise delete/move, trim trailing whitespace, sort lines, auto-pairs for brackets/quotes (toggle in Settings).
 - More editing power: surround with any pair (`^L` add, `Alt+L` change, `Alt+J` delete), light registers (`^X` then `a-z`/`0-9`), filter selection through any shell command (`^R`, e.g. `sort`, `jq`), jumplist back/forward (`Alt+←/→`).
